@@ -1,4 +1,4 @@
-module Zmq;
+module zmq;
 
 import std.c.stdio;
 

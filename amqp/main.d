@@ -5,7 +5,7 @@
     Auto adaptative strategy of request handling.
 */
 
-import log;
+//import log;
 import zmq;
 
 import std.socket, std.stdio;

@@ -7,6 +7,7 @@ import dlog.Tracer;
 
 import interruption.InterruptionException;
 
+import http.server.ResponseBuilder;
 import http.server.RequestHandler;
 import http.server.Config;
 import http.server.Client;
@@ -46,7 +47,7 @@ class Server
                 
             if(!listeners.length)
             {
-                log.fatal("No port to listen too...");
+                log.fatal("No port to listen to...");
                 return;
             }
 
@@ -139,9 +140,13 @@ class Server
         {
             if(client.readChunk())
             {
-                auto handler = new RequestHandler(client);
-                requestHandlers ~= handler;
-                handler.handle();
+                auto requestHandler = new RequestHandler(client);
+                requestHandlers ~= requestHandler;
+                auto request = requestHandler.handle();
+                auto responseHandler = new ResponseBuilder(request);
+                auto response = responseHandler.build();
+                string buffer = response.get();
+                client.writeChunk(buffer);
             }
             client.close();
         }

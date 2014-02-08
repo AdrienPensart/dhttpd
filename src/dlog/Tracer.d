@@ -71,7 +71,7 @@ auto Tracer()
             {
                 __tracer_.ended();
             }
-         };
+        };
     }
     return code;
 }

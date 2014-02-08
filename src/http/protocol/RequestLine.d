@@ -75,7 +75,7 @@ class RequestLine
                 return false;
             }
             uri = rawLine[methodIndex+1..methodIndex+1+uriIndex];
-            log.info("HTTP URI received : '",uri, "'");
+            log.info("HTTP URI received : '", uri, "'");
             return uri.length != 0;
         }
         

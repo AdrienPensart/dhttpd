@@ -17,10 +17,12 @@ class Request
     string[string] headers;
     string message;
     string rawRequest;
+    bool valid;
     
     this(string rawRequest)
     {
         this.rawRequest = rawRequest;
+        this.valid = false;
     }
     
     RequestLine getRequestLine()
@@ -36,6 +38,11 @@ class Request
     string[string] getHeaders()
     {
         return headers;
+    }
+    
+    bool isValid()
+    {
+        return valid;
     }
     
     bool parse()
@@ -62,7 +69,7 @@ class Request
             // Parsing the headers fields and detecting body data
             foreach(line ; lines[1..$])
             {
-                log.info("Value of line : '", line, "'");
+                log.info("Value of line : '", chomp(line), "'");
                 // is it a header field, or the null line "\r\n" ?
                 if(line.length >= 2)
                 {
@@ -99,7 +106,7 @@ class Request
                     return false;
                 }
                 headers[header] = headerValue;
-                log.info("headers[\"",header,"\"] = '", headerValue, "'");
+                log.info("headers[\"", header, "\"] = '", headerValue, "'");
             }
         }
         return true;

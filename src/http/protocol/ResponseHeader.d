@@ -12,3 +12,4 @@ enum ResponseHeader : string
     Vary = "Vary",
     WWWAuthenticate = "WWW-Authenticate"
 }
+

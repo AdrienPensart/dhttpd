@@ -1,3 +1,4 @@
+src/HttpParser.d
 amqp/notajoy*
 bin/*
 build/*

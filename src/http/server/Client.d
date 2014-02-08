@@ -20,12 +20,7 @@ class Client
         {
             this.handle = handle;
         }
-        
-        ~this()
-        {
-            close();
-        }
-        
+            
         Socket getHandle()
         {
             return handle;
@@ -61,7 +56,25 @@ class Client
                 return false;
             }
             lastChunk = buffer[0 .. datalength];
-            log.info("Received ", datalength, " bytes from ", handle.remoteAddress().toString(), ": \"", lastChunk, "\"");
+            log.info("Received ", datalength, " bytes from ", handle.remoteAddress().toString(), "\n\"\n", lastChunk, "\n\"");
+            return true;
+        }
+        
+        bool writeChunk(string data)
+        {
+            mixin(Tracer);
+            auto datalength = handle.send(data);
+            if (datalength == Socket.ERROR)
+            {
+                log.error("Connection error.");
+                return false;
+            }
+            else if(datalength == 0)
+            {
+                log.info("Connection from ", handle.remoteAddress().toString(), " closed.");
+                return false;
+            }
+            log.info("Sent ", datalength, " bytes to ", handle.remoteAddress().toString(), "\n\"\n", data, "\n\"");
             return true;
         }
         

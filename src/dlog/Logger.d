@@ -22,7 +22,8 @@ class Logger
    	{
    	    foreach(level; levelsFilter)
    	    {
-   	        writeln("Registring ", typeof(lb).stringof, " in level ", level);
+   	        //writeln("Registring ", typeof(lb).stringof, " in level ", level);
+   	        writeln("Registring ", lb.toString, " in level ", level);
    	        backends[level] ~= lb;
    	    }
    	}

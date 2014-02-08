@@ -1,3 +1,4 @@
+*.o
 src/HttpParser.d
 amqp/notajoy*
 bin/*

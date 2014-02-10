@@ -1,8 +1,9 @@
+module dlog.Analyzer;
+
 public import std.stdio : writeln;
 public import core.time : TickDuration;
 public import std.traits;
 import dlog.Logger;
-import Http;
 
 const enum bool[string] debugs = ["RequestLine" : true ];
 

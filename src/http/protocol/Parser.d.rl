@@ -1,12 +1,6 @@
 module HttpParsing;
 import std.stdio;
 
-/*
-#define LEN(AT, FPC) (FPC - buffer - parser->AT)
-#define MARK(M,FPC) (parser->M = (FPC) - buffer)
-#define PTR_TO(F) (buffer + parser->F)
-*/
-
 %%{
     machine http;
 

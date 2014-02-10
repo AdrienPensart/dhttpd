@@ -3,7 +3,6 @@ module http.protocol.RequestLine;
 import std.string;
 
 import dlog.Logger;
-import dlog.Tracer;
 
 import http.protocol.Version;
 import http.protocol.Method;

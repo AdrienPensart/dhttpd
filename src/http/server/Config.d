@@ -3,7 +3,6 @@ module http.server.Config;
 import std.socket;
 
 import dlog.Logger;
-import dlog.Tracer;
 
 import http.server.LocationListener;
 import http.server.WebsiteListener;

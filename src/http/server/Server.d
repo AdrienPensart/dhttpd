@@ -3,12 +3,9 @@ module http.server.Server;
 import std.socket;
 
 import dlog.Logger;
-import dlog.Tracer;
 
 import interruption.InterruptionException;
 
-import http.server.ResponseBuilder;
-import http.server.RequestHandler;
 import http.server.Config;
 import http.server.Client;
 
@@ -21,7 +18,6 @@ class Server
         Client[] clients;
         SocketSet sset;
         Socket[] listeners;
-        RequestHandler[] requestHandlers;
         const int MAX_CONNECTIONS = 60;
        
     public:
@@ -57,7 +53,8 @@ class Server
                 {
                     buildSocketSet();
                     selectSockets();        
-                    handleReadyClients();         
+                    handleReadyClients();
+                    cleanClients();
                     pollListeners();
                 }
                 catch(SocketOSException e)
@@ -76,7 +73,7 @@ class Server
 
         void buildSocketSet()
         {
-            log.info("Sockets actifs : ", listeners.length + clients.length, " pour une capacite maximale de ", sset.max());
+            log.info("Active sockets : ", listeners.length + clients.length, ", max capacity : ", sset.max());
             sset.reset();
             foreach(listener ; listeners)
             {
@@ -118,6 +115,7 @@ class Server
         void handleReadyClients()
         {
             mixin(Tracer);
+            /*
             for(int i = 0 ; ; i++)
             {
                 nextClient: if(i == clients.length)
@@ -134,23 +132,29 @@ class Server
                     goto nextClient;
                 }
             }
-        }
-
-        void treatClient(Client client)
-        {
-            if(client.readChunk())
+            */
+            foreach(client ; clients)
             {
-                auto requestHandler = new RequestHandler(client);
-                requestHandlers ~= requestHandler;
-                auto request = requestHandler.handle();
-                auto responseHandler = new ResponseBuilder(request);
-                auto response = responseHandler.build();
-                string buffer = response.get();
-                client.writeChunk(buffer);
+                if(client.isReady(sset))
+                {
+                    client.treat();
+                }
             }
-            client.close();
         }
 
+        void cleanClients()
+        {
+            Client[] aliveClients;
+            foreach(client ; clients)
+            {
+                if(client.isAlive())
+                {
+                    aliveClients ~= client;
+                }
+            }
+            clients = aliveClients;
+        }
+        /*
         void wipeClientIndexedBy(int i)
         {
             if (i != clients.length - 1)
@@ -159,7 +163,7 @@ class Server
             }
             clients = clients[0 .. clients.length - 1];
         }
-
+        */
         void pollListeners()
         {
             mixin(Tracer);

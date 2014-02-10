@@ -2,23 +2,27 @@ module http.server.Client;
 
 import std.socket;
 
+import http.protocol.Parser;
 import http.protocol.Request;
+import http.protocol.Response;
+import http.server.ResponseBuilder;
 
 import dlog.Logger;
-import dlog.Tracer;
 
 class Client
 {
     private:
         
-        char[] lastChunk;
+        char[] currentChunk;
         Socket handle;
-    
+        HttpParser parser;
+
     public:
     
         this(Socket handle)
         {
             this.handle = handle;
+            parser = new HttpParser;
         }
             
         Socket getHandle()
@@ -26,11 +30,16 @@ class Client
             return handle;
         }
         
-        char[] getLastChunk()
+        char[] getCurrentChunk()
         {
-            return lastChunk;
+            return currentChunk;
         }
         
+        bool isAlive()
+        {
+            return handle.isAlive;
+        }
+
         void close()
         {
             if(handle.isAlive)
@@ -40,7 +49,53 @@ class Client
             handle.close();
         }
         
-        bool readChunk()
+        void treat()
+        {
+            mixin(Tracer);
+            if(readChunk())
+            {
+                auto currentChunk = getCurrentChunk().idup;
+                parser.execute(currentChunk);
+                HttpParserStatus status = parser.finish();
+
+                if(status == HttpParserStatus.Finished)
+                {
+                    auto request = parser.getRequest();
+                    auto responseBuilder = new ResponseBuilder(request);
+
+                    if(responseBuilder.build())
+                    {
+                        Response response = responseBuilder.getResponse();
+                        string buffer = response.get();
+                        writeChunk(buffer);
+                    }
+                    close();
+                }
+                else if(status == HttpParserStatus.HasError)
+                {
+                    close();
+                }
+
+                /*
+                request = new Request(currentChunk.idup);
+                if(request.parse())
+                {
+                    log.info("Valid request.");
+                }
+                else
+                {
+                    log.warning("Invalid request.");
+                }
+                
+                */                
+            }
+            else
+            {
+                close();
+            }
+        }
+
+        private bool readChunk()
         {
             mixin(Tracer);
             char buffer[1024];
@@ -55,12 +110,12 @@ class Client
                 log.info("Connection from ", handle.remoteAddress().toString(), " closed.");
                 return false;
             }
-            lastChunk = buffer[0 .. datalength];
-            log.info("Received ", datalength, " bytes from ", handle.remoteAddress().toString(), "\n\"\n", lastChunk, "\n\"");
+            currentChunk = buffer[0 .. datalength];
+            log.info("Received ", datalength, " bytes from ", handle.remoteAddress().toString(), "\n\"\n", currentChunk, "\n\"");
             return true;
         }
         
-        bool writeChunk(string data)
+        private bool writeChunk(string data)
         {
             mixin(Tracer);
             auto datalength = handle.send(data);

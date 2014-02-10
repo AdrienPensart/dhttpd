@@ -2,7 +2,6 @@ import std.socket;
 import std.stdio;
 
 import Log;
-import Analyzer;
 
 class InterruptException : Exception
 {

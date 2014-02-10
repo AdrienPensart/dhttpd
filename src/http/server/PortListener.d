@@ -3,7 +3,6 @@ module http.server.PortListener;
 import std.socket;
 
 import dlog.Logger;
-import dlog.Tracer;
 
 import http.server.WebsiteListener;
 

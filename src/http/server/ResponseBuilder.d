@@ -1,4 +1,5 @@
 module http.server.ResponseBuilder;
+import std.conv;
 
 import http.server.Client;
 import http.protocol.Status;
@@ -7,30 +8,33 @@ import http.protocol.Request;
 import http.protocol.Response;
 
 import dlog.Logger;
-import dlog.Tracer;
 
 class ResponseBuilder
 {
     Request request;
-    
+    Response response;
+
     this(Request request)
     {
         this.request = request;
+        response = new Response;
     }
     
-    Response build()
+    Response getResponse()
     {
-        auto rl = request.getRequestLine();
-        Response response = new Response;
-        
-        response.protocolVersion = request.rl.protocolVersion;
+        return response;
+    }
+
+    bool build()
+    {        
+        response.protocolVersion = request.getVersion();
         response.status = Status.Ok;
         response.message = "<html>Test</html>\n";
         
         response.headers["Connection"] = "close";
         response.headers["Content-Type"] = "text/html";
-        
-        final switch(rl.getMethod())
+        response.headers["Content-Length"] = to!string(response.message.length);
+        switch(request.getMethod())
         {
             case Method.GET:
                 break;
@@ -84,8 +88,11 @@ class ResponseBuilder
                 break;
             case Method.PURGE:
                 break;
+            default:
+                log.info("HTTP Method not supported : ", request.getMethod());
+                return false;
         }
-        return response;      
+        return true;
     }
 }
 

@@ -1,5 +1,5 @@
 *.o
-src/HttpParser.d
+src/HttpParsing.d
 amqp/notajoy*
 bin/*
 build/*

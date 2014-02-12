@@ -106,7 +106,7 @@ class TcpLogger : LogBackend
 
     override void log(Message m)
     {
-        if(!(client is null))
+        if(client !is null)
         {
             if(client.isAlive())
             {

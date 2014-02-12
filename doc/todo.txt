@@ -12,9 +12,14 @@ Logging framework :
 HTTP Server : 
 
 - implement network interface selection, 0.0.0.0 means all, 127.0.0.1 only localhost, etc
-- break long functions logic
+- url routing
+- keep-alive
+- redirect
+- caching : E-Tag
+- compression
+- ssl
 
-Respect : 
+Principles : 
 
 SR - The Single Responsibility Principle -
       A class should have one, and only one, reason to change.

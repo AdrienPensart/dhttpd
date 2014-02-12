@@ -1,32 +1,51 @@
 module http.server.Server;
 
 import std.socket;
+import std.file;
+import core.thread;
+import core.time;
 
 import dlog.Logger;
 
 import interruption.InterruptionException;
 
-import http.server.Config;
-import http.server.Client;
+import http.server.Connection;
+import http.server.Host;
+import http.server.Options;
+import http.server.ResponseBuilder;
+
+import http.protocol.ResponseHeader;
+import http.protocol.Response;
+import http.protocol.Request;
+import http.protocol.Status;
 
 class Server
 {
     private:
-    
-        Config config;
-        bool interrupted = false;
-        Client[] clients;
-        SocketSet sset;
+
+        Host[] hosts;
+        string[] interfaces;
         Socket[] listeners;
-        const int MAX_CONNECTIONS = 60;
-       
+        ushort[] ports;
+        Options options;
+        string serverString;
+        bool interrupted = false;
+        Connection[] connections;
+        SocketSet sset;
+        Duration keepAliveDuration;
+
     public:
     
-        this(Config config)
+        this(string[] interfaces, ushort[] ports, Host[] hosts, Options options, string serverString)
         {
-            sset = new SocketSet(MAX_CONNECTIONS + 1);
-            this.config = config;
-            listeners = config.aggregateListeners();
+            this.interfaces = interfaces;
+            this.ports = ports;
+            this.hosts = hosts;
+            this.options = options;
+            this.serverString = serverString;
+            keepAliveDuration = dur!"seconds"(options[Parameter.TIMEOUT]);
+            sset = new SocketSet(options[Parameter.MAX_CONNECTION] + 1);
+            createListeners();
         }
 
         ~this()
@@ -37,13 +56,37 @@ class Server
             }
         }
 
+        void createListeners()
+        {
+            mixin(Tracer);
+            foreach(netInterface ; interfaces)
+            {
+                log.info("Listening on ports : ", ports, " on interface ", netInterface);
+                foreach(port ; ports)
+                {
+                    try
+                    {
+                        auto listener = new TcpSocket;
+                        listener.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
+                        listener.bind(new InternetAddress(port));
+                        listener.listen(options[Parameter.BACKLOG]);
+                        listeners ~= listener;
+                    }
+                    catch(SocketOSException e)
+                    {
+                        log.error("Can't bind to port ", port, ", reason : ", e.msg);
+                    }
+                }
+            }
+        }
+
         void run()
         {
             mixin(Tracer);
                 
             if(!listeners.length)
             {
-                log.fatal("No port to listen to...");
+                log.fatal("No port to listen to.");
                 return;
             }
 
@@ -53,8 +96,8 @@ class Server
                 {
                     buildSocketSet();
                     selectSockets();        
-                    handleReadyClients();
-                    cleanClients();
+                    handleReadyConnections();
+                    cleanConnections();
                     pollListeners();
                 }
                 catch(SocketOSException e)
@@ -73,26 +116,25 @@ class Server
 
         void buildSocketSet()
         {
-            log.info("Active sockets : ", listeners.length + clients.length, ", max capacity : ", sset.max());
+            //log.info("Active sockets : ", listeners.length + connections.length, ", max capacity : ", sset.max());
             sset.reset();
             foreach(listener ; listeners)
             {
                 sset.add(listener);
             }
-            foreach(client ; clients)
+            foreach(connection ; connections)
             {
-                sset.add(client.getHandle());
+                sset.add(connection.getHandle());
             }
         }
 
         void selectSockets()
         {
             mixin(Tracer);
-            log.info("Waiting for clients...");
-            auto status = Socket.select(sset, null, null);
+            auto status = Socket.select(sset, null, null, dur!"seconds"(1));
             if(status == 0)
             {
-                log.info("Select timeout.");
+                //log.info("Waiting for new connections");
             }
             else if (status == -1)
             {
@@ -112,58 +154,68 @@ class Server
                 new InterruptionException("Select interrupted for unknow reason"));
         }
 
-        void handleReadyClients()
+        void handleReadyConnections()
         {
             mixin(Tracer);
-            /*
-            for(int i = 0 ; ; i++)
+            foreach(connection ; connections)
             {
-                nextClient: if(i == clients.length)
+                if(!connection.isReady(sset))
                 {
-                    log.info("No more clients left.");
-                    break;
+                    return;
                 }
-                
-                Client client = clients[i];
-                if(client.isReady(sset))
+                connection.handleRequest();
+
+                if(connection.isRequestPending())
                 {
-                    treatClient(client);
-                    wipeClientIndexedBy(i);
-                    goto nextClient;
-                }
-            }
-            */
-            foreach(client ; clients)
-            {
-                if(client.isReady(sset))
-                {
-                    client.treat();
+                    auto request = connection.getNextRequest();
+                    dispatchRequest(request, connection);
                 }
             }
         }
 
-        void cleanClients()
+        void dispatchRequest(Request request, Connection connection)
         {
-            Client[] aliveClients;
-            foreach(client ; clients)
+            mixin(Tracer);
+            if(request.hasError())
             {
-                if(client.isAlive())
+                // 400
+                Response response = new Response();
+                response.status = Status.BadRequest;
+                response.protocol = http.protocol.Protocol.Protocol.DEFAULT;
+                response.headers[ResponseHeader.Server] = serverString;
+                response.message = readText("public/400.html")
+
+                connection.sendResponse(response);
+
+                return;
+            }
+
+            auto responseBuilder = new ResponseBuilder(request);
+            if(responseBuilder.build())
+            {
+                Response response = responseBuilder.getResponse();
+                connection.sendResponse(response);
+            }
+        }
+
+        void cleanConnections()
+        {
+            mixin(Tracer);
+            Connection[] aliveConnections;
+            foreach(connection ; connections)
+            {
+                if(connection.isValid())
                 {
-                    aliveClients ~= client;
+                    aliveConnections ~= connection;
+                }
+                else
+                {
+                    connection.close();
                 }
             }
-            clients = aliveClients;
+            connections = aliveConnections;
         }
-        /*
-        void wipeClientIndexedBy(int i)
-        {
-            if (i != clients.length - 1)
-            {
-                clients[i] = clients[clients.length - 1];
-            }
-            clients = clients[0 .. clients.length - 1];
-        }
-        */
+        
         void pollListeners()
         {
             mixin(Tracer);
@@ -171,26 +223,27 @@ class Server
             {
                 if(sset.isSet(listener))
                 {
-                    acceptNewClient(listener);
+                    acceptNewConnection(listener);
                 }
             }
         }
 
-        void acceptNewClient(Socket listener)
+        void acceptNewConnection(Socket listener)
         {
             mixin(Tracer);
             try
             {
-                auto client = new Client(listener.accept());
+                auto acceptedSocket = listener.accept();
+                auto connection = new Connection(acceptedSocket, keepAliveDuration, options[Parameter.MAX_REQUEST]);
                 if (isTooManyConnections())
                 {
-                    log.warning("Rejected connection from ", client.getHandle().remoteAddress().toString(), " too many connections.");
-                    client.close();
+                    log.warning("Rejected connection from ", connection.getHandle().remoteAddress().toString(), " too many connections.");
+                    connection.close();
                 }
                 else
                 {
-                    log.info("Connection from ", client.getHandle().remoteAddress().toString(), " established.");
-                    clients ~= client;
+                    log.info("Connection from ", connection.getHandle().remoteAddress().toString(), " established.");
+                    connections ~= connection;
                 }
             }
             catch (Exception e)
@@ -201,7 +254,7 @@ class Server
 
         bool isTooManyConnections()
         {
-            return clients.length >= MAX_CONNECTIONS;
+            return connections.length >= options[Parameter.MAX_CONNECTION];
         }
 }
 

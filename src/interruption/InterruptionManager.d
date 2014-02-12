@@ -4,11 +4,11 @@ import core.stdc.signal;
 
 class InterruptionManager
 {
-    static Server server;
+    static Server[] servers;
     
-    this(Server server)
+    this(Server[] servers)
     {
-        this.server = server;
+        this.servers = servers;
         installHandler();
     }
     
@@ -16,9 +16,12 @@ class InterruptionManager
     private static
     void interruptHandler(int)
     {
-        if(! (server is null) )
+        if(servers !is null )
         {
-            server.interrupt();
+            foreach(server; servers)
+            {
+                server.interrupt();
+            }
         }
     }
     

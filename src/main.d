@@ -1,9 +1,13 @@
 #!/usr/bin/rdmd
 
 import std.socket : SocketOSException;
+import std.parallelism : totalCPUs;
+
 import interruption.InterruptionManager;
 import interruption.InterruptionException;
+
 import dlog.Logger;
+
 import http.server.Server;
 import http.server.Config;
 
@@ -12,9 +16,12 @@ int main()
     try
     {
         auto config = new Config;
-        auto server = new Server(config);
-        auto interruptManager = new InterruptionManager(server);
-        server.run();
+        auto servers = config.getServers();
+        auto interruptManager = new InterruptionManager(servers);
+        foreach(server; servers)
+        {
+            server.run();
+        }
     }
     catch (InterruptionException e)
     {

@@ -20,13 +20,16 @@ Logger log;
 
 class Logger
 {
-    mixin(logLevelGenerator());       
+    mixin(logLevelGenerator());
+
   	void register(LogBackend lb, string[] levelsFilter=levels)
    	{
+        if(levelsFilter.length)
+        {
+            writefln("New levels of message : %-(%s, %)", levelsFilter);
+        }
    	    foreach(level; levelsFilter)
    	    {
-   	        //writeln("Registring ", typeof(lb).stringof, " in level ", level);
-   	        writeln("Registring ", lb.toString, " in level ", level);
    	        backends[level] ~= lb;
    	    }
    	}
@@ -83,18 +86,16 @@ class Logger
         }
         return st;
     }
- 
+
     private:
         
         static string logLevelGenerator()
         {
             string code;
-            
             foreach(level ; [EnumMembers!Level])
             {
                 code ~= "void " ~ to!string(level) ~ "(S...)(S args){log(\"" ~ to!string(level) ~ "\", args);}";
             }
-            
             return code;
         }
         
@@ -141,7 +142,7 @@ class FunctionLog
 {
     this(string functionName, string functionFullName)
     {
-        duration = TickDuration.currSystemTick(); 
+        duration = TickDuration.currSystemTick();
         this.functionName = functionName;
         this.functionFullName = functionFullName;
         log.enterFunction(functionName);

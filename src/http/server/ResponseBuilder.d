@@ -1,7 +1,6 @@
 module http.server.ResponseBuilder;
 import std.conv;
 
-import http.server.Client;
 import http.protocol.Status;
 import http.protocol.Method;
 import http.protocol.Request;
@@ -27,7 +26,7 @@ class ResponseBuilder
 
     bool build()
     {        
-        response.protocolVersion = request.getVersion();
+        response.protocol = request.getProtocol();
         response.status = Status.Ok;
         response.message = "<html>Test</html>\n";
         

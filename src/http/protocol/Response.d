@@ -6,25 +6,25 @@ import std.format;
 import std.conv;
 
 import http.protocol.Status;
-import http.protocol.Version;
+import http.protocol.Protocol;
 
 class Response
 {
     Status status;
-    Version protocolVersion;
-    string reason;
+    Protocol protocol;
     string[string] headers;
     string[string] cookies;
     string message;
-
+    
     this()
     {
+
     }
-    
+
     string get()
     {
         auto writer = appender!string();
-        formattedWrite(writer, "%s %s %s\r\n", cast(string)protocolVersion, cast(string)status, (status));
+        formattedWrite(writer, "%s %s %s\r\n", cast(string)protocol, cast(string)status, (status));
         
         if(message.length)
         {

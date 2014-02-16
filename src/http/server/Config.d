@@ -2,6 +2,8 @@ module http.server.Config;
 
 import std.socket;
 import std.file;
+import std.path : dirName;
+import std.parallelism : totalCPUs;
 import core.thread;
 
 import dlog.Logger;
@@ -19,10 +21,13 @@ class Config
 {
     this()
     {
+        installDir = dirName(thisExePath());
+        serverString = DEFAULT_SERVER_HEADER;
+
         log.info("CPU Count : ", totalCPUs);
-        installDir = thisExePath();
+        log.info("Server banner : ", serverString);
         log.info("Install dir : ", installDir);
-        
+
         options[Parameter.MAX_CONNECTION] = Default.MAX_CONNECTION;
         options[Parameter.BACKLOG] = Default.BACKLOG;
         options[Parameter.TIMEOUT] = Default.TIMEOUT;
@@ -57,9 +62,9 @@ class Config
         */
         
         auto mainDir = new Directory(installDir ~ "/public", "index.html");
-        auto mainRoute = new Route("/main/", [mainDir]);
-        auto mainHost = new Host(["localhost"],[mainRoute]);
-        auto mainServer = new Server(["0.0.0.0"], [8080, 8081], [mainHost], options, DEFAULT_SERVER_HEADER);
+        auto mainRoute = new Route("^/main", mainDir);
+        auto mainHost = new Host(["www.dhttpd.fr"], [mainRoute]);
+        auto mainServer = new Server(["0.0.0.0"], [8080, 8081], [mainHost]);
         servers ~= mainServer;
     }
 
@@ -68,23 +73,35 @@ class Config
         return servers;
     }
 
-    auto getInstallDir()
+    static auto getInstallDir()
     {
         return installDir;
     }
 
-private:
-    //Handler[] handlers;
-    //Route[] routes;
-    //Directory[] directories;
-    //Host[] hosts;
-    //Port[] ports;
-    //Interface[] interfaces;
+    static auto getServerString()
+    {
+        return serverString;
+    }
 
-    enum { DEFAULT_SERVER_HEADER = "dhttpd" };
-    string installDir;
-    string[string] defaultHeaders;
-    Server[] servers;
-    Options options;
-    Handler[Status] defaultHandlers;
+    static auto getOptions()
+    {
+        return options;
+    }
+
+    private:
+
+        //Handler[] handlers;
+        //Route[] routes;
+        //Directory[] directories;
+        //Host[] hosts;
+        //Port[] ports;
+        //Interface[] interfaces;
+
+        static string installDir;
+        static string serverString;
+        static Options options;
+
+        string[string] defaultHeaders;
+        Server[] servers;
+        Handler[Status] defaultHandlers;
 }

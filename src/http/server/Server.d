@@ -9,12 +9,12 @@ import dlog.Logger;
 
 import interruption.InterruptionException;
 
+import http.server.Config;
 import http.server.Connection;
 import http.server.Host;
 import http.server.Options;
-import http.server.ResponseBuilder;
 
-import http.protocol.ResponseHeader;
+import http.protocol.Header;
 import http.protocol.Response;
 import http.protocol.Request;
 import http.protocol.Status;
@@ -36,7 +36,11 @@ class Server
 
     public:
     
-        this(string[] interfaces, ushort[] ports, Host[] hosts, Options options, string serverString)
+        this(string[] interfaces, 
+             ushort[] ports, 
+             Host[] hosts, 
+             Options options=Config.getOptions(),
+             string serverString=Config.getServerString())
         {
             this.interfaces = interfaces;
             this.ports = ports;
@@ -53,30 +57,6 @@ class Server
             foreach(listener ; listeners)
             {
                 listener.close();
-            }
-        }
-
-        void createListeners()
-        {
-            mixin(Tracer);
-            foreach(netInterface ; interfaces)
-            {
-                log.info("Listening on ports : ", ports, " on interface ", netInterface);
-                foreach(port ; ports)
-                {
-                    try
-                    {
-                        auto listener = new TcpSocket;
-                        listener.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
-                        listener.bind(new InternetAddress(port));
-                        listener.listen(options[Parameter.BACKLOG]);
-                        listeners ~= listener;
-                    }
-                    catch(SocketOSException e)
-                    {
-                        log.error("Can't bind to port ", port, ", reason : ", e.msg);
-                    }
-                }
             }
         }
 
@@ -103,11 +83,12 @@ class Server
                 catch(SocketOSException e)
                 {
                     log.error(e);
+                    cleanConnections();
                 }
             }
         }
         
-        auto interrupt() nothrow
+        void interrupt() nothrow
         {
             interrupted = true;
         }
@@ -116,7 +97,6 @@ class Server
 
         void buildSocketSet()
         {
-            //log.info("Active sockets : ", listeners.length + connections.length, ", max capacity : ", sset.max());
             sset.reset();
             foreach(listener ; listeners)
             {
@@ -130,19 +110,11 @@ class Server
 
         void selectSockets()
         {
-            mixin(Tracer);
-            auto status = Socket.select(sset, null, null, dur!"seconds"(1));
-            if(status == 0)
-            {
-                //log.info("Waiting for new connections");
-            }
-            else if (status == -1)
+            //auto status = Socket.select(sset, null, null, dur!"seconds"(1));
+            auto status = Socket.select(sset, null, null);
+            if (status == -1)
             {
                 handleInterruption();
-            }
-            else
-            {
-                log.info("Select status : ", status);
             }
         }
     
@@ -159,42 +131,10 @@ class Server
             mixin(Tracer);
             foreach(connection ; connections)
             {
-                if(!connection.isReady(sset))
+                if(connection.isReady(sset))
                 {
-                    return;
+                    connection.handleRequest(hosts);
                 }
-                connection.handleRequest();
-
-                if(connection.isRequestPending())
-                {
-                    auto request = connection.getNextRequest();
-                    dispatchRequest(request, connection);
-                }
-            }
-        }
-
-        void dispatchRequest(Request request, Connection connection)
-        {
-            mixin(Tracer);
-            if(request.hasError())
-            {
-                // 400
-                Response response = new Response();
-                response.status = Status.BadRequest;
-                response.protocol = http.protocol.Protocol.Protocol.DEFAULT;
-                response.headers[ResponseHeader.Server] = serverString;
-                response.message = readText("public/400.html")
-
-                connection.sendResponse(response);
-
-                return;
-            }
-
-            auto responseBuilder = new ResponseBuilder(request);
-            if(responseBuilder.build())
-            {
-                Response response = responseBuilder.getResponse();
-                connection.sendResponse(response);
             }
         }
 
@@ -242,13 +182,37 @@ class Server
                 }
                 else
                 {
-                    log.info("Connection from ", connection.getHandle().remoteAddress().toString(), " established.");
                     connections ~= connection;
+                    log.info("Connection from ", connection.getHandle().remoteAddress().toString(), " established, ", connections.length, " active connections");
                 }
             }
             catch (Exception e)
             {
                 log.error("Error accepting: ", e.toString());
+            }
+        }
+
+        void createListeners()
+        {
+            mixin(Tracer);
+            foreach(netInterface ; interfaces)
+            {
+                log.info("Listening on ports : ", ports, " on interface ", netInterface);
+                foreach(port ; ports)
+                {
+                    try
+                    {
+                        auto listener = new TcpSocket;
+                        listener.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
+                        listener.bind(new InternetAddress(port));
+                        listener.listen(options[Parameter.BACKLOG]);
+                        listeners ~= listener;
+                    }
+                    catch(SocketOSException e)
+                    {
+                        log.error("Can't bind to port ", port, ", reason : ", e.msg);
+                    }
+                }
             }
         }
 

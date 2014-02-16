@@ -1,7 +1,6 @@
 #!/usr/bin/rdmd
 
 import std.socket : SocketOSException;
-import std.parallelism : totalCPUs;
 
 import interruption.InterruptionManager;
 import interruption.InterruptionException;

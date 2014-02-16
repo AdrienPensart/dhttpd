@@ -6,14 +6,13 @@ import std.string;
 
 import dlog.Logger;
 
+import http.protocol.Message;
 import http.protocol.Protocol;
 import http.protocol.Method;
-import http.protocol.RequestHeader;
-
-enum MAX_HEADER_SIZE = 80*1024;
+import http.protocol.Header;
 
 
-#line 17 "src/http/protocol/Request.d"
+#line 16 "src/http/protocol/Request.d"
 enum byte[] _http_parser_actions = [
 	0, 1, 0, 1, 1, 1, 2, 1, 
 	3, 1, 4, 1, 5, 1, 7, 1, 
@@ -852,10 +851,10 @@ enum int http_parser_error = 0;
 enum int http_parser_en_main = 1;
 
 
-#line 112 "src/http/protocol/Request.d.rl"
+#line 111 "src/http/protocol/Request.d.rl"
 
 
-class Request
+class Request : Message
 {
     enum Status
     {
@@ -867,22 +866,21 @@ class Request
     this()
     {
         
-#line 871 "src/http/protocol/Request.d"
+#line 870 "src/http/protocol/Request.d"
 	{
 	cs = http_parser_start;
 	}
 
-#line 126 "src/http/protocol/Request.d.rl"
+#line 125 "src/http/protocol/Request.d.rl"
     }
 
     size_t feed(string data)
     {
         if(!data.length)
+        {
             return 0;
-
-        log.info("Data fed : ", data);
-        log.info("Data length : ", data.length);
-
+        }
+            
         off = raw.length;
         raw ~= data;
         char * buffer = cast(char*)raw.ptr;
@@ -891,7 +889,7 @@ class Request
         char * pe = p + data.length;
 
         
-#line 895 "src/http/protocol/Request.d"
+#line 893 "src/http/protocol/Request.d"
 	{
 	int _klen;
 	uint _trans;
@@ -966,25 +964,25 @@ _match:
 		switch ( *_acts++ )
 		{
 	case 0:
-#line 17 "src/http/protocol/Request.d.rl"
+#line 16 "src/http/protocol/Request.d.rl"
 	{{
         mark = p - buffer;
     }}
 	break;
 	case 1:
-#line 21 "src/http/protocol/Request.d.rl"
+#line 20 "src/http/protocol/Request.d.rl"
 	{{
         field_start = p - buffer;
     }}
 	break;
 	case 2:
-#line 25 "src/http/protocol/Request.d.rl"
+#line 24 "src/http/protocol/Request.d.rl"
 	{{
         field_len = p - buffer - field_start;
     }}
 	break;
 	case 3:
-#line 29 "src/http/protocol/Request.d.rl"
+#line 28 "src/http/protocol/Request.d.rl"
 	{{
         string field = raw[field_start..field_start+field_len];
         
@@ -997,19 +995,19 @@ _match:
     }}
 	break;
 	case 4:
-#line 40 "src/http/protocol/Request.d.rl"
+#line 39 "src/http/protocol/Request.d.rl"
 	{{
         mark = p - buffer;
     }}
 	break;
 	case 5:
-#line 44 "src/http/protocol/Request.d.rl"
+#line 43 "src/http/protocol/Request.d.rl"
 	{{ 
         query_start = p - buffer;
     }}
 	break;
 	case 6:
-#line 48 "src/http/protocol/Request.d.rl"
+#line 47 "src/http/protocol/Request.d.rl"
 	{{ 
         size_t end = p - buffer - query_start;
         query = raw[query_start..query_start+end];
@@ -1017,7 +1015,7 @@ _match:
     }}
 	break;
 	case 7:
-#line 54 "src/http/protocol/Request.d.rl"
+#line 53 "src/http/protocol/Request.d.rl"
 	{{
         size_t end = p - buffer - mark;
         fragment = raw[mark..mark+end];
@@ -1025,7 +1023,7 @@ _match:
     }}
 	break;
 	case 8:
-#line 60 "src/http/protocol/Request.d.rl"
+#line 59 "src/http/protocol/Request.d.rl"
 	{{
         size_t end = p - buffer - mark;
         setMethod(raw[mark..mark+end]);
@@ -1033,7 +1031,7 @@ _match:
     }}
 	break;
 	case 9:
-#line 66 "src/http/protocol/Request.d.rl"
+#line 65 "src/http/protocol/Request.d.rl"
 	{{
         size_t end = p - buffer - mark;
         uri = raw[mark..mark+end];
@@ -1041,7 +1039,7 @@ _match:
     }}
 	break;
 	case 10:
-#line 72 "src/http/protocol/Request.d.rl"
+#line 71 "src/http/protocol/Request.d.rl"
 	{{
         size_t end = p - buffer - mark;
         setProtocol(raw[mark..mark+end]);
@@ -1049,7 +1047,7 @@ _match:
     }}
 	break;
 	case 11:
-#line 78 "src/http/protocol/Request.d.rl"
+#line 77 "src/http/protocol/Request.d.rl"
 	{{
         size_t end = p - buffer - mark;
         path = raw[mark..mark+end];
@@ -1057,19 +1055,19 @@ _match:
     }}
 	break;
 	case 12:
-#line 84 "src/http/protocol/Request.d.rl"
+#line 83 "src/http/protocol/Request.d.rl"
 	{{
         xml_sent = true;
     }}
 	break;
 	case 13:
-#line 88 "src/http/protocol/Request.d.rl"
+#line 87 "src/http/protocol/Request.d.rl"
 	{{
         json_sent = true;
     }}
 	break;
 	case 14:
-#line 92 "src/http/protocol/Request.d.rl"
+#line 91 "src/http/protocol/Request.d.rl"
 	{{
         body_start = p - buffer;
         if(xml_sent || json_sent)
@@ -1087,7 +1085,7 @@ _match:
         {p++; if (true) goto _out; }
     }}
 	break;
-#line 1091 "src/http/protocol/Request.d"
+#line 1089 "src/http/protocol/Request.d"
 		default: break;
 		}
 	}
@@ -1101,13 +1099,13 @@ _again:
 	_out: {}
 	}
 
-#line 144 "src/http/protocol/Request.d.rl"
+#line 142 "src/http/protocol/Request.d.rl"
 
         nread += p - (buffer + off);
         return nread;
     }
 
-    Status getStatus()
+    auto getStatus()
     {
         if (hasError())
         {
@@ -1126,21 +1124,21 @@ _again:
         }
     }
 
-    bool hasError()
+    auto hasError()
     {
         return cs == 
-#line 1133 "src/http/protocol/Request.d"
+#line 1131 "src/http/protocol/Request.d"
 0
-#line 170 "src/http/protocol/Request.d.rl"
+#line 168 "src/http/protocol/Request.d.rl"
 ;
     }
 
-    bool isFinished()
+    auto isFinished()
     {
         return cs >= 
-#line 1142 "src/http/protocol/Request.d"
+#line 1140 "src/http/protocol/Request.d"
 348
-#line 175 "src/http/protocol/Request.d.rl"
+#line 173 "src/http/protocol/Request.d.rl"
 ;
     }
 
@@ -1149,30 +1147,27 @@ _again:
         this.method = cast(Method)method;
     }
 
-    Method getMethod()
+    auto getMethod()
     {
         return method;
     }
 
-    void setProtocol(string protocol)
+    auto getPath()
     {
-        this.protocol = cast(Protocol)protocol;
+        return path;
     }
 
-    Protocol getProtocol()
+    auto getUri()
     {
-        return protocol;
+        return uri;
     }
-
+    
     private:
         // parsed request
-        string content;
-        string[string] headers;
         string query;
         string fragment;
         string uri;
         string path;
-        Protocol protocol;
         Method method;
 
         // parser data

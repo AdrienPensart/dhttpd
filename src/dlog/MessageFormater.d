@@ -52,7 +52,7 @@ class LineMessageFormater : MessageFormater
         
         version(tracing)
         {
-            formattedMessage ~= "(" ~ m.date.toISOExtString() ~ ")";
+            formattedMessage ~= "(" ~ m.date.toSimpleString() ~ ")";
         }
 
         if(m.graph.length)

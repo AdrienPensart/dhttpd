@@ -4,11 +4,10 @@ import std.string;
 
 import dlog.Logger;
 
+import http.protocol.Message;
 import http.protocol.Protocol;
 import http.protocol.Method;
-import http.protocol.RequestHeader;
-
-enum MAX_HEADER_SIZE = 80*1024;
+import http.protocol.Header;
 
 %%{
     machine http_parser;
@@ -111,7 +110,7 @@ enum MAX_HEADER_SIZE = 80*1024;
     write data;
 }%%
 
-class Request
+class Request : Message
 {
     enum Status
     {
@@ -128,11 +127,10 @@ class Request
     size_t feed(string data)
     {
         if(!data.length)
+        {
             return 0;
-
-        log.info("Data fed : ", data);
-        log.info("Data length : ", data.length);
-
+        }
+            
         off = raw.length;
         raw ~= data;
         char * buffer = cast(char*)raw.ptr;
@@ -146,7 +144,7 @@ class Request
         return nread;
     }
 
-    Status getStatus()
+    auto getStatus()
     {
         if (hasError())
         {
@@ -165,12 +163,12 @@ class Request
         }
     }
 
-    bool hasError()
+    auto hasError()
     {
         return cs == %%{ write error; }%%;
     }
 
-    bool isFinished()
+    auto isFinished()
     {
         return cs >= %%{ write first_final; }%%;
     }
@@ -180,30 +178,27 @@ class Request
         this.method = cast(Method)method;
     }
 
-    Method getMethod()
+    auto getMethod()
     {
         return method;
     }
 
-    void setProtocol(string protocol)
+    auto getPath()
     {
-        this.protocol = cast(Protocol)protocol;
+        return path;
     }
 
-    Protocol getProtocol()
+    auto getUri()
     {
-        return protocol;
+        return uri;
     }
-
+    
     private:
         // parsed request
-        string content;
-        string[string] headers;
         string query;
         string fragment;
         string uri;
         string path;
-        Protocol protocol;
         Method method;
 
         // parser data

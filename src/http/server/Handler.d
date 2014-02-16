@@ -1,24 +1,31 @@
 module http.server.Handler;
 
+import http.server.Host;
 import http.server.Connection;
+import http.server.Route;
+
+import http.protocol.Request;
+import http.protocol.Response;
 
 interface Handler
 {
-	void execute(Connection);
+	Response execute(Request request, string hit);
 }
 
+/*
 class ErrorHandler : Handler
 {
-	void execute(Connection connection)
+	Response execute(Request request, string hit)
 	{
-
+		return true;
 	}
 }
 
 class WorkerHandler : Handler
 {
-	void execute(Connection connection)
+	Response execute(Request request, string hit)
 	{
-
+		return true;
 	}
 }
+*/

@@ -26,13 +26,14 @@ class ResponseBuilder
 
     bool build()
     {        
+        /*
         response.protocol = request.getProtocol();
         response.status = Status.Ok;
-        response.message = "<html>Test</html>\n";
+        response.content = "<html>Test</html>\n";
         
         response.headers["Connection"] = "close";
         response.headers["Content-Type"] = "text/html";
-        response.headers["Content-Length"] = to!string(response.message.length);
+        response.headers["Content-Length"] = to!string(response.content.length);
         switch(request.getMethod())
         {
             case Method.GET:
@@ -91,6 +92,7 @@ class ResponseBuilder
                 log.info("HTTP Method not supported : ", request.getMethod());
                 return false;
         }
+        */
         return true;
     }
 }

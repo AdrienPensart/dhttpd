@@ -3,7 +3,7 @@ module dlog.Logger;
 import std.stdio;
 import std.format;
 import std.array;
-import std.traits;
+public import std.traits : fullyQualifiedName, EnumMembers;
 import std.conv;
 import std.datetime;
 import std.algorithm;
@@ -64,9 +64,9 @@ class Logger
         foreach(functionStat ; getSortedFunctionStats())
         {
             info(functionStat.fullName,
-                 ", called ", functionStat.timesCalled," times"
-                 ", took ", functionStat.totalTime.nsecs,
-                 ", average time per call : ", functionStat.averageTimePerCall.nsecs);
+                 ", called : ", functionStat.timesCalled," time(s)"
+                 ", took : ", functionStat.totalTime.nsecs,
+                 ", average : ", functionStat.averageTimePerCall.nsecs);
         }
     }
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ragel -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
-dmd src/*.d src/interruption/*.d src/dlog/*.d  src/http/protocol/*.d src/http/server/*.d -ofdhttpd -Isrc/ -L-lcurl -unittest -version=tracing
+dmd src/*.d src/interruption/*.d src/dlog/*.d  src/http/protocol/*.d src/http/server/*.d -ofdhttpd -Isrc/ -Isrc/czmq -L-lcurl -unittest -version=tracing
 #dmd zmq.d main.d -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -ofnotajoy
 
 # Graph generation

@@ -55,7 +55,7 @@ class BadRequestResponse : Response
         status = Status.BadRequest;            
         content = readText(Config.getInstallDir() ~ "/public/400.html");
         protocol = http.protocol.Protocol.Protocol.DEFAULT;
-        headers[Header.Connection] = "close";
+        //headers[Header.Connection] = "close";
         headers[Header.ContentType] = "text/html";
         headers[Header.Date] = getDateRFC1123();
         headers[Header.Server] = Config.getServerString();
@@ -69,7 +69,7 @@ class NotFoundResponse : Response
         status = Status.NotFound;
         content = readText(Config.getInstallDir() ~ "/public/404.html");
         protocol = http.protocol.Protocol.Protocol.DEFAULT;
-        headers[Header.Connection] = "close";
+        //headers[Header.Connection] = "close";
         headers[Header.ContentType] = "text/html";
         headers[Header.Date] = getDateRFC1123();
         headers[Header.Server] = Config.getServerString();
@@ -83,7 +83,7 @@ class NotAllowedResponse : Response
         status = Status.NotAllowed;         
         content = readText(Config.getInstallDir() ~ "/public/405.html");
         protocol = http.protocol.Protocol.Protocol.DEFAULT;
-        headers[Header.Connection] = "close";
+        //headers[Header.Connection] = "close";
         headers[Header.ContentType] = "text/html";
         headers[Header.Date] = getDateRFC1123();
         headers[Header.Server] = Config.getServerString();

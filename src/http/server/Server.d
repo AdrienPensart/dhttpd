@@ -44,7 +44,13 @@ class Server
         {
             this.interfaces = interfaces;
             this.ports = ports;
+
             this.hosts = hosts;
+            foreach(host; hosts)
+            {
+                host.addSupportedPorts(ports);
+            }
+
             this.options = options;
             this.serverString = serverString;
             keepAliveDuration = dur!"seconds"(options[Parameter.TIMEOUT]);

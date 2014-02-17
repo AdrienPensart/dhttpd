@@ -1,5 +1,7 @@
 module http.server.Host;
 
+import std.conv;
+
 import http.server.Route;
 import http.protocol.Request;
 import http.protocol.Response;
@@ -14,6 +16,21 @@ class Host
         this.routes = routes;
     }
     
+    void addSupportedPorts(ushort[] ports)
+    {
+        auto bufferHosts = hosts;
+        foreach(host ; hosts)
+        {
+            foreach(port ; ports)
+            {
+                auto newHost = host ~ ":" ~ to!string(port);
+                log.info("Added new host + port : ", newHost);
+                bufferHosts ~= newHost;
+            }
+        }
+        hosts = bufferHosts;
+    }
+
     bool matchHostHeader(Request request)
     {
         foreach(host ; hosts)
@@ -29,9 +46,9 @@ class Host
     Response dispatch(Request request)
     {
         foreach(route ; routes)
-		{
+        {
             return route.dispatch(request);
-		}
+        }
         return null;
     }
 

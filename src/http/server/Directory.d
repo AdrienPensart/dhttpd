@@ -1,5 +1,6 @@
 module http.server.Directory;
 
+import std.conv;
 import std.file;
 import std.regex;
 import std.path;
@@ -16,14 +17,16 @@ import http.protocol.Status;
 
 class Directory : Handler
 {
-	this(string directory, string indexFilename)
+    this(string directory, string indexFilename, bool authListing=false)
     {
         this.directory = directory;
         this.indexFilename = indexFilename;
     }
     
-	Response execute(Request request, string hit)
-	{
+    
+    
+    Response execute(Request request, string hit)
+    {
         try
         {
             auto response = new Response();
@@ -49,6 +52,11 @@ class Directory : Handler
             else if(method == Method.HEAD)
             {
                 log.info("HEAD method");
+                response.headers[Header.Server] = Config.getServerString();
+                response.protocol = request.getProtocol();
+                response.status = Status.Ok;
+                response.headers[Header.ContentType] = "text/html";
+                response.headers[Header.ContentLength] = to!string(getSize(finalPath));
             }
             else
             {
@@ -64,7 +72,7 @@ class Directory : Handler
             auto notFoundResponse = new NotFoundResponse();
             return notFoundResponse;
         }
-	}
+    }
 
     private bool headRequest()
     {

@@ -26,7 +26,7 @@ class Connection
         setMaxRequest(maxRequest);
         refreshKeepAlive();
     }
-        
+    
     Socket getHandle()
     {
         return handle;
@@ -81,7 +81,7 @@ class Connection
         mixin(Tracer);
         scope(exit) request = null;
         
-        if(request.hasError() || !request.hasHostHeader())
+        if(request.hasError() || !request.hasHeader(Header.Host))
         {
             log.warning("Malformed request => Bad Request");
             auto badRequestResponse = new BadRequestResponse();
@@ -205,4 +205,3 @@ class Connection
         uint processedRequest;
         Request request;
 }
-

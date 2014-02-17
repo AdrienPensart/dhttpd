@@ -5,7 +5,7 @@ import http.protocol.Header;
 
 class Message
 {
-	Protocol protocol;
+    Protocol protocol;
     string[string] headers;
     string content;
 
@@ -24,14 +24,19 @@ class Message
         return headers;
     }
 
-    bool hasHeader(Header header, string value)
+    auto getHeader(Header header)
     {
-        string headerValue = headers.get(header, "");
-        return value == headerValue;
+        return headers[header];
     }
 
-    bool hasHostHeader()
+    bool hasHeader(Header key)
     {
-        return headers.get(Header.Host, "not present") != "not present";
+        return (key in headers) !is null;
+    }
+
+    bool hasHeader(Header key, string value)
+    {
+        string headerValue = headers.get(key, "");
+        return value == headerValue;
     }
 }

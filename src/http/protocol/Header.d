@@ -31,7 +31,6 @@ enum Header : string
     UserAgent = "User-Agent",
     AcceptEncoding = "Accept-Encoding",
     AcceptCharset = "Accept-Charset",
-    //CacheControl = "Cache-Control",
     Accept = "Accept",
     AcceptLanguage = "Accept-Language",
     Authorization = "Authorization",

@@ -6,6 +6,7 @@ import std.file;
 import core.thread;
 import core.time;
 
+import http.protocol.Protocol;
 import http.protocol.Request;
 import http.protocol.Response;
 import http.protocol.Status;
@@ -16,12 +17,15 @@ import http.server.Host;
 
 import dlog.Logger;
 
+enum State { TIMEOUT, INTERRUPTED, CLOSED, DATA, REQUEST };
+
 class Connection
 {
-    this(Socket handle, Duration keepAliveDuration, uint maxRequest)
+    this(Socket handle, Config config)
     {
         this.handle = handle;
         this.address = handle.remoteAddress();
+        this.config = config;
         setKeepAliveDuration(keepAliveDuration);
         setMaxRequest(maxRequest);
         refreshKeepAlive();
@@ -49,48 +53,74 @@ class Connection
             handle.shutdown(SocketShutdown.BOTH);
         }
         handle.close();
-        log.info("Connection ", address, " closed.");
+        log.trace("Connection ", address, " closed.");
     }
 
-    void handleRequest(Host[] hosts)
+    State handleRequest()
     {
         mixin(Tracer);
-        if(readChunk())
+
+        scope auto handleSet = new SocketSet(config[Parameter.MAX_CONNECTION].get!(int) + 1);
+        handleSet.add(handle);
+
+        auto selectStatus = Socket.select(handleSet, null, null, dur!"seconds"(1));
+        if (selectStatus == -1)
         {
+            return State.INTERRUPTED;
+        }
+        
+        if(handleSet.isSet(handle))
+        {
+            char buffer[1024];
+            auto datalength = handle.receive(buffer);
+            if (datalength == Socket.ERROR)
+            {
+                log.error("Connection error on ", address);
+                close();
+                return State.CLOSED;
+            }
+            else if(datalength == 0)
+            {
+                log.trace("No data on ", address);
+                close();
+                return State.CLOSED;
+            }
+
             if(request is null)
             {
                 request = new Request();
             }
 
-            auto currentChunk = currentChunk.idup;
-            request.feed(currentChunk);
-
+            log.trace("Received ", datalength, " bytes from ", address, "\n\"\n", buffer[0 .. datalength], "\"");
+            request.feed(buffer[0 .. datalength]);
             Request.Status status = request.getStatus();
-            if(status == Request.Status.NotFinished)
+            if(status == Request.Status.Finished || status == Request.Status.HasError)
             {
-                return;
+                log.trace("Request ready.");
+                processedRequest += 1;
+                refreshKeepAlive();
+                return State.REQUEST;
             }
-
-            processedRequest += 1;
-            routeRequest(hosts);
+            return State.DATA;
         }
+        return State.TIMEOUT;
     }
 
-    private void routeRequest(Host[] hosts)
+    void routeRequest(Host[] hosts, Host defaultHost)
     {
         mixin(Tracer);
+        log.trace("Routing request");
         scope(exit) request = null;
         
-        if(request.hasError() || !request.hasHeader(Header.Host))
+        if(request.hasError())
         {
             log.warning("Malformed request => Bad Request");
-            auto badRequestResponse = new BadRequestResponse();
+            auto badRequestResponse = new BadRequestResponse(config[Parameter.BAD_REQUEST_FILE].toString());
             sendResponse(badRequestResponse);
             close();
         }
         else
         {
-            log.info("Routing request...");
             foreach(host ; hosts)
             {
                 if(host.matchHostHeader(request))
@@ -102,9 +132,19 @@ class Connection
             }
         }
 
-        log.warning("Host not found => Not Found");
-        auto hostNotFoundResponse = new NotFoundResponse();
-        sendResponse(hostNotFoundResponse);
+        // not host found, fallback on default host
+        if(defaultHost !is null)
+        {
+            log.warning("Host not found => Fallback on default");
+            Response response = defaultHost.dispatch(request);
+            sendResponse(response);
+        }
+        else
+        {
+            log.warning("Host not found and no default host => Not Found");
+            auto hostNotFoundResponse = new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
+            sendResponse(hostNotFoundResponse);
+        }
     }
 
     private bool sendResponse(Response response)
@@ -112,6 +152,7 @@ class Connection
         bool writeResult = false;
         if(response !is null)
         {
+            response.headers[Header.Server] = config[Parameter.SERVER_STRING].toString();
             string buffer = response.get();
             writeResult = writeChunk(buffer);
             if(response.hasHeader(Header.Connection, "close"))
@@ -126,28 +167,6 @@ class Connection
     {
         keepAliveTimer = TickDuration.currSystemTick();
     }
-
-    private bool readChunk()
-    {
-        mixin(Tracer);
-        static char buffer[1024];
-        auto datalength = handle.receive(buffer);
-        if (datalength == Socket.ERROR)
-        {
-            log.error("Connection error.");
-            close();
-            return false;
-        }
-        else if(datalength == 0)
-        {
-            close();
-            return false;
-        }
-        currentChunk = buffer[0 .. datalength];
-        refreshKeepAlive();
-        log.info("Received ", datalength, " bytes from ", address, "\n\"\n", currentChunk, "\"");
-        return true;
-    }
     
     private bool writeChunk(string data)
     {
@@ -160,10 +179,10 @@ class Connection
         }
         else if(datalength == 0)
         {
-            log.info("Connection from ", address, " closed.");
+            log.trace("Connection from ", address, " closed.");
             return false;
         }
-        log.info("Sent ", datalength, " bytes to ", address, "\n\"\n", data, "\n\"");
+        log.trace("Sent ", datalength, " bytes to ", address, "\n\"\n", data, "\n\"");
         return true;
     }
         
@@ -194,9 +213,14 @@ class Connection
         return duration.isNegative();
     }
 
+    auto getAddress()
+    {
+        return address;
+    }
+
     private:
-        
-        char[] currentChunk;
+
+        Config config;
         Address address;
         Socket handle;
         Duration keepAliveDuration;

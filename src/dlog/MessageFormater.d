@@ -1,5 +1,7 @@
 module dlog.MessageFormater;
 
+import std.format;
+import std.array;
 import std.conv;
 import std.json;
 import std.csv;
@@ -48,19 +50,18 @@ class LineMessageFormater : MessageFormater
 {
     override string format(const Message m)
 	{
-        string formattedMessage = "[" ~ to!string(m.type) ~ "]";
-        
-        version(tracing)
+        auto writer = appender!string();
+        formattedWrite(writer, "[%s from %s]", m.type, m.threadName[0..8]);
+        version(assert)
         {
-            formattedMessage ~= "(" ~ m.date.toSimpleString() ~ ")";
+            formattedWrite(writer, "(%s/%s/%s %s:%s:%s)", m.date.day(), m.date.month(), m.date.year(), m.date.hour(), m.date.minute(), m.date.second());
         }
-
+        
         if(m.graph.length)
         {
-            formattedMessage ~= ("{" ~ m.graph ~ "}");
-        }    
-        formattedMessage ~= (" " ~ m.message);
-        return formattedMessage;
+            formattedWrite(writer, "{%s}", m.graph);
+        }
+        formattedWrite(writer, " %s", m.message);
+        return writer.data;
     }
 }
-

@@ -874,8 +874,9 @@ class Request : Message
 #line 125 "src/http/protocol/Request.d.rl"
     }
 
-    size_t feed(string data)
+    size_t feed(char[] data)
     {
+        mixin(Tracer);
         if(!data.length)
         {
             return 0;
@@ -889,7 +890,7 @@ class Request : Message
         char * pe = p + data.length;
 
         
-#line 893 "src/http/protocol/Request.d"
+#line 894 "src/http/protocol/Request.d"
 	{
 	int _klen;
 	uint _trans;
@@ -991,7 +992,7 @@ _match:
         
         headers[field] = value;
         
-        log.info("Adding header : ", field, " : " , value);
+        log.trace("Adding header : ", field, " : " , value);
     }}
 	break;
 	case 4:
@@ -1011,7 +1012,7 @@ _match:
 	{{ 
         size_t end = p - buffer - query_start;
         query = raw[query_start..query_start+end];
-        log.info("Query : ", query);
+        log.trace("Query : ", query);
     }}
 	break;
 	case 7:
@@ -1019,7 +1020,7 @@ _match:
 	{{
         size_t end = p - buffer - mark;
         fragment = raw[mark..mark+end];
-        log.info("Fragment : ", fragment);
+        log.trace("Fragment : ", fragment);
     }}
 	break;
 	case 8:
@@ -1027,7 +1028,7 @@ _match:
 	{{
         size_t end = p - buffer - mark;
         setMethod(raw[mark..mark+end]);
-        log.info("Method : ", getMethod());
+        log.trace("Method : ", getMethod());
     }}
 	break;
 	case 9:
@@ -1035,7 +1036,7 @@ _match:
 	{{
         size_t end = p - buffer - mark;
         uri = raw[mark..mark+end];
-        log.info("URI : ", uri);
+        log.trace("URI : ", uri);
     }}
 	break;
 	case 10:
@@ -1043,7 +1044,7 @@ _match:
 	{{
         size_t end = p - buffer - mark;
         setProtocol(raw[mark..mark+end]);
-        log.info("Protocole : ", getProtocol());
+        log.trace("Protocole : ", getProtocol());
     }}
 	break;
 	case 11:
@@ -1051,7 +1052,7 @@ _match:
 	{{
         size_t end = p - buffer - mark;
         path = raw[mark..mark+end];
-        log.info("Path : ", path);
+        log.trace("Path : ", path);
     }}
 	break;
 	case 12:
@@ -1081,11 +1082,11 @@ _match:
         {
             content = raw[body_start .. body_start + pe - p - 1];
         }
-        log.info("Done, content : ", content, ", content.length : ", content.length);
+        log.trace("Done, content : ", content, ", content.length : ", content.length);
         {p++; if (true) goto _out; }
     }}
 	break;
-#line 1089 "src/http/protocol/Request.d"
+#line 1090 "src/http/protocol/Request.d"
 		default: break;
 		}
 	}
@@ -1099,7 +1100,7 @@ _again:
 	_out: {}
 	}
 
-#line 142 "src/http/protocol/Request.d.rl"
+#line 143 "src/http/protocol/Request.d.rl"
 
         nread += p - (buffer + off);
         return nread;
@@ -1127,18 +1128,18 @@ _again:
     auto hasError()
     {
         return cs == 
-#line 1131 "src/http/protocol/Request.d"
+#line 1132 "src/http/protocol/Request.d"
 0
-#line 168 "src/http/protocol/Request.d.rl"
+#line 169 "src/http/protocol/Request.d.rl"
 ;
     }
 
     auto isFinished()
     {
         return cs >= 
-#line 1140 "src/http/protocol/Request.d"
+#line 1141 "src/http/protocol/Request.d"
 348
-#line 173 "src/http/protocol/Request.d.rl"
+#line 174 "src/http/protocol/Request.d.rl"
 ;
     }
 

@@ -2,6 +2,11 @@ module dlog.FunctionStatistic;
 
 import core.time;
 
+ulong toTime(TickDuration duration)
+{
+    return duration.nsecs;
+}
+
 class FunctionStatistic
 {
     this(string fullName)

@@ -79,7 +79,7 @@ class ConsoleLogger : FileLogger
         this(Type.DEFAULT, new LineMessageFormater);
     }
 
-    this(MessageFormater formater = new LineMessageFormater,Type type = Type.DEFAULT)
+    this(MessageFormater formater = new LineMessageFormater, Type type = Type.DEFAULT)
     {
         super(type == Type.OUT ? stdout : stderr, formater);
     }

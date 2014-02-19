@@ -3,88 +3,173 @@ module dlog.Logger;
 import std.stdio;
 import std.format;
 import std.array;
-public import std.traits : fullyQualifiedName, EnumMembers;
+import std.string;
+import std.random;
+import std.uuid;
 import std.conv;
-import std.datetime;
 import std.algorithm;
-import core.time;
+import std.traits : EnumMembers;
+import core.thread;
 
-import dlog.LogBackend;
+public import dlog.LogBackend;
+public import dlog.Tracer;
+public import dlog.FunctionLog;
+import dlog.ThreadLog;
 import dlog.FunctionStatistic;
 import dlog.Message;
 
-enum Level {info, fatal, error, warning, statistic, trace, debugger, test};
-string[] levels = [ __traits(allMembers, Level) ];
-const enum bool[string] debugs = ["RequestLine" : true ];
-Logger log;
+enum DISABLE = 100;
+version(assert)
+{
+    enum Level
+    {
+        info = 1,
+        fatal = 2,
+        error = 3, 
+        warning = 4, 
+        statistic = 5,
+        trace = 6, 
+        debugger = 7, 
+        test = 8
+    }
+}
+else
+{
+    enum Level
+    {
+        info = 101,
+        fatal = 2,
+        error = 3, 
+        warning = 4,
+        statistic = 5,
+        trace = 103, 
+        debugger = 104, 
+        test = 105
+    }
+}
+
+immutable string[] levels = [ __traits(allMembers, Level) ];
+
+__gshared Logger log;
+
+shared static this()
+{
+    log = new Logger();
+}
+
+shared static ~this()
+{
+    log.printStats();
+}
 
 class Logger
 {
     mixin(logLevelGenerator());
 
-  	void register(LogBackend lb, string[] levelsFilter=levels)
+    this()
+    {
+        gen.seed(unpredictableSeed);
+    }
+
+  	auto register(LogBackend lb, immutable string[] levelsFilter=levels)
    	{
-        if(levelsFilter.length)
+        synchronized
         {
-            writefln("New levels of message : %-(%s, %)", levelsFilter);
+            foreach(level; levelsFilter)
+            {
+                backends[level] ~= lb;
+            }
+            if(levelsFilter.length)
+            {
+                writefln("Existing levels : %-(%s, %)", levelsFilter);
+            }
         }
-   	    foreach(level; levelsFilter)
-   	    {
-   	        backends[level] ~= lb;
-   	    }
    	}
             
     auto log(S...)(string level, S args)
     {
-        write(level, args);
+        synchronized
+        {
+            TickDuration duration = TickDuration.currSystemTick();
+            write(level, args);
+            duration =  TickDuration.currSystemTick() - duration;
+            writeDuration += duration;
+        }
     }
-        
+    
     auto enterFunction(string currentFunction)
     {
-        callStack ~= currentFunction;
+        synchronized
+        {
+            auto threadName = Thread.getThis().name();
+
+            // thread uuid creation
+            if(!threadName.length)
+            {
+                UUID currentThreadUUID = randomUUID(gen);
+                threadName = currentThreadUUID.toString();
+                Thread.getThis().name(threadName);
+                threadLogs[threadName] = new ThreadLog(threadName);
+            }
+            threadLogs[threadName].push(currentFunction);
+        }
     }
  
-    auto leaveFunction()
+    auto leaveFunction(string currentFunction)
     {
-        callStack.popBack();
-    }
-
-    auto savePerfFunction(string currentFunction, TickDuration duration)
-    {
-        if( !(currentFunction in functionStats))
+        synchronized
         {
-            functionStats[currentFunction] = new FunctionStatistic(currentFunction);
+            threadLogs[Thread.getThis().name()].pop();
         }
-        functionStats[currentFunction].totalDuration += duration;
-        functionStats[currentFunction].timesCalled += 1;
     }
 
-    auto printFunctionStats()
+    auto savePerfFunction(string functionFullName, TickDuration duration)
     {
-        foreach(functionStat ; getSortedFunctionStats())
+        synchronized
         {
-            info(functionStat.fullName,
-                 ", called : ", functionStat.timesCalled," time(s)"
-                 ", took : ", functionStat.totalTime.nsecs,
-                 ", average : ", functionStat.averageTimePerCall.nsecs);
+            if(!(functionFullName in functionStats))
+            {
+                functionStats[functionFullName] = new FunctionStatistic(functionFullName);
+            }
+            functionStats[functionFullName].totalDuration += duration;
+            functionStats[functionFullName].timesCalled += 1;
+        }
+    }
+
+    auto printStats()
+    {
+        synchronized
+        {
+            foreach(functionStat ; getSortedFunctionStats())
+            {
+                statistic(functionStat.fullName,
+                     ", called : ", functionStat.timesCalled," time(s)"
+                     ", took : ", functionStat.totalTime.nsecs,
+                     ", average : ", functionStat.averageTimePerCall.nsecs);
+            }
+
+            TickDuration total;
+            foreach(threadLog ; threadLogs)
+            {
+                total += threadLog.getDuration();
+            }
+
+            statistic("Threads created : ", threadLogs.length);
+            statistic("Virtual total time (all threads) : ", toTime(total).nsecs);
+            statistic("Virtal total time of log writing (all threads) : ", toTime(writeDuration).nsecs);
+            double ratio = cast(double)writeDuration.nsecs / cast(double)total.nsecs * 100;
+            statistic("Ratio of log writing (all threads) : ", ratio, "%");
         }
     }
 
     auto getSortedFunctionStats() 
     {
-        auto sortedFunctionStats = functionStats.values;
-        sort!((a,b) {return a.fullName < b.fullName;})(sortedFunctionStats);
-        return sortedFunctionStats;
-    }
-
-    auto getStackTrace()
-    {
-        string st;
-	    foreach(index, context ; callStack)
+        synchronized
         {
-            st ~= ((index > 0 ? ":" : "") ~ context ~ "()");
+            auto sortedFunctionStats = functionStats.values;
+            sort!((a,b) {return a.totalDuration > b.totalDuration;})(sortedFunctionStats);
+            return sortedFunctionStats;
         }
-        return st;
     }
 
     private:
@@ -92,121 +177,53 @@ class Logger
         static string logLevelGenerator()
         {
             string code;
-            foreach(level ; [EnumMembers!Level])
+            foreach(i, level ; EnumMembers!Level)
             {
-                code ~= "void " ~ to!string(level) ~ "(S...)(S args){log(\"" ~ to!string(level) ~ "\", args);}";
+                pragma(msg, to!string(level), " : ", level < DISABLE ? "enabled" : "disabled");
+                // when a log level is disabled, the compiler optimize empty calls
+                code ~= "void "~to!string(level)~"(S...)(S args){"~ (level < DISABLE ? "log(\""~to!string(level)~"\", args);" : "") ~ "}";
             }
             return code;
         }
         
     	void write(S...)(string type, S args)
-	    {
-		    auto writer = appender!string();
-            foreach(arg; args)
-            {
-            	formattedWrite(writer, "%s", arg);
-            }
-            
+	    {            
             if(type in backends)
             {
+                auto writer = appender!string();
+                foreach(arg; args)
+                {
+                    formattedWrite(writer, "%s", arg);
+                }
+
                 auto supportedBackends = backends[type];
 	            foreach(backend; supportedBackends)
 	            {
-	                auto m = new Message(type, writer.data);
-                    m.graph = getStackTrace();
+                    auto threadName = Thread.getThis().name();
+                    auto m = new Message(type, threadName, writer.data);
+
+                    m.graph = threadLogs[threadName].getStackTrace();
 	                backend.log(m);
         	    }
         	}
     	}
 
+        Xorshift192 gen;
+
         // stores the total time of execution for each functions
         FunctionStatistic[string] functionStats;
 
-        string[] callStack;
+        // one call stack per thread
+        ThreadLog[string] threadLogs;
+
         LogBackend[][string] backends;
+
+        // total time of printing
+        TickDuration writeDuration;
 }
 
-template ProxyDebugger ()
-{
-    auto DebugLog(S...)(S args)
-    {
-        const char[] identifier = __traits(identifier, typeof(this));
-        static if(debugs[identifier])
-        {
-            log.write(args);
-        }
-    }
-}
-
-class FunctionLog
-{
-    this(string functionName, string functionFullName)
-    {
-        duration = TickDuration.currSystemTick();
-        this.functionName = functionName;
-        this.functionFullName = functionFullName;
-        log.enterFunction(functionName);
-    }
-    
-    auto ended()
-    {
-        duration =  TickDuration.currSystemTick() - duration;
-        log.leaveFunction();
-        log.savePerfFunction(functionFullName, duration);
-    }
-
-    string functionName;
-    string functionFullName;
-    TickDuration duration;
-}
-
-// RAII Tracer
-auto Tracer()
-{
-    string code;
-    version(tracing)
-    {
-        code ~= 
-        q{
-            enum __marker{EMPTY}
-             
-            const auto __context = __traits(identifier, (__traits(parent,__marker)));
-            // we are in a class method, extract Class.Method
-            static if(__traits(compiles,this))
-            {
-                const auto __context2 = typeof(this).stringof ~ "." ~ __context;
-            }
-            static if(__traits(compiles,__context2))
-            {
-                auto __tracer_ = new FunctionLog (__context2, __context2);
-            }
-            // we are in a normal function, extract Function name
-            else
-            {
-                auto __tracer_ = new FunctionLog (__context, fullyQualifiedName!(__traits(parent,__marker)));
-            }
-            scope(exit)
-            {
-                __tracer_.ended();
-            }
-        };
-    }
-    return code;
-}
-
-static this()
-{
-    try
-    {
-        log = new Logger();
-        log.register(new ConsoleLogger);
-    }
-    catch(Exception e)
-    {
-        log.error(e.msg);
-    }
-    
-    /*
+/*
+    // unit testing
     auto smtp = SMTP("smtps://smtp.gmail.com");
     smtp.setAuthentication("crunchengine@gmail.com", "fight1485ij");
     smtp.mailTo = ["adrien.pensart@corp.ovh.com"];
@@ -225,5 +242,18 @@ static this()
     log.warning("a warning occured");
     log.fatal("oups");
     */
-}
 
+/*
+const enum bool[string] debugs = ["RequestLine" : true ];
+template ProxyDebugger ()
+{
+    auto DebugLog(S...)(S args)
+    {
+        const char[] identifier = __traits(identifier, typeof(this));
+        static if(debugs[identifier])
+        {
+            log.write(args);
+        }
+    }
+}
+*/

@@ -1,36 +1,12 @@
 module http.protocol.Date;
 
 import std.datetime;
-import std.format;
-import std.array;
+import std.string : format;
 import dlog.Logger;
 
-string[ubyte] days;
-string[ubyte] months;
-
-static this()
-{
-    days[0] = "Sun";
-    days[1] = "Mon";
-    days[2] = "Tue";
-    days[3] = "Wed";
-    days[4] = "Thu";
-    days[5] = "Fri";
-    days[6] = "Sat";
-
-    months[1] = "Jan";
-    months[2] = "Feb";
-    months[3] = "Mar";
-    months[4] = "Apr";
-    months[5] = "May";
-    months[6] = "Jun";
-    months[7] = "Jul";
-    months[8] = "Aug";
-    months[9] = "Sep";
-    months[10] = "Oct";
-    months[11] = "Nov";
-    months[12] = "Dec";
-}
+immutable string[] days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+immutable string[] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+enum rfc1123_format = "%s, %s %s %s %.02d:%.02d:%.02d GMT";
 
 string getDateRFC1123()
 {
@@ -41,16 +17,7 @@ string getDateRFC1123()
 
 private string toDateRFC1123(SysTime now)
 {
-    auto writer = appender!string();
-    enum rfc1123_format = "%s, %s %s %s %.02d:%.02d:%.02d GMT";
-    formattedWrite(writer,
-                   rfc1123_format, 
-                   days[now.dayOfWeek()], 
-                   now.day(), 
-                   months[now.month()], 
-                   now.year(), 
-                   now.hour(), now.minute(), now.second());
-    return writer.data;
+    return format(rfc1123_format, days[now.dayOfWeek()], now.day(), months[now.month()], now.year(), now.hour(), now.minute(), now.second());
 }
 
 unittest

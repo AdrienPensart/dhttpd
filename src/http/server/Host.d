@@ -33,6 +33,7 @@ class Host
 
     bool matchHostHeader(Request request)
     {
+        mixin(Tracer);
         foreach(host ; hosts)
         {
             if(request.hasHeader(Header.Host, host))

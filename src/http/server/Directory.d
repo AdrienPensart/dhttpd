@@ -8,6 +8,7 @@ import dlog.Logger;
 
 import http.server.Config;
 import http.server.Handler;
+import http.server.Cache;
 
 import http.protocol.Header;
 import http.protocol.Request;
@@ -17,16 +18,16 @@ import http.protocol.Status;
 
 class Directory : Handler
 {
-    this(string directory, string indexFilename, bool authListing=false)
+    this(Config config, string directory, string indexFilename, bool authListing=false)
     {
-        this.directory = directory;
+        this.config = config;
+        this.directory = config[Parameter.ROOT_DIR].toString() ~ directory;
         this.indexFilename = indexFilename;
     }
     
-    
-    
     Response execute(Request request, string hit)
     {
+        mixin(Tracer);
         try
         {
             auto response = new Response();
@@ -37,22 +38,36 @@ class Directory : Handler
                 finalPath = buildPath(finalPath, indexFilename);
             }
 
-            log.info("Final path asked : ", finalPath);
+            log.trace("Final path asked : ", finalPath);
             Method method = request.getMethod();
             if(method == Method.GET)
             {
-                log.info("GET method");
-                response.headers[Header.Server] = Config.getServerString();
+                log.trace("GET method");
+                response.headers[Header.Server] = config[Parameter.SERVER_STRING].toString();
                 response.protocol = request.getProtocol();
                 response.status = Status.Ok;
                 response.headers[Header.ContentType] = "text/html";
-                response.content = readText(finalPath);
-                
+
+                // cache lookup
+                Cache cache = config[Parameter.CACHE].get!(Cache);
+                UUID key = sha1UUID(finalPath);
+                if(cache.exists(key))
+                {
+                    log.trace("Load file ", finalPath, " from cache with key ", key);
+                    response.content = cache.get(key);
+                }
+                else
+                {
+                    log.trace("File ", finalPath, " is now in cache with key ", key);
+                    response.content = readText(finalPath);
+                    cache.add(key, response.content);
+                    log.trace("New cache size : ", cache.length());
+                }                
             }
             else if(method == Method.HEAD)
             {
-                log.info("HEAD method");
-                response.headers[Header.Server] = Config.getServerString();
+                log.trace("HEAD method");
+                response.headers[Header.Server] = config[Parameter.SERVER_STRING].toString();
                 response.protocol = request.getProtocol();
                 response.status = Status.Ok;
                 response.headers[Header.ContentType] = "text/html";
@@ -60,16 +75,16 @@ class Directory : Handler
             }
             else
             {
-                log.info("Bad method ", method, " => Not Allowed");
-                auto notAllowedResponse = new NotAllowedResponse();
+                log.trace("Bad method ", method, " => Not Allowed");
+                auto notAllowedResponse = new NotAllowedResponse(config[Parameter.NOT_ALLOWED_FILE].toString());
                 return notAllowedResponse;
             }
             return response;
         }
         catch(FileException fe)
         {
-            log.info(fe);
-            auto notFoundResponse = new NotFoundResponse();
+            log.trace(fe);
+            auto notFoundResponse = new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
             return notFoundResponse;
         }
     }
@@ -86,6 +101,7 @@ class Directory : Handler
 
     private:
 
+        Config config;
         string directory;
         string indexFilename;
 }

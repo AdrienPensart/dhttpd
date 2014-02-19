@@ -6,7 +6,6 @@ import std.stdio;
 import std.format;
 import std.conv;
 
-import http.server.Config;
 import http.protocol.Message;
 import http.protocol.Date;
 import http.protocol.Status;
@@ -25,6 +24,12 @@ class Response : Message
             headers[Header.Date] = getDateRFC1123();
         }
 
+        // HTTP 1.0 does not keep alive connection
+        if(getProtocol() == Protocol.HTTP_1_0)
+        {
+            headers[Header.Connection] = "close";
+        }
+
         auto writer = appender!string();
 
         string reason = toReason(status);
@@ -39,9 +44,11 @@ class Response : Message
             formattedWrite(writer, "%s: %s\r\n", index, value);
         }
         
+        formattedWrite(writer, "\r\n");
+
         if(content.length)
         {
-            formattedWrite(writer, "\r\n%s", content);
+            formattedWrite(writer, "%s", content);
         }
         
         return writer.data;
@@ -50,42 +57,39 @@ class Response : Message
 
 class BadRequestResponse : Response
 {
-    this()
+    this(string file)
     {
         status = Status.BadRequest;            
-        content = readText(Config.getInstallDir() ~ "/public/400.html");
+        content = readText(file);
         protocol = http.protocol.Protocol.Protocol.DEFAULT;
         //headers[Header.Connection] = "close";
         headers[Header.ContentType] = "text/html";
         headers[Header.Date] = getDateRFC1123();
-        headers[Header.Server] = Config.getServerString();
     }
 }
 
 class NotFoundResponse : Response
 {
-    this()
+    this(string file)
     {
         status = Status.NotFound;
-        content = readText(Config.getInstallDir() ~ "/public/404.html");
+        content = readText(file);
         protocol = http.protocol.Protocol.Protocol.DEFAULT;
         //headers[Header.Connection] = "close";
         headers[Header.ContentType] = "text/html";
         headers[Header.Date] = getDateRFC1123();
-        headers[Header.Server] = Config.getServerString();
     }
 }
 
 class NotAllowedResponse : Response
 {
-    this()
+    this(string file)
     {
         status = Status.NotAllowed;         
-        content = readText(Config.getInstallDir() ~ "/public/405.html");
+        content = readText(file);
         protocol = http.protocol.Protocol.Protocol.DEFAULT;
         //headers[Header.Connection] = "close";
         headers[Header.ContentType] = "text/html";
         headers[Header.Date] = getDateRFC1123();
-        headers[Header.Server] = Config.getServerString();
     }
 }

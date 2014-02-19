@@ -24,11 +24,12 @@ class Route
 
     Response dispatch(Request request)
     {
+        mixin(Tracer);
         auto m = matchRex(request);
     	if(m)
     	{
-    		log.info("Matched route : ", route);
-            log.info("Hit : ", m.hit);
+    		log.trace("Matched route : ", route);
+            log.trace("Hit : ", m.hit);
     		return handler.execute(request, m.hit);
     	}
     	return null;
@@ -38,7 +39,7 @@ class Route
     {
         string uri = request.getUri();
         string path = request.getPath();
-        log.info("ROUTE : ", route, ", URI : ", uri, ", PATH : ", path);
+        log.trace("ROUTE : ", route, ", URI : ", uri, ", PATH : ", path);
         return match(path, rex);
     }
 

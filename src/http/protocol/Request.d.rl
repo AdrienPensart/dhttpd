@@ -33,7 +33,7 @@ import http.protocol.Header;
         
         headers[field] = value;
         
-        log.info("Adding header : ", field, " : " , value);
+        log.trace("Adding header : ", field, " : " , value);
     }
 
     action start_value {
@@ -47,37 +47,37 @@ import http.protocol.Header;
     action query_string { 
         size_t end = fpc - buffer - query_start;
         query = raw[query_start..query_start+end];
-        log.info("Query : ", query);
+        log.trace("Query : ", query);
     }
     
     action fragment {
         size_t end = fpc - buffer - mark;
         fragment = raw[mark..mark+end];
-        log.info("Fragment : ", fragment);
+        log.trace("Fragment : ", fragment);
     }
     
     action request_method {
         size_t end = fpc - buffer - mark;
         setMethod(raw[mark..mark+end]);
-        log.info("Method : ", getMethod());
+        log.trace("Method : ", getMethod());
     }
     
     action request_uri {
         size_t end = fpc - buffer - mark;
         uri = raw[mark..mark+end];
-        log.info("URI : ", uri);
+        log.trace("URI : ", uri);
     }
     
     action http_version {
         size_t end = fpc - buffer - mark;
         setProtocol(raw[mark..mark+end]);
-        log.info("Protocole : ", getProtocol());
+        log.trace("Protocole : ", getProtocol());
     }
 
     action request_path {
         size_t end = fpc - buffer - mark;
         path = raw[mark..mark+end];
-        log.info("Path : ", path);
+        log.trace("Path : ", path);
     }
     
     action xml {
@@ -101,7 +101,7 @@ import http.protocol.Header;
         {
             content = raw[body_start .. body_start + pe - fpc - 1];
         }
-        log.info("Done, content : ", content, ", content.length : ", content.length);
+        log.trace("Done, content : ", content, ", content.length : ", content.length);
         fbreak;
     }
 
@@ -124,8 +124,9 @@ class Request : Message
         %% write init;
     }
 
-    size_t feed(string data)
+    size_t feed(char[] data)
     {
+        mixin(Tracer);
         if(!data.length)
         {
             return 0;

@@ -2,59 +2,193 @@ module http.server.Server;
 
 import std.socket;
 import std.file;
+import std.parallelism;
 import core.thread;
 import core.time;
 
 import dlog.Logger;
 
-import interruption.InterruptionException;
+import interruption.Interruptible;
 
-import http.server.Config;
 import http.server.Connection;
 import http.server.Host;
-import http.server.Options;
+import http.server.Config;
 
 import http.protocol.Header;
 import http.protocol.Response;
 import http.protocol.Request;
 import http.protocol.Status;
 
-class Server
+class ConnectionHandler : Thread
+{
+    this(Interruptible parent, Connection connection, Host[] hosts, Host defaultHost)
+    {
+        this.parent = parent;
+        this.connection = connection;
+        this.hosts = hosts;
+        this.defaultHost = defaultHost;
+        super(&run);
+    }
+
+    private void run()
+    {
+        mixin(Tracer);
+        while(!parent.interrupted())
+        {
+            log.trace("Waiting request");
+            State state = connection.handleRequest();
+            if(state == State.INTERRUPTED || state == State.CLOSED)
+            {
+                break;
+            }
+            else if(state == State.REQUEST)
+            {
+                connection.routeRequest(hosts, defaultHost);
+            }
+        }
+        log.trace("Connection handler for ", connection.getAddress(), " ended");
+    }
+
+    Interruptible parent;
+    Connection connection;
+    Host[] hosts;
+    Host defaultHost;
+}
+
+class Listener : Interruptible
+{
+    Host[] hosts;
+    Host defaultHost;
+    Socket[] listeners;
+    ushort[] ports;
+    string[] interfaces;
+    Config config;
+    Thread[] connectionThreads;
+    Duration keepAliveDuration;
+
+    this(
+        string[] interfaces, 
+        ushort[] ports, 
+        Host[] hosts,
+        Host defaultHost,
+        Config config
+        )
+    {
+        this.config = config;
+        this.interfaces = interfaces;
+        this.ports = ports;
+        this.hosts = hosts;
+        this.defaultHost = defaultHost;
+
+        foreach(host; hosts)
+        {
+            host.addSupportedPorts(ports);
+        }
+
+        foreach(netInterface ; interfaces)
+        {
+            log.info("Listening on ports : ", ports, " on interface ", netInterface);
+            foreach(port ; ports)
+            {
+                try
+                {
+                    auto listener = new TcpSocket;
+                    listener.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
+                    listener.bind(new InternetAddress(port));
+                    listener.listen(config[Parameter.BACKLOG].get!(int));
+                    listeners ~= listener;
+                }
+                catch(SocketOSException e)
+                {
+                    log.error("Can't bind to port ", port, ", reason : ", e.msg);
+                }
+            }
+        }
+    }
+
+    void run()
+    {
+        mixin(Tracer);
+        while(!interrupted())
+        {
+            log.trace("Waiting connections");
+            auto listenSet = new SocketSet(config[Parameter.MAX_CONNECTION].get!(int) + 1);
+            foreach(listener ; listeners)
+            {
+                listenSet.add(listener);
+            }
+
+            auto status = Socket.select(listenSet, null, null);
+            if (status == -1)
+            {
+                handleInterruption();
+            }
+            else
+            {
+                foreach(listener ; listeners)
+                {
+                    if(listenSet.isSet(listener))
+                    {
+                        auto acceptedSocket = listener.accept();
+                        auto connection = new Connection(acceptedSocket, config);
+                        auto connectionHandler = new ConnectionHandler(this, connection, hosts, defaultHost);
+                        connectionHandler.start();
+                        connectionThreads ~= connectionHandler;
+                    }
+                }
+            }
+        }
+        log.trace("Waiting for all threads to finish");
+        foreach(connectionThread ; connectionThreads)
+        {
+            connectionThread.join();
+        }
+    }    
+
+    ~this()
+    {
+        foreach(listener ; listeners)
+        {
+            listener.close();
+        }
+    }
+}
+
+class Server : Interruptible
 {
     private:
+
+        //Listener listener;
 
         Host[] hosts;
         string[] interfaces;
         Socket[] listeners;
         ushort[] ports;
-        Options options;
-        string serverString;
-        bool interrupted = false;
+        Config config;
         Connection[] connections;
         SocketSet sset;
         Duration keepAliveDuration;
+        Host defaultHost;
 
     public:
     
         this(string[] interfaces, 
              ushort[] ports, 
-             Host[] hosts, 
-             Options options=Config.getOptions(),
-             string serverString=Config.getServerString())
+             Host[] hosts,
+             Host defaultHost,
+             Config config)
         {
             this.interfaces = interfaces;
             this.ports = ports;
-
+            this.config = config;
+            this.defaultHost = defaultHost;
             this.hosts = hosts;
             foreach(host; hosts)
             {
                 host.addSupportedPorts(ports);
             }
 
-            this.options = options;
-            this.serverString = serverString;
-            keepAliveDuration = dur!"seconds"(options[Parameter.TIMEOUT]);
-            sset = new SocketSet(options[Parameter.MAX_CONNECTION] + 1);
+            sset = new SocketSet(config[Parameter.MAX_CONNECTION].get!(int) + 1);
             createListeners();
         }
 
@@ -76,7 +210,7 @@ class Server
                 return;
             }
 
-            while(!interrupted)
+            while(!interrupted())
             {
                 try
                 {
@@ -92,11 +226,6 @@ class Server
                     cleanConnections();
                 }
             }
-        }
-        
-        void interrupt() nothrow
-        {
-            interrupted = true;
         }
         
     private:
@@ -124,14 +253,6 @@ class Server
             }
         }
     
-        void handleInterruption()
-        {
-            log.info("Select interrupted.");
-            throw (interrupted ?
-                new InterruptionException : 
-                new InterruptionException("Select interrupted for unknow reason"));
-        }
-
         void handleReadyConnections()
         {
             mixin(Tracer);
@@ -139,7 +260,10 @@ class Server
             {
                 if(connection.isReady(sset))
                 {
-                    connection.handleRequest(hosts);
+                    if(connection.handleRequest())
+                    {
+                        connection.routeRequest(hosts, defaultHost);
+                    }
                 }
             }
         }
@@ -180,16 +304,16 @@ class Server
             try
             {
                 auto acceptedSocket = listener.accept();
-                auto connection = new Connection(acceptedSocket, keepAliveDuration, options[Parameter.MAX_REQUEST]);
+                auto connection = new Connection(acceptedSocket, config);
                 if (isTooManyConnections())
                 {
-                    log.warning("Rejected connection from ", connection.getHandle().remoteAddress().toString(), " too many connections.");
+                    log.warning("Rejected connection from ", connection.getAddress(), " too many connections.");
                     connection.close();
                 }
                 else
                 {
                     connections ~= connection;
-                    log.info("Connection from ", connection.getHandle().remoteAddress().toString(), " established, ", connections.length, " active connections");
+                    log.trace("Connection from ", connection.getAddress(), " established, ", connections.length, " active connections");
                 }
             }
             catch (Exception e)
@@ -211,7 +335,7 @@ class Server
                         auto listener = new TcpSocket;
                         listener.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
                         listener.bind(new InternetAddress(port));
-                        listener.listen(options[Parameter.BACKLOG]);
+                        listener.listen(config[Parameter.BACKLOG].get!(int));
                         listeners ~= listener;
                     }
                     catch(SocketOSException e)
@@ -224,7 +348,7 @@ class Server
 
         bool isTooManyConnections()
         {
-            return connections.length >= options[Parameter.MAX_CONNECTION];
+            return connections.length >= config[Parameter.MAX_CONNECTION].get!(int);
         }
 }
 

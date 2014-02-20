@@ -7,7 +7,7 @@ ulong toTime(TickDuration duration)
     return duration.nsecs;
 }
 
-class FunctionStatistic
+struct FunctionStatistic
 {
     this(string fullName)
     {

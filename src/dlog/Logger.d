@@ -21,6 +21,7 @@ import dlog.Message;
 enum DISABLE = 100;
 version(assert)
 {
+    // DEBUG
     enum Level
     {
         info = 1,
@@ -28,16 +29,17 @@ version(assert)
         error = 3, 
         warning = 4, 
         statistic = 5,
-        trace = 6, 
-        debugger = 7, 
-        test = 8
+        trace = 103, 
+        debugger = 104, 
+        test = 105
     }
 }
 else
 {
+    // RELEASE
     enum Level
     {
-        info = 101,
+        info = 1,
         fatal = 2,
         error = 3, 
         warning = 4,
@@ -85,7 +87,7 @@ class Logger
             }
         }
    	}
-            
+
     auto log(S...)(string level, S args)
     {
         synchronized
@@ -109,7 +111,7 @@ class Logger
                 UUID currentThreadUUID = randomUUID(gen);
                 threadName = currentThreadUUID.toString();
                 Thread.getThis().name(threadName);
-                threadLogs[threadName] = new ThreadLog(threadName);
+                threadLogs[threadName] = ThreadLog(threadName);
             }
             threadLogs[threadName].push(currentFunction);
         }
@@ -129,7 +131,7 @@ class Logger
         {
             if(!(functionFullName in functionStats))
             {
-                functionStats[functionFullName] = new FunctionStatistic(functionFullName);
+                functionStats[functionFullName] = FunctionStatistic(functionFullName);
             }
             functionStats[functionFullName].totalDuration += duration;
             functionStats[functionFullName].timesCalled += 1;

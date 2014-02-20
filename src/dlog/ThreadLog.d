@@ -3,7 +3,7 @@ module dlog.ThreadLog;
 import core.time;
 import std.array;
 
-class ThreadLog
+struct ThreadLog
 {
 	private string name;
 	private string[] callStack;

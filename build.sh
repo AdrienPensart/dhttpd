@@ -1,14 +1,21 @@
 #!/bin/bash
 
-ragel -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
+sources="src/*.d src/interruption/*.d src/dlog/*.d  src/http/protocol/*.d src/http/server/*.d"
+includes="-Isrc/ -Isrc/czmq"
+libraries="-L-luuid -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -L-lcurl"
+binoutput="-ofdhttpd"
+flags=""
+ragel_flags=""
 
 if [[ $1 == "release" ]]; then
-	dmd src/*.d src/interruption/*.d src/dlog/*.d  src/http/protocol/*.d src/http/server/*.d -ofdhttpd -Isrc/ -Isrc/czmq -L-lcurl -O -release -vtls
+	flags="-O -release -vtls"
+	ragel_flags="-G2"
 else
-	dmd src/*.d src/interruption/*.d src/dlog/*.d  src/http/protocol/*.d src/http/server/*.d -ofdhttpd -Isrc/ -Isrc/czmq -L-lcurl -unittest -debug -vtls
+	flags="-unittest -debug -vtls"
 fi
 
-#dmd zmq.d main.d -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -ofnotajoy
+ragel -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
+dmd $sources $includes $binoutput $libraries $flags
 
 # Graph generation
 #ragel -p -V src/HttpParsing.d.rl -o src/HttpParsing.dot

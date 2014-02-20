@@ -3,7 +3,7 @@ module dlog.FunctionLog;
 import dlog.Logger;
 import std.datetime;
 
-class FunctionLog
+struct FunctionLog
 {
     this(string functionName, string functionFullName)
     {

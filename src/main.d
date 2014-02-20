@@ -3,6 +3,10 @@
 import interruption.Manager;
 import interruption.Exception;
 
+import std.c.stdlib;
+import std.c.string;
+
+import std.string;
 import std.socket;
 import std.datetime;
 import std.file;
@@ -22,6 +26,8 @@ import http.server.Route;
 import http.server.Host;
 import http.server.Config;
 
+import czmq;
+
 int main(string[] args)
 {
     mixin(Tracer);
@@ -30,12 +36,13 @@ int main(string[] args)
         log.register(new ConsoleLogger);
         Cache cache = new Cache();
         Config config;
-        Server[] servers;
-        Listener[] listeners;
+        Runnable[] runners;
         Handler[Status] defaultHandlers;
-
+        int zmqMajor, zmqMinor, zmqPatch;
+        zmq_version(&zmqMajor, &zmqMinor, &zmqPatch);
         string installDir = dirName(thisExePath());
 
+        config[Parameter.ZMQ_VERSION] = format("%s.%s.%s", zmqMajor, zmqMinor, zmqPatch);
         config[Parameter.CACHE] = cache;
         config[Parameter.LOGGER] = log;
         config[Parameter.MAX_CONNECTION] = 60;
@@ -59,14 +66,13 @@ int main(string[] args)
         auto mainDir = new Directory(config, "/public", "index.html");
         auto mainRoute = new Route("^/main", mainDir);
         auto mainHost = new Host(["www.dhttpd.fr"], [mainRoute]);
-        auto mainListener = new Listener(["0.0.0.0"], [8080, 8081], [mainHost], mainHost, config);
-        listeners ~= mainListener;
+        auto mainPoller = new Poller(["0.0.0.0"], [8080, 8081], [mainHost], mainHost, config);
+        runners ~= mainPoller;
         
-        foreach(listener; listeners)
+        foreach(runner; runners)
         {
-            listener.run();
+            runner.run();
         }
-
         log.trace("Main ended.");
     }
     catch (Interruption i)

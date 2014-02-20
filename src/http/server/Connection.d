@@ -60,7 +60,8 @@ class Connection
     {
         mixin(Tracer);
 
-        scope auto handleSet = new SocketSet(config[Parameter.MAX_CONNECTION].get!(int) + 1);
+        /*
+        scope handleSet = new SocketSet(config[Parameter.MAX_CONNECTION].get!(int) + 1);
         handleSet.add(handle);
 
         auto selectStatus = Socket.select(handleSet, null, null, dur!"seconds"(1));
@@ -71,11 +72,12 @@ class Connection
         
         if(handleSet.isSet(handle))
         {
+        */
             char buffer[1024];
             auto datalength = handle.receive(buffer);
             if (datalength == Socket.ERROR)
             {
-                log.error("Connection error on ", address);
+                log.trace("Connection error on ", address);
                 close();
                 return State.CLOSED;
             }
@@ -102,8 +104,10 @@ class Connection
                 return State.REQUEST;
             }
             return State.DATA;
+        /*
         }
         return State.TIMEOUT;
+        */
     }
 
     void routeRequest(Host[] hosts, Host defaultHost)
@@ -149,6 +153,7 @@ class Connection
 
     private bool sendResponse(Response response)
     {
+        mixin(Tracer);
         bool writeResult = false;
         if(response !is null)
         {
@@ -174,7 +179,7 @@ class Connection
         auto datalength = handle.send(data);
         if (datalength == Socket.ERROR)
         {
-            log.error("Connection error.");
+            log.trace("Connection error.");
             return false;
         }
         else if(datalength == 0)

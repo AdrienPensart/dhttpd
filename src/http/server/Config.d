@@ -4,6 +4,7 @@ import std.variant;
 
 enum Parameter
 {
+	ZMQ_VERSION,
 	LOGGER,
 	MAX_CONNECTION, 
 	MAX_HEADER_SIZE, 

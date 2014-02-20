@@ -10,25 +10,27 @@ auto Tracer()
     {
         code ~= 
         q{
-            enum __marker{EMPTY};
+            enum __marker__;
 
-            const auto __context = __traits(identifier, (__traits(parent,__marker)));
+            const auto __context__ = __traits(identifier, (__traits(parent,__marker__)));
             // we are in a class method, extract Class.Method
             static if(__traits(compiles,this))
             {
-                const auto __context2 = typeof(this).stringof ~ "." ~ __context;
+                const auto __context2__ = typeof(this).stringof ~ "." ~ __context__;
             }
-            static if(__traits(compiles,__context2))
+            static if(__traits(compiles,__context2__))
             {
-                auto __tracer_ = new FunctionLog (__context2, __context2);
+                //scope __tracer__ = new FunctionLog (__context2__, __context2__);
+                FunctionLog __tracer__ = FunctionLog(__context2__, __context2__);
             }
             // we are in a normal function, extract Function name
             else
             {
-                auto __tracer_ = new FunctionLog (__context, fullyQualifiedName!(__traits(parent,__marker)));
+                //scope __tracer__ = new FunctionLog (__context__, fullyQualifiedName!(__traits(parent,__marker__)));
+                FunctionLog __tracer__ = FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
             }
 
-            scope(exit) __tracer_.ended();
+            scope(exit) __tracer__.ended();
         };
     }
     return code;

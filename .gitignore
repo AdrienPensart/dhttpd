@@ -3,3 +3,4 @@ src/http/protocol/Request.d
 *.log
 *.def
 dhttpd
+utils/profile

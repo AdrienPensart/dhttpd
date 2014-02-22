@@ -1,6 +1,7 @@
 #!/bin/bash
 
 sources="src/*.d src/interruption/*.d src/dlog/*.d  src/http/protocol/*.d src/http/server/*.d"
+#sources="src/*.d"
 includes="-Isrc/ -Isrc/czmq"
 libraries="-L-luuid -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -L-lcurl"
 binoutput="-ofdhttpd"

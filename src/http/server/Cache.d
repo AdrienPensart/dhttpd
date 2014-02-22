@@ -1,12 +1,11 @@
 module http.server.Cache;
 
+public import http.server.Transaction;
 public import std.uuid;
 
-
-class Cache
+class Cache (T)
 {
-	alias string[UUID] CacheBackend;
-	CacheBackend backend;
+	T[UUID] backend;
 
 	auto length()
 	{
@@ -23,9 +22,11 @@ class Cache
 		return backend[uuid];
 	}
 
-	auto add(UUID uuid, string data)
+	auto add(UUID uuid, T data)
 	{
 		backend[uuid] = data;
 	}
 }
 
+alias Cache!(string) FileCache;
+alias Cache!(Transaction) HttpCache;

@@ -1,50 +1,116 @@
 module http.protocol.Message;
 
 import std.uuid;
+import std.uni;
 
 import http.protocol.Protocol;
 import http.protocol.Header;
 
-class Message
-{
-    UUID id;
-    Protocol protocol;
-    string[string] headers;
-    string content;
+import dlog.Logger;
 
+alias string[string] Headers;
+
+abstract class Message
+{
     this()
     {
-        id = randomUUID();
+        //m_id = randomUUID();
+        m_updated = false;
     }
 
-    void setProtocol(string protocol)
+    //private UUID m_id;
+    private bool m_updated;
+    private string m_raw;
+    private Headers m_headers;
+    private string m_content;
+    private Protocol m_protocol;
+
+    @property bool updated()
     {
-        this.protocol = cast(Protocol)protocol;
+        return m_updated;
     }
-
-    auto getProtocol()
+    protected @property bool updated(bool a_updated)
     {
-        return protocol;
+        return m_updated = a_updated;
     }
 
-    auto getHeaders()
+    
+    @property ref string raw()
     {
-        return headers;
+        return m_raw;
     }
-
-    auto getHeader(Header header)
+    @property ref string raw(string a_raw)
     {
-        return headers[header];
+        m_raw = a_raw;
+        m_updated = true;
+        return m_raw;
     }
-
-    bool hasHeader(Header key)
+    void feed(char[] data)
+    {        
+        m_raw ~= data;
+        m_updated = true;
+        log.trace("Message data size is now = ", m_raw.length);
+    }
+    ref string get()
     {
-        return (key in headers) !is null;
+        return raw;
+    }
+    
+    @property UUID getId()
+    {
+        return sha1UUID(get());
     }
 
-    bool hasHeader(Header key, string value)
+    @property ref Headers headers()
+    {
+        return m_headers;
+    }
+    @property ref Headers headers(Headers a_headers)
+    {
+        m_headers = a_headers;
+        m_updated = true;
+        return m_headers;
+    }
+    bool hasHeader(string key, string value)
     {
         string headerValue = headers.get(key, "");
-        return value == headerValue;
+        return sicmp(value, headerValue) == 0;
+    }
+
+    @property string content(string a_content)
+    {
+        m_content = a_content;
+        m_updated = true;
+        return m_content;
+    }
+    @property string content()
+    {
+        return m_content;
+    }
+ 
+    @property Protocol protocol(ref Protocol a_protocol)
+    {
+        if(a_protocol == HTTP_1_0 || a_protocol == HTTP_1_1)
+        {
+            return m_protocol = a_protocol;
+        }
+        return m_protocol = HTTP_DEFAULT;
+    }
+    @property ref Protocol protocol()
+    {
+        return m_protocol;
+    }
+
+    bool keepalive()
+    {
+        if(protocol == HTTP_1_0 && hasHeader(FieldConnection, KeepAlive))
+        {
+            return true;
+        }
+        else if(protocol == HTTP_1_1 && !hasHeader(FieldConnection, Close))
+        {
+            return true;
+        }
+        return false;
     }
 }

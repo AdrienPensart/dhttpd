@@ -1,4 +1,4 @@
-module http.server.Host;
+module http.server.VirtualHost;
 
 import std.conv;
 
@@ -8,7 +8,7 @@ import http.protocol.Response;
 import http.protocol.Header;
 import dlog.Logger;
 
-class Host
+class VirtualHost
 {        
     this(string[] hosts, Route[] routes)
     {
@@ -36,7 +36,7 @@ class Host
         mixin(Tracer);
         foreach(host ; hosts)
         {
-            if(request.hasHeader(Header.Host, host))
+            if(request.hasHeader(FieldHost, host))
             {
                 return true;
             }

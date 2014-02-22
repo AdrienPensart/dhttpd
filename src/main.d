@@ -23,7 +23,7 @@ import http.server.Cache;
 import http.server.Handler;
 import http.server.Directory;
 import http.server.Route;
-import http.server.Host;
+import http.server.VirtualHost;
 import http.server.Config;
 
 import czmq;
@@ -34,7 +34,8 @@ int main(string[] args)
     try
     {
         log.register(new ConsoleLogger);
-        Cache cache = new Cache();
+        auto fileCache = new FileCache();
+        auto httpCache = new HttpCache();
         Config config;
         Runnable[] runners;
         Handler[Status] defaultHandlers;
@@ -43,13 +44,15 @@ int main(string[] args)
         string installDir = dirName(thisExePath());
 
         config[Parameter.ZMQ_VERSION] = format("%s.%s.%s", zmqMajor, zmqMinor, zmqPatch);
-        config[Parameter.CACHE] = cache;
+        config[Parameter.FILE_CACHE] = fileCache;
+        config[Parameter.HTTP_CACHE] = httpCache;
         config[Parameter.LOGGER] = log;
         config[Parameter.MAX_CONNECTION] = 60;
-        config[Parameter.BACKLOG] = 10;
+        config[Parameter.BACKLOG] = 131072;
         config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(120);
-        config[Parameter.MAX_REQUEST] = 10;
+        config[Parameter.MAX_REQUEST] = 1_000_000;
         config[Parameter.MAX_HEADER] = 100;
+        config[Parameter.MAX_REQUEST_SIZE] = 1000000;
         config[Parameter.SERVER_STRING] = "dhttpd";
         config[Parameter.INSTALL_DIR] = installDir;
         config[Parameter.ROOT_DIR] = installDir;
@@ -65,7 +68,7 @@ int main(string[] args)
 
         auto mainDir = new Directory(config, "/public", "index.html");
         auto mainRoute = new Route("^/main", mainDir);
-        auto mainHost = new Host(["www.dhttpd.fr"], [mainRoute]);
+        auto mainHost = new VirtualHost(["www.dhttpd.fr"], [mainRoute]);
         auto mainPoller = new Poller(["0.0.0.0"], [8080, 8081], [mainHost], mainHost, config);
         runners ~= mainPoller;
         
@@ -77,7 +80,7 @@ int main(string[] args)
     }
     catch (Interruption i)
     {
-        log.error("\n\nInterrupted : ", i.msg, "\n");
+        log.info("\n\nInterrupted : ", i.msg, "\n");
     }
     catch (SocketOSException e)
     {

@@ -1,6 +1,7 @@
 module http.protocol.Request;
 
 import std.string;
+import std.uni;
 
 import dlog.Logger;
 
@@ -30,10 +31,10 @@ import http.protocol.Header;
         
         size_t endValue = fpc - buffer - mark;
         string value = raw[mark..mark+endValue];
-        
-        headers[field] = value;
-        
+        field = toLower(field);
+
         log.trace("Adding header : ", field, " : " , value);
+        headers[field] = value;
     }
 
     action start_value {
@@ -70,8 +71,9 @@ import http.protocol.Header;
     
     action http_version {
         size_t end = fpc - buffer - mark;
-        setProtocol(raw[mark..mark+end]);
-        log.trace("Protocole : ", getProtocol());
+        // protocol string in validated in grammar
+        protocol = raw[mark..mark+end];
+        log.trace("Protocol : ", protocol);
     }
 
     action request_path {
@@ -101,7 +103,6 @@ import http.protocol.Header;
         {
             content = raw[body_start .. body_start + pe - fpc - 1];
         }
-        log.trace("Done, content : ", content, ", content.length : ", content.length);
         fbreak;
     }
 
@@ -124,24 +125,34 @@ class Request : Message
         %% write init;
     }
 
-    size_t feed(char[] data)
+    override void feed(char[] data)
     {
         mixin(Tracer);
-        if(!data.length)
-        {
-            return 0;
-        }
-            
-        off = raw.length;
-        raw ~= data;
-        char * buffer = cast(char*)raw.ptr;
+        log.trace("Feeding request");
+        super.feed(data);
+        lengthadded += data.length;
+    }
 
+    size_t parse()
+    {
+        mixin(Tracer);
+        log.trace("before parsing, raw.length = ", raw.length);
+        log.trace("before parsing, lengthadded = ", lengthadded);
+        log.trace("before parsing, off = ", off);
+
+        off = raw.length - lengthadded;
+        char * buffer = cast(char*)raw.ptr;
         char * p = buffer + off;
-        char * pe = p + data.length;
+        char * pe = p + lengthadded;
 
         %% write exec;
 
         nread += p - (buffer + off);
+        lengthadded = off;
+
+        log.trace("after parsing, lengthadded = ", lengthadded);
+        log.trace("after parsing, off = ", off);
+        log.trace("after parsing, nread = ", nread);
         return nread;
     }
 
@@ -193,7 +204,7 @@ class Request : Message
     {
         return uri;
     }
-    
+
     private:
         // parsed request
         string query;
@@ -205,6 +216,7 @@ class Request : Message
         // parser data
         int cs;
         size_t nread;
+        size_t lengthadded;
         size_t off;
         long mark;
         long field_start;
@@ -214,7 +226,6 @@ class Request : Message
         long content_len;
         bool xml_sent;
         bool json_sent;
-        string raw;
 }
 
 unittest

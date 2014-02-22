@@ -1,3 +1,5 @@
-src/http/protocol/Parser.d
+src/http/protocol/Request.d
 *.o
+*.log
+*.def
 dhttpd

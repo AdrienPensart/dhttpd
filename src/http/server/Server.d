@@ -12,7 +12,7 @@ import interruption.Manager;
 import interruption.Interruptible;
 
 import http.server.Connection;
-import http.server.Host;
+import http.server.VirtualHost;
 import http.server.Config;
 
 import http.protocol.Header;
@@ -28,6 +28,185 @@ interface Runnable
     void run();
 }
 
+extern(C) int AcceptHandler(zloop_t* loop, zmq_pollitem_t* item, void* arg)
+{
+    Poller poller = cast(Poller)arg;
+    poller.newConnection(item);
+    return 0;
+}
+
+extern(C) int RequestHandler(zloop_t* loop, zmq_pollitem_t* item, void* arg)
+{
+    Poller poller = cast(Poller)arg;
+    poller.handleConnection(item);
+    return 0;
+}
+
+class Poller : Interruptible, Runnable
+{
+    VirtualHost[] hosts;
+    VirtualHost defaultHost;
+    Socket[int] listeners;
+    Connection[int] connections;
+
+    ushort[] ports;
+    string[] interfaces;
+    Config config;
+    Duration keepAliveDuration;
+
+    zctx_t * context;
+    zloop_t * loop;
+    //zmq_pollitem_t*[] polls;
+
+    this(
+            string[] interfaces, 
+            ushort[] ports, 
+            VirtualHost[] hosts,
+            VirtualHost defaultHost,
+            Config config
+        )
+    {
+        context = zctx_new();        
+        //zctx_set_linger (context, 10);
+
+        loop = zloop_new();
+        //zloop_set_verbose (loop, true);
+
+        this.config = config;
+        this.interfaces = interfaces;
+        this.ports = ports;
+        this.hosts = hosts;
+        this.defaultHost = defaultHost;
+
+        foreach(host; hosts)
+        {
+            host.addSupportedPorts(ports);
+        }
+
+        foreach(netInterface ; interfaces)
+        {
+            log.info("Listening on ports : ", ports, " on interface ", netInterface);
+            foreach(port ; ports)
+            {
+                try
+                {
+                    auto listener = new TcpSocket;
+                    listener.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
+                    
+                    Linger l;
+                    l.on = 1;
+                    l.time = 1;
+
+                    listener.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, l);
+                    listener.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+
+                    listener.bind(new InternetAddress(port));
+                    listener.blocking = false;                    
+                    listener.listen(config[Parameter.BACKLOG].get!(int));
+                    listeners[listener.handle()] = listener;
+
+                    auto pollitem = new zmq_pollitem_t();
+                    pollitem.fd = listener.handle();
+                    pollitem.events = ZMQ_POLLIN;
+                    
+                    auto rc = zloop_poller (loop, pollitem, &AcceptHandler, cast(void*)this);
+                    enforce(rc == 0);
+
+                    //polls ~= pollitem;
+
+                }
+                catch(SocketOSException e)
+                {
+                    log.error("Can't bind to port ", port, ", reason : ", e);
+                }
+            }
+        }
+    }
+
+    ~this()
+    {
+        log.info("Left connections length : ", connections.length);
+
+        import std.stdio;
+        writeln("destructor");
+        foreach(listener ; listeners)
+        {
+            listener.close();
+        }
+        zloop_destroy(&loop);
+        zctx_destroy(&context);
+    }
+
+    void newConnection(zmq_pollitem_t * item)
+    {
+        mixin(Tracer);
+        try
+        {
+            log.trace("New connection");
+            auto listener = listeners[item.fd];
+            auto acceptedSocket = listener.accept();
+            acceptedSocket.blocking = false;
+            acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+
+            auto connection = new Connection(acceptedSocket, config);
+            connections[acceptedSocket.handle()] = connection;
+
+            auto pollitem = new zmq_pollitem_t();
+            pollitem.fd = acceptedSocket.handle();
+            pollitem.events = ZMQ_POLLIN;
+
+            auto rc = zloop_poller (loop, pollitem, &RequestHandler, cast(void*)this);
+            //enforce(rc == 0);
+            //polls ~= pollitem;
+        }
+        catch(Exception e)
+        {
+            log.error(e);
+        }
+    }
+
+    void handleConnection(zmq_pollitem_t * item)
+    {
+        mixin(Tracer);
+        try
+        {
+            auto connection = connections[item.fd];
+            connection.handleRequest(hosts, defaultHost);
+            if(!connection.isValid())
+            {
+                zloop_poller_end(loop, item);
+                connection.close();
+                connections.remove(item.fd);
+            }
+        }
+        catch(Exception e)
+        {
+            log.error(e);
+        }
+    }
+
+    void run()
+    {
+        while(!interrupted())
+        {
+            int zloopResult = zloop_start (loop);
+            if(zloopResult == 0)
+            {
+                handleInterruption();
+            }
+            else if(zloopResult == -1)
+            {
+                log.info("interrupted by handler");
+            }
+            else
+            {
+                log.info("interrupted by unknown event");
+            }
+        }
+    }
+}
+
+/*
 class ConnectionHandler : Thread
 {
     this(Interruptible parent, Connection connection, Host[] hosts, Host defaultHost)
@@ -62,168 +241,6 @@ class ConnectionHandler : Thread
     Connection connection;
     Host[] hosts;
     Host defaultHost;
-}
-
-extern(C) int AcceptHandler(zloop_t* loop, zmq_pollitem_t* item, void* arg)
-{
-    log.trace("New connection");
-    Poller poller = cast(Poller)arg;
-    poller.newConnection(item);
-    return 0;
-}
-
-extern(C) int RequestHandler(zloop_t* loop, zmq_pollitem_t* item, void* arg)
-{
-    log.trace("New request");
-    Poller poller = cast(Poller)arg;
-    poller.handleConnection(item);
-    return 0;
-}
-
-class Poller : Interruptible, Runnable
-{
-    Host[] hosts;
-    Host defaultHost;
-    Socket[int] listeners;
-    Connection[int] connections;
-
-    ushort[] ports;
-    string[] interfaces;
-    Config config;
-    Duration keepAliveDuration;
-
-    zctx_t * context;
-    zloop_t * loop;
-    //zmq_pollitem_t*[] polls;
-
-    this(
-            string[] interfaces, 
-            ushort[] ports, 
-            Host[] hosts,
-            Host defaultHost,
-            Config config
-        )
-    {
-        mixin(Tracer);        
-        context = zctx_new();        
-        zctx_set_linger (context, 10);
-
-        loop = zloop_new();
-        //zloop_set_verbose (loop, true);
-
-        this.config = config;
-        this.interfaces = interfaces;
-        this.ports = ports;
-        this.hosts = hosts;
-        this.defaultHost = defaultHost;
-
-        foreach(host; hosts)
-        {
-            host.addSupportedPorts(ports);
-        }
-
-        foreach(netInterface ; interfaces)
-        {
-            log.info("Listening on ports : ", ports, " on interface ", netInterface);
-            foreach(port ; ports)
-            {
-                try
-                {
-                    auto listener = new TcpSocket;
-                    listener.blocking = false;
-                    listener.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
-                    listener.bind(new InternetAddress(port));
-                    listener.listen(config[Parameter.BACKLOG].get!(int));
-                    listeners[listener.handle()] = listener;
-
-                    auto pollitem = new zmq_pollitem_t();
-                    pollitem.fd = listener.handle();
-                    pollitem.events = ZMQ_POLLIN;
-                    
-                    auto rc = zloop_poller (loop, pollitem, &AcceptHandler, cast(void*)this);
-                    enforce(rc == 0);
-
-                    //polls ~= pollitem;
-
-                }
-                catch(SocketOSException e)
-                {
-                    log.error("Can't bind to port ", port, ", reason : ", e.msg);
-                }
-            }
-        }
-    }
-
-    ~this()
-    {
-        log.info("Left connections length : ", connections.length);
-
-        foreach(listener ; listeners)
-        {
-            listener.close();
-        }
-        zloop_destroy(&loop);
-        zctx_destroy(&context);
-    }
-
-    void newConnection(zmq_pollitem_t * item)
-    {
-        mixin(Tracer);
-        auto listener = listeners[item.fd];
-        auto acceptedSocket = listener.accept();
-        acceptedSocket.blocking = false;
-
-        auto connection = new Connection(acceptedSocket, config);
-        connections[acceptedSocket.handle()] = connection;
-
-        auto pollitem = new zmq_pollitem_t();
-        pollitem.fd = acceptedSocket.handle();
-        pollitem.events = ZMQ_POLLIN;
-
-        auto rc = zloop_poller (loop, pollitem, &RequestHandler, cast(void*)this);
-        enforce(rc == 0);
-
-        //polls ~= pollitem;
-    }
-
-    void handleConnection(zmq_pollitem_t * item)
-    {
-        mixin(Tracer);
-        auto connection = connections[item.fd];
-        State state = connection.handleRequest();
-        if(state == State.REQUEST)
-        {
-            connection.routeRequest(hosts, defaultHost);
-        }
-        else if(state == State.CLOSED)
-        {
-            log.trace("Ending poller");
-            zloop_poller_end(loop, item);
-            connections.remove(item.fd);
-        }
-    }
-
-    void run()
-    {
-        mixin(Tracer);
-        while(!interrupted())
-        {
-            int zloopResult = zloop_start (loop);
-            if(zloopResult == 0)
-            {
-                log.info("interrupted by user");
-                handleInterruption();
-            }
-            else if(zloopResult == -1)
-            {
-                log.info("interrupted by handler");
-            }
-            else
-            {
-                log.info("interrupted by unknown event");
-            }
-        }
-    }
 }
 
 class Listener : Interruptible, Runnable
@@ -317,13 +334,12 @@ class Listener : Interruptible, Runnable
                 }
             }
         }
-        /*
+        
         log.trace("Waiting for all threads to finish");
         foreach(connectionThread ; connectionThreads)
         {
             connectionThread.join();
         }
-        */
     }
 }
 
@@ -526,3 +542,4 @@ class Server : Interruptible, Runnable
             return connections.length >= config[Parameter.MAX_CONNECTION].get!(int);
         }
 }
+*/

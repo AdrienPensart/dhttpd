@@ -1,15 +1,16 @@
 module dlog.Logger;
 
-import std.stdio;
+import core.thread : TickDuration, Thread, nsecs;
+import std.algorithm : sort;
+import std.traits : EnumMembers;
+
 import std.format;
 import std.array;
 import std.string;
 import std.random;
 import std.uuid;
 import std.conv;
-import std.algorithm;
-import std.traits : EnumMembers;
-import core.thread;
+
 
 public import dlog.LogBackend;
 public import dlog.Tracer;
@@ -29,7 +30,7 @@ version(assert)
         error = 3, 
         warning = 4, 
         statistic = 5,
-        trace = 103, 
+        trace = 6, 
         debugger = 104, 
         test = 105
     }
@@ -43,7 +44,7 @@ else
         fatal = 2,
         error = 3, 
         warning = 4,
-        statistic = 5,
+        statistic = 102,
         trace = 103, 
         debugger = 104, 
         test = 105
@@ -73,6 +74,25 @@ class Logger
         gen.seed(unpredictableSeed);
     }
 
+    private string getThreadName()
+    {
+        return Thread.getThis().name();
+    }
+
+    private ref ThreadLog getThreadLog()
+    {
+        auto threadName = getThreadName();
+        // thread uuid creation
+        if(!threadName.length)
+        {
+            UUID currentThreadUUID = randomUUID(gen);
+            threadName = currentThreadUUID.toString();
+            Thread.getThis().name(threadName);
+            threadLogs[threadName] = ThreadLog(threadName);
+        }
+        return threadLogs[threadName];
+    }
+
   	auto register(LogBackend lb, immutable string[] levelsFilter=levels)
    	{
         synchronized
@@ -81,10 +101,13 @@ class Logger
             {
                 backends[level] ~= lb;
             }
+            /*
             if(levelsFilter.length)
             {
+                import std.stdio : writefln;
                 writefln("Existing levels : %-(%s, %)", levelsFilter);
             }
+            */
         }
    	}
 
@@ -99,29 +122,19 @@ class Logger
         }
     }
     
-    auto enterFunction(string currentFunction)
+    auto enter(string currentFunction)
     {
         synchronized
         {
-            auto threadName = Thread.getThis().name();
-
-            // thread uuid creation
-            if(!threadName.length)
-            {
-                UUID currentThreadUUID = randomUUID(gen);
-                threadName = currentThreadUUID.toString();
-                Thread.getThis().name(threadName);
-                threadLogs[threadName] = ThreadLog(threadName);
-            }
-            threadLogs[threadName].push(currentFunction);
+            getThreadLog().push(currentFunction);
         }
     }
  
-    auto leaveFunction(string currentFunction)
+    auto leave(string currentFunction)
     {
         synchronized
         {
-            threadLogs[Thread.getThis().name()].pop();
+            getThreadLog().pop();
         }
     }
 
@@ -201,15 +214,14 @@ class Logger
                 auto supportedBackends = backends[type];
 	            foreach(backend; supportedBackends)
 	            {
-                    auto threadName = Thread.getThis().name();
-                    auto m = new Message(type, threadName, writer.data);
-
-                    m.graph = threadLogs[threadName].getStackTrace();
-	                backend.log(m);
+                    auto threadLog = getThreadLog();
+                    auto message = new Message(type, threadLog.getName(), writer.data, threadLog.stack());
+	                backend.log(message);
         	    }
         	}
     	}
 
+        // UUID Random generator
         Xorshift192 gen;
 
         // stores the total time of execution for each functions

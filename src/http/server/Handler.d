@@ -1,6 +1,5 @@
 module http.server.Handler;
 
-import http.server.Host;
 import http.server.Connection;
 import http.server.Route;
 

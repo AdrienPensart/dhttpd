@@ -2,6 +2,7 @@ module interruption.Interruptible;
 
 import core.stdc.errno;
 import core.stdc.signal;
+import czmq;
 import interruption.Exception;
 import interruption.Manager;
 import dlog.Logger;
@@ -25,6 +26,7 @@ abstract class Interruptible
     {
         m_signal = bySignal;
         m_interrupted = true;
+        zctx_interrupted = true;
     }
 
     bool interrupted()
@@ -35,12 +37,10 @@ abstract class Interruptible
     void handleInterruption()
     {
         mixin(Tracer);
-        log.trace("interruption : ", m_interrupted, ", signal : ", m_signal, ", errno : ", errno());
         if(errno() == EINTR && m_signal == SIGINT)
         {
             if(interrupted())
             {
-                log.trace("=> by user");
                 throw new UserInterruption();
             }
         }
@@ -48,7 +48,6 @@ abstract class Interruptible
         {
             if(interrupted())
             {
-                log.trace("=> by OTHER");
                 m_interrupted = false;
                 m_signal = -1;
             }

@@ -6,7 +6,7 @@ public import std.traits : fullyQualifiedName;
 auto Tracer()
 {
     string code;
-    //version(assert)
+    version(assert)
     {
         code ~= 
         q{
@@ -20,13 +20,11 @@ auto Tracer()
             }
             static if(__traits(compiles,__context2__))
             {
-                //scope __tracer__ = new FunctionLog (__context2__, __context2__);
                 FunctionLog __tracer__ = FunctionLog(__context2__, __context2__);
             }
             // we are in a normal function, extract Function name
             else
             {
-                //scope __tracer__ = new FunctionLog (__context__, fullyQualifiedName!(__traits(parent,__marker__)));
                 FunctionLog __tracer__ = FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
             }
 

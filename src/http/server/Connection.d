@@ -3,7 +3,6 @@ module http.server.Connection;
 import std.socket;
 import std.array;
 import std.file;
-import core.thread;
 import core.time;
 
 import http.protocol.Protocol;
@@ -13,24 +12,150 @@ import http.protocol.Status;
 import http.protocol.Header;
 
 import http.server.Config;
-import http.server.Host;
+import http.server.Cache;
+import http.server.VirtualHost;
 
 import dlog.Logger;
 
-enum State { TIMEOUT, INTERRUPTED, CLOSED, DATA, REQUEST };
-
 class Connection
 {
+    private HttpCache cache;
+    private bool keepalive;
+    private Config config;
+    private Address address;
+    private Socket handle;
+    private Duration keepAliveDuration;
+    private TickDuration keepAliveTimer;
+    private uint maxRequest;
+    private uint processedRequest;
+    private Request currentRequest;
+
     this(Socket handle, Config config)
     {
+        keepalive = true;
         this.handle = handle;
         this.address = handle.remoteAddress();
         this.config = config;
-        setKeepAliveDuration(keepAliveDuration);
-        setMaxRequest(maxRequest);
+        this.cache = config[Parameter.HTTP_CACHE].get!(HttpCache);
+        setKeepAliveDuration(config[Parameter.KEEP_ALIVE_TIMEOUT].get!(Duration));
+        setMaxRequest(config[Parameter.MAX_REQUEST].get!(int));
         refreshKeepAlive();
     }
     
+    void handleRequest(VirtualHost[] hosts, VirtualHost defaultHost)
+    {
+        mixin(Tracer);
+        auto buffer = readChunk();
+        if(!buffer.length)
+            return;
+
+        if(currentRequest is null)
+        {
+            currentRequest = new Request();
+        }
+        currentRequest.feed(buffer);
+
+        // search in cache, build UUID of request
+        UUID requestId = currentRequest.getId();
+        if(cache.exists(requestId))
+        {
+            log.trace("HTTP cache hit on ", requestId);
+            Transaction transaction = cache.get(requestId);
+            send(transaction.response);
+            currentRequest = null;
+        }
+        else
+        {                                                                  
+            log.trace("HTTP cache DIT NOT hit, parsing request");
+            currentRequest.parse();
+            Request.Status status = currentRequest.getStatus();
+            if(status == Request.Status.Finished)
+            {
+                Response currentResponse = null;
+                //log.trace("Request ready : \n\"\n",currentRequest.get(), "\"");
+                foreach(host ; hosts)
+                {
+                    if(host.matchHostHeader(currentRequest))
+                    {
+                        currentResponse = host.dispatch(currentRequest);
+                        break;
+                    }
+                }
+
+                if(currentResponse is null)
+                {
+                    // not host found, fallback on default host
+                    if(defaultHost !is null)
+                    {
+                        log.warning("Host not found => Fallback on default");
+                        currentResponse = defaultHost.dispatch(currentRequest);
+                    }
+                    else
+                    {
+                        log.warning("Host not found and no default host => Not Found");
+                        currentResponse = new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
+                    }
+                }
+
+                if(currentResponse is null)
+                {
+                    currentResponse = new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
+                }
+
+                log.trace("Saving transaction in cache");
+                if(!currentRequest.keepalive())
+                {
+                    log.trace("Disable keep-alive");
+                    currentResponse.headers[FieldConnection] = "close";
+                }
+                
+                currentResponse.protocol = currentRequest.protocol;
+                currentResponse.headers[FieldServer] = config[Parameter.SERVER_STRING].toString();
+
+                // put request and response in cache
+                Transaction transaction = new Transaction();
+                transaction.request = currentRequest;
+                transaction.response = currentResponse;
+
+                cache.add(requestId, transaction);
+
+                log.info("Request cached : \n", transaction.request.get());
+                log.info("Response cached : \n", transaction.response.get());
+
+                send(transaction.response);
+                currentRequest = null;
+            }
+            else if(status == Request.Status.HasError)
+            {
+                log.warning("Malformed request => Bad Request");
+                Response badRequestResponse = new BadRequestResponse(config[Parameter.BAD_REQUEST_FILE].toString());
+                badRequestResponse.protocol = currentRequest.protocol;
+                send(badRequestResponse);
+                currentRequest = null;
+            }
+            else if(status == Request.Status.NotFinished)
+            {
+                log.trace("Request not finished");
+            }
+        }
+    }
+
+    private bool send(Response response)
+    {
+        mixin(Tracer);
+        //log.trace("Sending response : \n\"\n", response.get(), "\"");
+        if(response.keepalive())
+        {
+            processedRequest++;
+            refreshKeepAlive();
+        }
+        else
+        {
+            keepalive = false;
+        }
+        return writeChunk(response.get());
+    }
+
     Socket getHandle()
     {
         return handle;
@@ -48,124 +173,14 @@ class Connection
 
     void close()
     {
+        /*
         if(handle.isAlive)
         {
             handle.shutdown(SocketShutdown.BOTH);
         }
+        */
         handle.close();
-        log.trace("Connection ", address, " closed.");
-    }
-
-    State handleRequest()
-    {
-        mixin(Tracer);
-
-        /*
-        scope handleSet = new SocketSet(config[Parameter.MAX_CONNECTION].get!(int) + 1);
-        handleSet.add(handle);
-
-        auto selectStatus = Socket.select(handleSet, null, null, dur!"seconds"(1));
-        if (selectStatus == -1)
-        {
-            return State.INTERRUPTED;
-        }
-        
-        if(handleSet.isSet(handle))
-        {
-        */
-            char buffer[1024];
-            auto datalength = handle.receive(buffer);
-            if (datalength == Socket.ERROR)
-            {
-                log.trace("Connection error on ", address);
-                close();
-                return State.CLOSED;
-            }
-            else if(datalength == 0)
-            {
-                log.trace("No data on ", address);
-                close();
-                return State.CLOSED;
-            }
-
-            if(request is null)
-            {
-                request = new Request();
-            }
-
-            log.trace("Received ", datalength, " bytes from ", address, "\n\"\n", buffer[0 .. datalength], "\"");
-            request.feed(buffer[0 .. datalength]);
-            Request.Status status = request.getStatus();
-            if(status == Request.Status.Finished || status == Request.Status.HasError)
-            {
-                log.trace("Request ready.");
-                processedRequest += 1;
-                refreshKeepAlive();
-                return State.REQUEST;
-            }
-            return State.DATA;
-        /*
-        }
-        return State.TIMEOUT;
-        */
-    }
-
-    void routeRequest(Host[] hosts, Host defaultHost)
-    {
-        mixin(Tracer);
-        log.trace("Routing request");
-        scope(exit) request = null;
-        
-        if(request.hasError())
-        {
-            log.warning("Malformed request => Bad Request");
-            auto badRequestResponse = new BadRequestResponse(config[Parameter.BAD_REQUEST_FILE].toString());
-            sendResponse(badRequestResponse);
-            close();
-        }
-        else
-        {
-            foreach(host ; hosts)
-            {
-                if(host.matchHostHeader(request))
-                {
-                    Response response = host.dispatch(request);
-                    sendResponse(response);
-                    return;
-                }
-            }
-        }
-
-        // not host found, fallback on default host
-        if(defaultHost !is null)
-        {
-            log.warning("Host not found => Fallback on default");
-            Response response = defaultHost.dispatch(request);
-            sendResponse(response);
-        }
-        else
-        {
-            log.warning("Host not found and no default host => Not Found");
-            auto hostNotFoundResponse = new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
-            sendResponse(hostNotFoundResponse);
-        }
-    }
-
-    private bool sendResponse(Response response)
-    {
-        mixin(Tracer);
-        bool writeResult = false;
-        if(response !is null)
-        {
-            response.headers[Header.Server] = config[Parameter.SERVER_STRING].toString();
-            string buffer = response.get();
-            writeResult = writeChunk(buffer);
-            if(response.hasHeader(Header.Connection, "close"))
-            {
-                close();
-            }
-        }
-        return writeResult;
+        //log.trace("Connection ", address, " closed.");
     }
 
     private void refreshKeepAlive()
@@ -173,9 +188,27 @@ class Connection
         keepAliveTimer = TickDuration.currSystemTick();
     }
     
-    private bool writeChunk(string data)
+    private char[] readChunk()
     {
-        mixin(Tracer);
+        static char buffer[1024];
+        auto datalength = handle.receive(buffer);
+        if (datalength == Socket.ERROR)
+        {
+            log.trace("receive socket error");
+            keepalive = false;
+            return [];
+        }
+        else if(datalength == 0)
+        {
+            log.trace("no data on socket, disconnected");
+            keepalive = false;
+            return [];
+        }
+        return buffer[0..datalength];
+    }
+
+    private bool writeChunk(ref string data)
+    {
         auto datalength = handle.send(data);
         if (datalength == Socket.ERROR)
         {
@@ -187,7 +220,6 @@ class Connection
             log.trace("Connection from ", address, " closed.");
             return false;
         }
-        log.trace("Sent ", datalength, " bytes to ", address, "\n\"\n", data, "\n\"");
         return true;
     }
         
@@ -198,23 +230,24 @@ class Connection
 
     bool tooMuchRequests()
     {
+        log.trace("Processed requests : ", processedRequest);
+        log.trace("Max requests : ", maxRequest);
+        log.trace("Too much request : ", processedRequest > maxRequest);
         return processedRequest > maxRequest;
-    }
-
-    bool isReady(SocketSet sset)
-    {
-        return cast(bool) sset.isSet(handle);
     }
 
     bool isValid()
     {
-        return !isTimeout() && !tooMuchRequests() && isAlive();
+        log.trace("keep alive ? : ", keepalive);
+        return keepalive && !isTimeout() && !tooMuchRequests() && isAlive();
     }
 
     bool isTimeout()
     {
-        TickDuration currentDuration =  TickDuration.currSystemTick() - keepAliveTimer;
+        TickDuration currentDuration = TickDuration.currSystemTick() - keepAliveTimer;
         Duration duration = keepAliveDuration - currentDuration;
+        log.trace("Duration : ", duration);
+        log.trace("Connection timeout ? ", duration.isNegative());
         return duration.isNegative();
     }
 
@@ -222,15 +255,4 @@ class Connection
     {
         return address;
     }
-
-    private:
-
-        Config config;
-        Address address;
-        Socket handle;
-        Duration keepAliveDuration;
-        TickDuration keepAliveTimer;
-        uint maxRequest;
-        uint processedRequest;
-        Request request;
 }

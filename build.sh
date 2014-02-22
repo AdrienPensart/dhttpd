@@ -8,13 +8,14 @@ flags=""
 ragel_flags=""
 
 if [[ $1 == "release" ]]; then
-	flags="-O -release -vtls"
+	flags="-O -release -vtls -profile"
 	ragel_flags="-G2"
 else
-	flags="-unittest -debug -vtls"
+	flags="-unittest -debug -vtls -profile -gc"
 fi
 
 ragel -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
+
 dmd $sources $includes $binoutput $libraries $flags
 
 # Graph generation

@@ -10,13 +10,13 @@ struct FunctionLog
         this.duration = TickDuration.currSystemTick();
         this.functionName = functionName;
         this.functionFullName = functionFullName;
-        log.enterFunction(functionName);
+        log.enter(functionName);
     }
     
     auto ended()
     {
         duration =  TickDuration.currSystemTick() - duration;
-        log.leaveFunction(functionName);
+        log.leave(functionName);
         log.savePerfFunction(functionFullName, duration);
     }
 

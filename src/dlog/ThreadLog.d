@@ -2,6 +2,7 @@ module dlog.ThreadLog;
 
 import core.time;
 import std.array;
+import std.string;
 
 struct ThreadLog
 {
@@ -15,15 +16,15 @@ struct ThreadLog
 		this.name = name;
 		this.origin = TickDuration.currSystemTick();
 	}
+	
+	auto getName()
+	{
+		return name;
+	}
 
 	auto push(string functionName)
 	{
 		callStack ~= functionName;
-	}
-
-	auto getName()
-	{
-		return name;
 	}
 
 	auto pop()
@@ -40,21 +41,9 @@ struct ThreadLog
 		}
 	}
 
-	auto getStackTrace()
+	string stack()
     {
-        string st;
-        version(assert)
-        {
-            synchronized
-            {
-                foreach(index, context ; callStack)
-                {
-                    st ~= ((index > 0 ? ":" : "") ~ context);
-                }
-                return st;
-            }
-        }
-        return st;
+        return join(callStack, ":");
     }
 
     auto getDuration()

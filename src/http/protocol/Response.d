@@ -1,5 +1,6 @@
 module http.protocol.Response;
 
+import std.datetime;
 import std.file;
 import std.array;
 import std.stdio;
@@ -12,46 +13,64 @@ import http.protocol.Status;
 import http.protocol.Protocol;
 import http.protocol.Header;
 
+import dlog.Logger;
+
 class Response : Message
 {
     Status status;
     string[string] cookies;
-    
-    string get()
+    SysTime buildAt;
+
+    this()
     {
-        if(status != Status.Continue || status != Status.SwitchProtocol || isError(status))
-        {
-            headers[Header.Date] = getDateRFC1123();
-        }
+        updated = true;
+    }
 
-        // HTTP 1.0 does not keep alive connection
-        if(getProtocol() == Protocol.HTTP_1_0)
+    // TODO : Cookies handling
+    override ref string get()
+    {
+        mixin(Tracer);
+        // one field was updated, rebuild response buffer
+        if(updated)
         {
-            headers[Header.Connection] = "close";
-        }
+            if(status != Status.Continue || status != Status.SwitchProtocol || isError(status))
+            {
+                headers[FieldDate] = "";
+                updateToRFC1123(buildAt, headers[FieldDate]);
+                buildAt = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
+            }
 
-        auto writer = appender!string();
+            // HTTP 1.0 does not keep connection alive by default
+            /*
+            if(protocol == HTTP_1_0 && !hasHeader(Header.Connection, "Keep-Alive"))
+            {
+                headers[Header.Connection] = "close";
+            }
+            */
 
-        string reason = toReason(status);
-        formattedWrite(writer, "%s %d %s\r\n", cast(string)protocol, status, reason);
-        if(content.length)
-        {
-            headers[Header.ContentLength] = to!string(content.length);
-        }
-        
-        foreach(index, value ; headers)
-        {
-            formattedWrite(writer, "%s: %s\r\n", index, value);
-        }
-        
-        formattedWrite(writer, "\r\n");
+            auto writer = appender!string();
+            string reason = toReason(status);
+            formattedWrite(writer, "%s %d %s\r\n", cast(string)protocol, status, reason);
+            if(content.length)
+            {
+                headers[ContentLength] = to!string(content.length);
+            }
+            
+            foreach(index, value ; headers)
+            {
+                formattedWrite(writer, "%s: %s\r\n", index, value);
+            }
+            
+            formattedWrite(writer, "\r\n");
 
-        if(content.length)
-        {
-            formattedWrite(writer, "%s", content);
+            if(content.length)
+            {
+                formattedWrite(writer, "%s", content);
+            }
+            raw = writer.data;
+            updated = false;
         }
-        
-        return writer.data;
+        return super.get();
     }
 }
 
@@ -61,10 +80,8 @@ class BadRequestResponse : Response
     {
         status = Status.BadRequest;            
         content = readText(file);
-        protocol = http.protocol.Protocol.Protocol.DEFAULT;
-        //headers[Header.Connection] = "close";
-        headers[Header.ContentType] = "text/html";
-        headers[Header.Date] = getDateRFC1123();
+        headers[ContentType] = "text/html";
+        headers[FieldDate] = getDateRFC1123();
     }
 }
 
@@ -74,10 +91,8 @@ class NotFoundResponse : Response
     {
         status = Status.NotFound;
         content = readText(file);
-        protocol = http.protocol.Protocol.Protocol.DEFAULT;
-        //headers[Header.Connection] = "close";
-        headers[Header.ContentType] = "text/html";
-        headers[Header.Date] = getDateRFC1123();
+        headers[ContentType] = "text/html";
+        headers[FieldDate] = getDateRFC1123();
     }
 }
 
@@ -87,9 +102,7 @@ class NotAllowedResponse : Response
     {
         status = Status.NotAllowed;         
         content = readText(file);
-        protocol = http.protocol.Protocol.Protocol.DEFAULT;
-        //headers[Header.Connection] = "close";
-        headers[Header.ContentType] = "text/html";
-        headers[Header.Date] = getDateRFC1123();
+        headers[ContentType] = "text/html";
+        headers[FieldDate] = getDateRFC1123();
     }
 }

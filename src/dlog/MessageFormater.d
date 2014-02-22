@@ -1,5 +1,6 @@
 module dlog.MessageFormater;
 
+import std.string : format;
 import std.format;
 import std.array;
 import std.conv;
@@ -51,10 +52,14 @@ class LineMessageFormater : MessageFormater
     override string format(const Message m)
 	{
         auto writer = appender!string();
-        formattedWrite(writer, "[%s from %s]", m.type, m.threadName[0..8]);
         version(assert)
         {
+            formattedWrite(writer, "[%s from %s]", m.type, m.threadName[0..8]);
             formattedWrite(writer, "(%s/%s/%s %s:%s:%s)", m.date.day(), m.date.month(), m.date.year(), m.date.hour(), m.date.minute(), m.date.second());
+        }
+        else
+        {
+            formattedWrite(writer, "[%s]", m.type);
         }
         
         if(m.graph.length)

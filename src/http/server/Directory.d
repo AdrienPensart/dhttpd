@@ -43,13 +43,12 @@ class Directory : Handler
             if(method == Method.GET)
             {
                 log.trace("GET method");
-                response.headers[Header.Server] = config[Parameter.SERVER_STRING].toString();
-                response.protocol = request.getProtocol();
+                response.headers[FieldServer] = config[Parameter.SERVER_STRING].toString();
                 response.status = Status.Ok;
-                response.headers[Header.ContentType] = "text/html";
+                response.headers[ContentType] = "text/html";
 
                 // cache lookup
-                Cache cache = config[Parameter.CACHE].get!(Cache);
+                auto cache = config[Parameter.FILE_CACHE].get!(FileCache);
                 UUID key = sha1UUID(finalPath);
                 if(cache.exists(key))
                 {
@@ -67,11 +66,10 @@ class Directory : Handler
             else if(method == Method.HEAD)
             {
                 log.trace("HEAD method");
-                response.headers[Header.Server] = config[Parameter.SERVER_STRING].toString();
-                response.protocol = request.getProtocol();
+                response.headers[FieldServer] = config[Parameter.SERVER_STRING].toString();
                 response.status = Status.Ok;
-                response.headers[Header.ContentType] = "text/html";
-                response.headers[Header.ContentLength] = to!string(getSize(finalPath));
+                response.headers[ContentType] = "text/html";
+                response.headers[ContentLength] = to!string(getSize(finalPath));
             }
             else
             {

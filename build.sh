@@ -1,8 +1,9 @@
 #!/bin/bash
 
-sources="src/*.d src/interruption/*.d src/dlog/*.d  src/http/protocol/*.d src/http/server/*.d"
-#sources="src/*.d"
-includes="-Isrc/ -Isrc/czmq"
+set -e
+
+sources="src/*.d src/interruption/*.d src/dlog/*.d src/http/protocol/*.d src/http/server/*.d"
+includes="-Isrc/ -Isrc/czmq -Isrc/libev"
 libraries="-L-luuid -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -L-lcurl"
 binoutput="-ofdhttpd"
 flags=""
@@ -15,7 +16,7 @@ else
 	flags="-unittest -debug -vtls -profile -gc"
 fi
 
-ragel -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
+ragel $ragel_flags -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
 
 dmd $sources $includes $binoutput $libraries $flags
 

@@ -27,6 +27,7 @@ import http.server.VirtualHost;
 import http.server.Config;
 
 import czmq;
+import ev;
 
 int main(string[] args)
 {
@@ -69,8 +70,8 @@ int main(string[] args)
         auto mainDir = new Directory(config, "/public", "index.html");
         auto mainRoute = new Route("^/main", mainDir);
         auto mainHost = new VirtualHost(["www.dhttpd.fr"], [mainRoute]);
-        auto mainPoller = new Poller(["0.0.0.0"], [8080, 8081], [mainHost], mainHost, config);
-        runners ~= mainPoller;
+        auto mainServer = new Server(["0.0.0.0"], [8080], [mainHost], mainHost, config);
+        runners ~= mainServer;
         
         foreach(runner; runners)
         {

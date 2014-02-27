@@ -6,12 +6,9 @@ if [[ ! -f utils/profile ]]; then
     utils/build.sh
 fi
 
-if [[ $1 == "release" ]]; then
-    if [[ ! -f dhttpd ]]; then
-        ./build.sh release
-    fi
-    ./dhttpd
-fi
+rm dhttpd
+./build.sh $1
 
+rm trace.*   
+./dhttpd
 utils/profile trace.log
-

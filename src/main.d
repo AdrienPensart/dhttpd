@@ -27,23 +27,43 @@ import http.server.VirtualHost;
 import http.server.Config;
 
 import czmq;
-import ev;
+import libev.ev;
+import core.stdc.signal;
 
-int main(string[] args)
+extern(C)
+{
+    static void sigint_cb (ev_loop_t *loop, ev_signal *w, int revents)
+    {
+        ev_break(loop, EVBREAK_ALL);
+    }
+}
+
+int main()
 {
     mixin(Tracer);
     try
-    {
+    {        
         log.register(new ConsoleLogger);
         auto fileCache = new FileCache();
         auto httpCache = new HttpCache();
         Config config;
-        Runnable[] runners;
+        Server[] servers;
         Handler[Status] defaultHandlers;
+
         int zmqMajor, zmqMinor, zmqPatch;
         zmq_version(&zmqMajor, &zmqMinor, &zmqPatch);
         string installDir = dirName(thisExePath());
 
+        int evMajor = ev_version_major();
+        int evMinor = ev_version_minor();
+
+        ev_loop_t * loop;
+        ev_signal signal_watcher;
+        loop = ev_default_loop(EVFLAG_AUTO);
+        ev_signal_init (&signal_watcher, &sigint_cb, SIGINT);
+        ev_signal_start (loop, &signal_watcher);
+
+        config[Parameter.EV_VERSION] = format("%s.%s", evMajor, evMinor);
         config[Parameter.ZMQ_VERSION] = format("%s.%s.%s", zmqMajor, zmqMinor, zmqPatch);
         config[Parameter.FILE_CACHE] = fileCache;
         config[Parameter.HTTP_CACHE] = httpCache;
@@ -70,13 +90,11 @@ int main(string[] args)
         auto mainDir = new Directory(config, "/public", "index.html");
         auto mainRoute = new Route("^/main", mainDir);
         auto mainHost = new VirtualHost(["www.dhttpd.fr"], [mainRoute]);
-        auto mainServer = new Server(["0.0.0.0"], [8080], [mainHost], mainHost, config);
-        runners ~= mainServer;
+        auto mainServer = new Server(loop, ["0.0.0.0"], [8080], [mainHost], mainHost, config);
+        servers ~= mainServer;
         
-        foreach(runner; runners)
-        {
-            runner.run();
-        }
+        ev_run(loop, 0);
+        
         log.trace("Main ended.");
     }
     catch (Interruption i)

@@ -1,4 +1,4 @@
-module deimos.ev;
+module libev.ev;
 
 /*
  * libev native API header

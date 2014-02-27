@@ -1,0 +1,36 @@
+mtrace.c
+
+#include <mcheck.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+
+void __mtracer_on () __attribute__((constructor));
+void __mtracer_off () __attribute__((destructor));
+void __mtracer_on ()
+{
+    char *p=getenv("MALLOC_TRACE");
+    char tracebuf[1023];
+    if(!p)
+        p="malloc_trace";
+    sprintf(tracebuf, "%s.%d", p, getpid());
+    setenv("MALLOC_TRACE",tracebuf, 1);
+    atexit(&__mtracer_off);
+    mtrace();
+}
+
+void __mtracer_off ()
+{
+    muntrace();
+}
+Compile with gcc mtrace.c  -fPIC -shared  -o libmmtrace.so
+
+Run with
+
+MALLOC_TRACE=echo LD_PRELOAD=./libmmtrace.so /bin/echo 42
+or
+
+LD_PRELOAD=./libmmtrace.so /bin/echo 42
+Is it ok for you?

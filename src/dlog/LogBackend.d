@@ -3,7 +3,7 @@ module dlog.LogBackend;
 import std.stdio;
 import std.socket;
 import std.conv;
-import std.net.curl;
+//import std.net.curl;
 
 import dlog.Message;
 import dlog.MessageFormater;
@@ -136,7 +136,7 @@ class UdpLogger : LogBackend
         Socket client;
         Address address;
 }
-
+/*
 class SmtpLogger : LogBackend
 {        
     this(SMTP smtp, uint flushLimit=1)
@@ -176,7 +176,7 @@ class SmtpLogger : LogBackend
         const uint flushLimit;
         Message[] messageBuffer;
 }
-
+*/
 class SqlLogger : LogBackend
 {        
     override void log(Message)

@@ -194,7 +194,7 @@ class Logger
             string code;
             foreach(i, level ; EnumMembers!Level)
             {
-                pragma(msg, to!string(level), " : ", level < DISABLE ? "enabled" : "disabled");
+                //pragma(msg, to!string(level), " : ", level < DISABLE ? "enabled" : "disabled");
                 // when a log level is disabled, the compiler optimize empty calls
                 code ~= "void "~to!string(level)~"(S...)(S args){"~ (level < DISABLE ? "log(\""~to!string(level)~"\", args);" : "") ~ "}";
             }

@@ -28,7 +28,7 @@ void updateToRFC1123(const ref SysTime dateRef, ref string buffer)
 }
 
 // cache date with second precision
-const ref string getDateRFC1123()
+ref string getDateRFC1123()
 {
     auto now = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
     if(now - date > 1000.msecs)

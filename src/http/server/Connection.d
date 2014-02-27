@@ -19,17 +19,18 @@ import dlog.Logger;
 
 class Connection
 {
-    private HttpCache cache;
-    private bool keepalive;
-    private Config config;
-    private Address address;
-    private Socket handle;
-    private Duration keepAliveDuration;
-    private TickDuration keepAliveTimer;
-    private uint maxRequest;
-    private uint processedRequest;
-    private Request currentRequest;
-
+private:
+        HttpCache cache;
+        bool keepalive;
+        Config config;
+        Address address;
+        Socket handle;
+        Duration keepAliveDuration;
+        TickDuration keepAliveTimer;
+        uint maxRequest;
+        uint processedRequest;
+        Request currentRequest;
+public:
     this(Socket handle, Config config)
     {
         keepalive = true;
@@ -47,8 +48,10 @@ class Connection
         mixin(Tracer);
         auto buffer = readChunk();
         if(!buffer.length)
+        {
             return;
-
+        }
+        
         if(currentRequest is null)
         {
             currentRequest = new Request();
@@ -173,21 +176,19 @@ class Connection
 
     void close()
     {
-        /*
         if(handle.isAlive)
         {
             handle.shutdown(SocketShutdown.BOTH);
         }
-        */
         handle.close();
-        //log.trace("Connection ", address, " closed.");
+        log.trace("Connection ", address, " closed.");
     }
 
     private void refreshKeepAlive()
     {
         keepAliveTimer = TickDuration.currSystemTick();
     }
-    
+
     private char[] readChunk()
     {
         static char buffer[1024];
@@ -239,7 +240,7 @@ class Connection
     bool isValid()
     {
         log.trace("keep alive ? : ", keepalive);
-        return keepalive && !isTimeout() && !tooMuchRequests() && isAlive();
+        return keepalive && !isTimeout() && !tooMuchRequests() && handle.handle != -1 && isAlive();
     }
 
     bool isTimeout()

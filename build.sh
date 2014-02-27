@@ -2,23 +2,25 @@
 
 set -e
 
-sources="src/*.d src/interruption/*.d src/dlog/*.d src/http/protocol/*.d src/http/server/*.d"
+ragel -G2 -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
+sources="src/*.d src/interruption/*.d src/dlog/*.d src/http/protocol/*.d src/http/server/*.d src/libev/*.d"
 includes="-Isrc/ -Isrc/czmq -Isrc/libev"
-libraries="-L-luuid -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -L-lcurl"
+
+#gdc $includes $sources 
+
+libraries="-L-luuid -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -L-lev"
 binoutput="-ofdhttpd"
-flags=""
-ragel_flags=""
+dmd_flags=""
 
 if [[ $1 == "release" ]]; then
-	flags="-O -release -vtls -profile"
-	ragel_flags="-G2"
+	dmd_flags="-O -release"
+elif [[ $1 == "release_profiled" ]]; then
+	dmd_flags="-O -release -profile"
 else
-	flags="-unittest -debug -vtls -profile -gc"
+	dmd_flags="-unittest -debug -vtls -profile -gc -gs -gx -g"
 fi
 
-ragel $ragel_flags -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
-
-dmd $sources $includes $binoutput $libraries $flags
+dmd $sources $includes $binoutput $libraries $dmd_flags
 
 # Graph generation
 #ragel -p -V src/HttpParsing.d.rl -o src/HttpParsing.dot

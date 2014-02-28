@@ -9,9 +9,6 @@ import core.memory;
 
 import dlog.Logger;
 
-import interruption.Manager;
-import interruption.Interruptible;
-
 import http.server.Connection;
 import http.server.VirtualHost;
 import http.server.Config;
@@ -24,10 +21,11 @@ import http.protocol.Status;
 import czmq;
 import zsys;
 import libev.ev;
-import std.c.stdlib;
+
+import std.traits;
 
 class Server
-{
+{    
     struct ListenerPoller
     {
         ev_io io;
@@ -48,11 +46,7 @@ class Server
     string[] interfaces;
     Config config;
     Duration keepAliveDuration;
-    //TcpSocket[] listeners;
-
-    //Poller[int] pollers;
-    //Socket[int] listeners;
-
+    
     this(
         ev_loop_t * loop,
         string[] interfaces, 
@@ -61,6 +55,7 @@ class Server
         VirtualHost defaultHost,
         Config config)
     {
+        mixin(Tracer);
         this.config = config;
         this.interfaces = interfaces;
         this.ports = ports;
@@ -125,15 +120,13 @@ class Server
                 log.trace("handling connection on ", watcher.fd);
 
                 auto listenerPoller = cast(ListenerPoller *)watcher;
+
                 auto listener = listenerPoller.socket;
+                auto connectionPoller = new ConnectionPoller;
                 auto acceptedSocket = listener.accept();
+
                 acceptedSocket.blocking = false;
                 //acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
-
-                //Poller * newPoller = cast(Poller*)malloc(Poller.sizeof);
-                auto connectionPoller = new ConnectionPoller;
-
-                //connectionPoller.socket = acceptedSocket;
                 connectionPoller.connection = new Connection(acceptedSocket, listenerPoller.server.config);
                 connectionPoller.server = listenerPoller.server;
 
@@ -162,17 +155,16 @@ class Server
                 log.trace("handling request on ", watcher.fd);
 
                 auto connectionPoller = cast(ConnectionPoller *)watcher;
-                if(connectionPoller.connection.isValid())
+                connectionPoller.connection.handleRequest(connectionPoller.server.hosts, connectionPoller.server.defaultHost);
+                if(!connectionPoller.connection.isValid())
                 {
-                    connectionPoller.connection.handleRequest(connectionPoller.server.hosts, connectionPoller.server.defaultHost);
-                    if(!connectionPoller.connection.isValid())
-                    {
-                        ev_io_stop(loop, &connectionPoller.io);
-                        connectionPoller.connection.close();
+                    ev_io_stop(loop, &connectionPoller.io);
 
-                        GC.removeRoot(connectionPoller);
-                        GC.clrAttr(connectionPoller, GC.BlkAttr.NO_MOVE);
-                    }
+                    //connectionPoller.connection.close();
+                    connectionPoller.connection.shutdown();
+                    
+                    GC.removeRoot(connectionPoller);
+                    GC.clrAttr(connectionPoller, GC.BlkAttr.NO_MOVE);
                 }
             }
             catch(Exception e)

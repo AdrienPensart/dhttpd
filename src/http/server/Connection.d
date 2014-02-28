@@ -176,12 +176,17 @@ public:
 
     void close()
     {
+        log.trace("Closing ", address);
+        handle.close();
+    }
+
+    void shutdown()
+    {
+        log.trace("Shutting down ", address);
         if(handle.isAlive)
         {
             handle.shutdown(SocketShutdown.BOTH);
         }
-        handle.close();
-        log.trace("Connection ", address, " closed.");
     }
 
     private void refreshKeepAlive()

@@ -4,50 +4,75 @@ import core.time;
 import std.array;
 import std.string;
 
+import dlog.FunctionLog;
+
 struct ThreadLog
 {
-	private string name;
-	private string[] callStack;
-	private TickDuration origin;
-	private TickDuration duration;
+	private string m_name;
+	private FunctionLog[] m_callstack;
+	private TickDuration m_origin;
+	private TickDuration m_duration;
+	private bool m_enabled;
 
-	this(string name)
+	this(string a_name)
 	{
-		this.name = name;
-		this.origin = TickDuration.currSystemTick();
+		m_name = a_name;
+		m_origin = TickDuration.currSystemTick();
+		m_enabled = true;
 	}
 	
-	auto getName()
+	bool enabled()
 	{
-		return name;
+		return m_enabled;
 	}
 
-	auto push(string functionName)
+	void enable()
 	{
-		callStack ~= functionName;
+		m_enabled = true;
+	}
+
+	void disable()
+	{
+		m_enabled = false;
+	}
+
+	@property auto name()
+	{
+		return m_name;
+	}
+
+	@property auto duration()
+    {
+    	return m_duration;
+    }
+
+	auto push(FunctionLog functionLog)
+	{
+		m_callstack ~= functionLog;
 	}
 
 	auto pop()
 	{
 		// we exit last function of the thread, time to compute thread duration
-		if(callStack.length == 1)
+		if(m_callstack.length == 1)
 		{
-			duration = TickDuration.currSystemTick() - origin;
+			m_duration = TickDuration.currSystemTick() - m_origin;
 		}
 
-		if(callStack.length)
+		if(m_callstack.length)
 		{
-			callStack.popBack();
+			m_callstack.popBack();
 		}
 	}
 
 	string stack()
     {
-        return join(callStack, ":");
-    }
-
-    auto getDuration()
-    {
-    	return duration;
+        string s;
+        foreach(functionLog ; m_callstack)
+        {
+        	s ~= functionLog.name;
+        	s ~= ":";
+        }
+        return s.chop();
     }
 }

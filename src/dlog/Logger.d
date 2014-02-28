@@ -2,8 +2,6 @@ module dlog.Logger;
 
 import core.thread : TickDuration, Thread, nsecs;
 import std.algorithm : sort;
-import std.traits : EnumMembers;
-
 import std.format;
 import std.array;
 import std.string;
@@ -11,47 +9,60 @@ import std.random;
 import std.uuid;
 import std.conv;
 
-
 public import dlog.LogBackend;
 public import dlog.Tracer;
 public import dlog.FunctionLog;
+
 import dlog.ThreadLog;
 import dlog.FunctionStatistic;
 import dlog.Message;
+/*
+// WTF ?
+const enum bool[string] classdebugs = 
+[
+    "Connection" : true,
+    "Server" : false,
+    "Request" : true,
+    "Response" : true,
+    "Directory" : true,
+    "VirtualHost" : true,
+    "Route" : true
+];
 
-enum DISABLE = 100;
+// WTF ??? again.
+const enum bool[string] functiondebugs = 
+[
+    "handleRequest" : false
+];
+*/
 version(assert)
 {
     // DEBUG
-    enum Level
-    {
-        info = 1,
-        fatal = 2,
-        error = 3, 
-        warning = 4, 
-        statistic = 5,
-        trace = 6, 
-        debugger = 104, 
-        test = 105
-    }
+    const enum bool[string] levels = 
+        [
+            "info" : true, 
+            "fatal" : true,
+            "error" : true,
+            "warning" : true,
+            "statistic" : true,
+            "trace" : true,
+            "test" : false
+        ];
 }
 else
 {
     // RELEASE
-    enum Level
-    {
-        info = 1,
-        fatal = 2,
-        error = 3, 
-        warning = 4,
-        statistic = 102,
-        trace = 103, 
-        debugger = 104, 
-        test = 105
-    }
+    const enum bool[string] levels = 
+        [
+            "info" : true, 
+            "fatal" : true,
+            "error" : true,
+            "warning" : true,
+            "statistic" : false,
+            "trace" : false,
+            "test" : false
+        ];
 }
-
-immutable string[] levels = [ __traits(allMembers, Level) ];
 
 __gshared Logger log;
 
@@ -93,21 +104,34 @@ class Logger
         return threadLogs[threadName];
     }
 
-  	auto register(LogBackend lb, immutable string[] levelsFilter=levels)
+    bool enabled()
+    {
+        return getThreadLog().enabled();
+    }
+
+    void enable()
+    {
+        getThreadLog().enable();
+    }
+
+    void disable()
+    {
+        getThreadLog().disable();
+    }
+
+  	auto register(LogBackend lb, typeof(levels) levelsFilter=levels)
    	{
         synchronized
         {
-            foreach(level; levelsFilter)
+            foreach(level, active; levelsFilter)
             {
                 backends[level] ~= lb;
             }
-            /*
-            if(levelsFilter.length)
+            version(assert)
             {
-                import std.stdio : writefln;
-                writefln("Existing levels : %-(%s, %)", levelsFilter);
+                import std.stdio : writeln;
+                writeln("Existing levels : ", levelsFilter);
             }
-            */
         }
    	}
 
@@ -115,22 +139,25 @@ class Logger
     {
         synchronized
         {
-            TickDuration duration = TickDuration.currSystemTick();
-            write(level, args);
-            duration =  TickDuration.currSystemTick() - duration;
-            writeDuration += duration;
+            if(enabled())
+            {
+                TickDuration duration = TickDuration.currSystemTick();
+                write(level, args);
+                duration =  TickDuration.currSystemTick() - duration;
+                writeDuration += duration;
+            }
         }
     }
-    
-    auto enter(string currentFunction)
+
+    auto enter(FunctionLog currentFunction)
     {
         synchronized
         {
             getThreadLog().push(currentFunction);
         }
     }
- 
-    auto leave(string currentFunction)
+
+    auto leave(FunctionLog currentFunction)
     {
         synchronized
         {
@@ -166,7 +193,7 @@ class Logger
             TickDuration total;
             foreach(threadLog ; threadLogs)
             {
-                total += threadLog.getDuration();
+                total += threadLog.duration;
             }
 
             statistic("Threads created : ", threadLogs.length);
@@ -192,11 +219,10 @@ class Logger
         static string logLevelGenerator()
         {
             string code;
-            foreach(i, level ; EnumMembers!Level)
+            foreach(level, active ; levels)
             {
-                //pragma(msg, to!string(level), " : ", level < DISABLE ? "enabled" : "disabled");
                 // when a log level is disabled, the compiler optimize empty calls
-                code ~= "void "~to!string(level)~"(S...)(S args){"~ (level < DISABLE ? "log(\""~to!string(level)~"\", args);" : "") ~ "}";
+                code ~= "void "~ level ~"(S...)(S args){"~ (active ? "log(\""~ level ~"\", args);" : "") ~ "}";
             }
             return code;
         }
@@ -215,7 +241,7 @@ class Logger
 	            foreach(backend; supportedBackends)
 	            {
                     auto threadLog = getThreadLog();
-                    auto message = new Message(type, threadLog.getName(), writer.data, threadLog.stack());
+                    auto message = new Message(type, threadLog.name, writer.data, threadLog.stack());
 	                backend.log(message);
         	    }
         	}
@@ -243,7 +269,7 @@ class Logger
     smtp.mailTo = ["adrien.pensart@corp.ovh.com"];
     smtp.mailFrom = "crunchengine@gmail.com";
     lout.register(new SmtpLogger(smtp, 3));
-    */
+*/
     
     //log.register(new ConsoleLogger(ConsoleLogger.Type.OUT));
     //log.register(new ConsoleLogger(ConsoleLogger.Type.ERR));
@@ -255,19 +281,4 @@ class Logger
     log.error("an error occured");
     log.warning("a warning occured");
     log.fatal("oups");
-    */
-
-/*
-const enum bool[string] debugs = ["RequestLine" : true ];
-template ProxyDebugger ()
-{
-    auto DebugLog(S...)(S args)
-    {
-        const char[] identifier = __traits(identifier, typeof(this));
-        static if(debugs[identifier])
-        {
-            log.write(args);
-        }
-    }
-}
 */

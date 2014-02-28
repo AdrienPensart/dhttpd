@@ -1,8 +1,5 @@
 #!/usr/bin/rdmd
 
-import interruption.Manager;
-import interruption.Exception;
-
 import std.c.stdlib;
 import std.c.string;
 
@@ -42,7 +39,7 @@ int main()
 {
     mixin(Tracer);
     try
-    {        
+    {
         log.register(new ConsoleLogger);
         auto fileCache = new FileCache();
         auto httpCache = new HttpCache();
@@ -70,7 +67,7 @@ int main()
         config[Parameter.LOGGER] = log;
         config[Parameter.MAX_CONNECTION] = 60;
         config[Parameter.BACKLOG] = 131072;
-        config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(120);
+        config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(5);
         config[Parameter.MAX_REQUEST] = 1_000_000;
         config[Parameter.MAX_HEADER] = 100;
         config[Parameter.MAX_REQUEST_SIZE] = 1000000;
@@ -89,19 +86,20 @@ int main()
 
         auto mainDir = new Directory(config, "/public", "index.html");
         auto mainRoute = new Route("^/main", mainDir);
-        auto mainHost = new VirtualHost(["www.dhttpd.fr"], [mainRoute]);
-        auto mainServer = new Server(loop, ["0.0.0.0"], [8080], [mainHost], mainHost, config);
+        auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
+        auto mainServer = new Server(loop, ["0.0.0.0"], [8080, 8081, 8082, 8083], [mainHost], mainHost, config);
         servers ~= mainServer;
         
         ev_run(loop, 0);
         
         log.trace("Main ended.");
     }
-    catch (Interruption i)
-    {
-        log.info("\n\nInterrupted : ", i.msg, "\n");
-    }
     catch (SocketOSException e)
+    {
+        log.fatal(e);
+        return -1;
+    }
+    catch(Exception e)
     {
         log.fatal(e);
         return -1;

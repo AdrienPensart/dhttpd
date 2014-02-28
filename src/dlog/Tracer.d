@@ -1,35 +1,42 @@
 module dlog.Tracer;
 
-public import std.traits : fullyQualifiedName;
+public import std.traits : fullyQualifiedName, isSomeFunction;
 
 // RAII Tracer
 auto Tracer()
 {
-    string code;
+    string __code__;
     version(assert)
     {
-        code ~= 
+        __code__ ~= 
         q{
             enum __marker__;
-
-            const auto __context__ = __traits(identifier, (__traits(parent,__marker__)));
+            auto __context__ = __traits(identifier, (__traits(parent,__marker__)));
+            
             // we are in a class method, extract Class.Method
             static if(__traits(compiles,this))
             {
-                const auto __context2__ = typeof(this).stringof ~ "." ~ __context__;
+                auto __method__ = typeof(this).stringof ~ "." ~ __context__;
             }
-            static if(__traits(compiles,__context2__))
+            static if(__traits(compiles,__method__))
             {
-                FunctionLog __tracer__ = FunctionLog(__context2__, __context2__);
+                auto __tracer__ = new FunctionLog(__method__, __method__);
+                /*
+                static if(classdebugs[typeof(this).stringof] == false)
+                {
+                    pragma(msg, "logging disabled for ", typeof(this).stringof);
+                    log.disable();
+                }
+                */
             }
             // we are in a normal function, extract Function name
             else
             {
-                FunctionLog __tracer__ = FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
+                auto __tracer__ = new FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
             }
-
-            scope(exit) __tracer__.ended();
+            //scope(exit) log.enable();
+            scope(exit) __tracer__.ended();            
         };
     }
-    return code;
+    return __code__;
 }

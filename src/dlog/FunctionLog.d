@@ -3,24 +3,39 @@ module dlog.FunctionLog;
 import dlog.Logger;
 import std.datetime;
 
-struct FunctionLog
+class FunctionLog
 {
-    this(string functionName, string functionFullName)
+    string m_name;
+    string m_fullname;
+    TickDuration m_duration;
+
+    this(string name, string fullname)
     {
-        this.duration = TickDuration.currSystemTick();
-        this.functionName = functionName;
-        this.functionFullName = functionFullName;
-        log.enter(functionName);
-    }
-    
-    auto ended()
-    {
-        duration =  TickDuration.currSystemTick() - duration;
-        log.leave(functionName);
-        log.savePerfFunction(functionFullName, duration);
+        this.m_duration = TickDuration.currSystemTick();
+        this.m_name = name;
+        this.m_fullname = fullname;
+        log.enter(this);
     }
 
-    string functionName;
-    string functionFullName;
-    TickDuration duration;
+    @property auto name()
+    {
+        return m_name;
+    }
+
+    @property auto fullname()
+    {
+        return m_fullname;
+    }
+
+    @property auto duration()
+    {
+        return m_duration;
+    }
+
+    void ended()
+    {
+        m_duration =  TickDuration.currSystemTick() - m_duration;
+        log.leave(this);
+        log.savePerfFunction(m_fullname, m_duration);
+    }
 }

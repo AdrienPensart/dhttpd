@@ -4,7 +4,7 @@ set -e
 
 ragel -G2 -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
 sources="src/*.d src/dlog/*.d src/http/protocol/*.d src/http/server/*.d src/libev/*.d"
-includes="-Isrc/ -Isrc/czmq -Isrc/libev"
+includes="-Isrc/ -Isrc/libev -Isrc/czmq"
 
 #gdc $includes $sources 
 

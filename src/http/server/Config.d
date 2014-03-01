@@ -4,9 +4,6 @@ import std.variant;
 
 enum Parameter
 {
-	EV_VERSION,
-	ZMQ_VERSION,
-	LOGGER,
 	MAX_CONNECTION, 
 	MAX_HEADER_SIZE, 
 	BACKLOG, 

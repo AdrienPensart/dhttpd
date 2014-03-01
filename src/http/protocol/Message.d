@@ -10,7 +10,7 @@ import dlog.Logger;
 
 alias string[string] Headers;
 
-abstract class Message
+abstract class Message : AliveReference!Message
 {
     this()
     {

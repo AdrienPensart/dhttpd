@@ -3,17 +3,10 @@ ToDo :
 Logging framework : 
 
 - implements SNMP, SQL, AMQP, FTP, HTTP backends
-- implements memory usage tracker
-- withdraw time spent in tracing code
-- withdraw memory used by tracing code
-- change smtp library or take our own
-- function timing independance
 
 HTTP Server : 
 
-- implement network interface selection, 0.0.0.0 means all, 127.0.0.1 only localhost, etc
 - url routing
-- keep-alive
 - redirect
 - caching : E-Tag
 - compression

@@ -1,9 +1,10 @@
-module http.server.Proxy;
+module http.server.Worker;
 
 import http.server.Handler;
-import dlog.Logger;
 
-class Proxy : Handler
+import czmq;
+
+class Worker : Handler
 {
 	this()
 	{

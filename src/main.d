@@ -1,15 +1,12 @@
 #!/usr/bin/rdmd
 
-import std.c.stdlib;
-import std.c.string;
-
 import std.string;
 import std.socket;
 import std.datetime;
 import std.file;
 import std.path : dirName;
 import std.parallelism : totalCPUs;
-import core.thread;
+import core.memory;
 
 import dlog.Logger;
 
@@ -19,20 +16,18 @@ import http.server.Server;
 import http.server.Cache;
 import http.server.Handler;
 import http.server.Directory;
+import http.server.Proxy;
+import http.server.Worker;
 import http.server.Route;
 import http.server.VirtualHost;
 import http.server.Config;
 
-import czmq;
-import libev.ev;
-import core.stdc.signal;
+import EventLoop;
 
-extern(C)
+auto installDir()
 {
-    static void sigint_cb (ev_loop_t *loop, ev_signal *w, int revents)
-    {
-        ev_break(loop, EVBREAK_ALL);
-    }
+    const string thisdir = dirName(thisExePath());
+    return thisdir;
 }
 
 int main()
@@ -41,30 +36,11 @@ int main()
     try
     {
         log.register(new ConsoleLogger);
-        auto fileCache = new FileCache();
-        auto httpCache = new HttpCache();
+
+        auto eventLoop = new EventLoop();
         Config config;
-        Server[] servers;
-        Handler[Status] defaultHandlers;
-
-        int zmqMajor, zmqMinor, zmqPatch;
-        zmq_version(&zmqMajor, &zmqMinor, &zmqPatch);
-        string installDir = dirName(thisExePath());
-
-        int evMajor = ev_version_major();
-        int evMinor = ev_version_minor();
-
-        ev_loop_t * loop;
-        ev_signal signal_watcher;
-        loop = ev_default_loop(EVFLAG_AUTO);
-        ev_signal_init (&signal_watcher, &sigint_cb, SIGINT);
-        ev_signal_start (loop, &signal_watcher);
-
-        config[Parameter.EV_VERSION] = format("%s.%s", evMajor, evMinor);
-        config[Parameter.ZMQ_VERSION] = format("%s.%s.%s", zmqMajor, zmqMinor, zmqPatch);
-        config[Parameter.FILE_CACHE] = fileCache;
-        config[Parameter.HTTP_CACHE] = httpCache;
-        config[Parameter.LOGGER] = log;
+        config[Parameter.FILE_CACHE] = new FileCache(true);
+        config[Parameter.HTTP_CACHE] = new HttpCache(true);
         config[Parameter.MAX_CONNECTION] = 60;
         config[Parameter.BACKLOG] = 131072;
         config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(5);
@@ -72,12 +48,12 @@ int main()
         config[Parameter.MAX_HEADER] = 100;
         config[Parameter.MAX_REQUEST_SIZE] = 1000000;
         config[Parameter.SERVER_STRING] = "dhttpd";
-        config[Parameter.INSTALL_DIR] = installDir;
-        config[Parameter.ROOT_DIR] = installDir;
         config[Parameter.TOTAL_CPU] = totalCPUs;
-        config[Parameter.BAD_REQUEST_FILE] = installDir ~ "/public/400.html";
-        config[Parameter.NOT_FOUND_FILE] = installDir ~ "/public/404.html";
-        config[Parameter.NOT_ALLOWED_FILE] = installDir ~ "/public/405.html";
+        config[Parameter.INSTALL_DIR] = installDir();
+        config[Parameter.ROOT_DIR] = installDir();
+        config[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
+        config[Parameter.NOT_FOUND_FILE] = installDir() ~ "/public/404.html";
+        config[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
 
         foreach(key, value ; config)
         {
@@ -85,14 +61,19 @@ int main()
         }
 
         auto mainDir = new Directory(config, "/public", "index.html");
+        auto workerHandler = new Worker();
+        auto proxyHandler = new Proxy();
+
         auto mainRoute = new Route("^/main", mainDir);
         auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
-        auto mainServer = new Server(loop, ["0.0.0.0"], [8080, 8081, 8082, 8083], [mainHost], mainHost, config);
+        auto mainVirtualHostConfig = new VirtualHostConfig([mainHost], mainHost);
+        auto mainServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
+
+        Server[] servers;
         servers ~= mainServer;
-        
-        ev_run(loop, 0);
-        
-        log.trace("Main ended.");
+
+
+        eventLoop.run();
     }
     catch (SocketOSException e)
     {
@@ -106,17 +87,6 @@ int main()
     }
     return 0;
 }
-/*
-        auto servers = config.getServers();
-        auto interruptManager = new InterruptionManager(cast(Interruptible[])servers);
-        foreach(server; servers)
-        {
-            server.run();
-        }
-
-        auto mainServer = new Server(["0.0.0.0"], [8080, 8081], [mainHost], mainHost, config);
-        servers ~= mainServer;
-        */
 
 /*
     defaultHandlers[Status.BadRequest] = new ErrorHandler();

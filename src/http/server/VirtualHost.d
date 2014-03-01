@@ -8,6 +8,37 @@ import http.protocol.Response;
 import http.protocol.Header;
 import dlog.Logger;
 
+class VirtualHostConfig
+{
+    this(VirtualHost[] a_hosts, VirtualHost a_fallback=null)
+    {
+        hosts = a_hosts;
+        fallback = a_fallback;
+    }
+
+    Response dispatch(Request request)
+    {
+        foreach(host ; hosts)
+        {
+            if(host.matchHostHeader(request))
+            {
+                return host.dispatch(request);
+            }
+        }
+        // not host found, fallback on default host
+        if(fallback !is null)
+        {
+            log.warning("Host not found => fallback");
+            return fallback.dispatch(request);
+        }
+        return null;
+    }
+
+    VirtualHost[] hosts;
+    // default host
+    VirtualHost fallback;
+}
+
 class VirtualHost
 {        
     this(string[] hosts, Route[] routes)
@@ -53,8 +84,8 @@ class VirtualHost
         return null;
     }
 
-private:
+    private:
 
-    string[] hosts;
-    Route[] routes;
+        string[] hosts;
+        Route[] routes;
 }

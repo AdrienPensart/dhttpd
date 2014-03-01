@@ -12,6 +12,7 @@ import std.conv;
 public import dlog.LogBackend;
 public import dlog.Tracer;
 public import dlog.FunctionLog;
+public import dlog.AliveReference;
 
 import dlog.ThreadLog;
 import dlog.FunctionStatistic;

@@ -2,7 +2,6 @@
 
 import std.socket;
 import std.file;
-import std.parallelism;
 import core.thread;
 import core.time;
 import core.memory;
@@ -18,11 +17,7 @@ import http.protocol.Response;
 import http.protocol.Request;
 import http.protocol.Status;
 
-import czmq;
-import zsys;
 import libev.ev;
-
-import std.traits;
 
 class Server
 {    
@@ -40,8 +35,7 @@ class Server
         Server server;
     }
 
-    VirtualHost[] hosts;
-    VirtualHost defaultHost;
+    VirtualHostConfig virtualHostConfig;
     ushort[] ports;
     string[] interfaces;
     Config config;
@@ -51,18 +45,16 @@ class Server
         ev_loop_t * loop,
         string[] interfaces, 
         ushort[] ports, 
-        VirtualHost[] hosts,
-        VirtualHost defaultHost,
+        VirtualHostConfig virtualHostConfig,
         Config config)
     {
         mixin(Tracer);
         this.config = config;
         this.interfaces = interfaces;
         this.ports = ports;
-        this.hosts = hosts;
-        this.defaultHost = defaultHost;
+        this.virtualHostConfig = virtualHostConfig;
 
-        foreach(host; hosts)
+        foreach(host; virtualHostConfig.hosts)
         {
             host.addSupportedPorts(ports);
         }
@@ -72,35 +64,27 @@ class Server
             log.info("Listening on ports : ", ports, " on interface ", netInterface);
             foreach(port ; ports)
             {
-                try
-                {
-                    //auto listenerPoller = cast(ListenerPoller*)malloc(ListenerPoller.sizeof);
-                    auto listenerPoller = new ListenerPoller;
-                    listenerPoller.socket = new TcpSocket;
-                    listenerPoller.server = this;
-                    listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
-                    /*
-                    Linger l;
-                    l.on = 1;
-                    l.time = 1;
+                auto listenerPoller = new ListenerPoller;
+                listenerPoller.socket = new TcpSocket;
+                listenerPoller.server = this;
 
-                    listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, l);
-                    listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
-                    */
-                    listenerPoller.socket.bind(new InternetAddress(port));
-                    listenerPoller.socket.blocking = false;
-                    listenerPoller.socket.listen(config[Parameter.BACKLOG].get!(int));
+                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
+                /*
+                Linger l;
+                l.on = 1;
+                l.time = 1;
+                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, l);
+                listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+                */
 
-                    GC.addRoot(cast(void*)listenerPoller);
-                    GC.setAttr(cast(void*)listenerPoller, GC.BlkAttr.NO_MOVE);
+                listenerPoller.socket.bind(new InternetAddress(netInterface, port));
+                listenerPoller.socket.blocking = false;
+                listenerPoller.socket.listen(config[Parameter.BACKLOG].get!(int));
+                GC.addRoot(cast(void*)listenerPoller);
+                GC.setAttr(cast(void*)listenerPoller, GC.BlkAttr.NO_MOVE);
 
-                    ev_io_init(&listenerPoller.io, &handleConnection, listenerPoller.socket.handle(), EV_READ);
-                    ev_io_start(loop, &listenerPoller.io);
-                }
-                catch(SocketOSException e)
-                {
-                    log.error("Can't bind to port ", port, ", reason : ", e);
-                }
+                ev_io_init(&listenerPoller.io, &handleConnection, listenerPoller.socket.handle(), EV_READ);
+                ev_io_start(loop, &listenerPoller.io);
             }
         }
     }
@@ -126,12 +110,12 @@ class Server
                 auto acceptedSocket = listener.accept();
 
                 acceptedSocket.blocking = false;
-                //acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+                acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
                 connectionPoller.connection = new Connection(acceptedSocket, listenerPoller.server.config);
                 connectionPoller.server = listenerPoller.server;
 
                 GC.addRoot(cast(void*)connectionPoller);
-                GC.setAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
+                //GC.setAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
 
                 ev_io_init(&connectionPoller.io, &handleRequest, acceptedSocket.handle(), EV_READ);
                 ev_io_start(loop, &connectionPoller.io);
@@ -155,16 +139,21 @@ class Server
                 log.trace("handling request on ", watcher.fd);
 
                 auto connectionPoller = cast(ConnectionPoller *)watcher;
-                connectionPoller.connection.handleRequest(connectionPoller.server.hosts, connectionPoller.server.defaultHost);
+                connectionPoller.connection.handleRequest(connectionPoller.server.virtualHostConfig);
                 if(!connectionPoller.connection.isValid())
                 {
                     ev_io_stop(loop, &connectionPoller.io);
 
-                    //connectionPoller.connection.close();
+                    //delete connectionPoller;
+                    //GC.free(connectionPoller);
+
                     connectionPoller.connection.shutdown();
+                    //connectionPoller.connection.close();
+                    
+                    //GC.free(connectionPoller);
                     
                     GC.removeRoot(connectionPoller);
-                    GC.clrAttr(connectionPoller, GC.BlkAttr.NO_MOVE);
+                    //GC.clrAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
                 }
             }
             catch(Exception e)

@@ -1,6 +1,6 @@
 module dlog.Tracer;
 
-public import std.traits : fullyQualifiedName, isSomeFunction;
+import std.traits : fullyQualifiedName;
 
 // RAII Tracer
 auto Tracer()
@@ -35,7 +35,7 @@ auto Tracer()
                 auto __tracer__ = new FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
             }
             //scope(exit) log.enable();
-            scope(exit) __tracer__.ended();            
+            scope(exit) __tracer__.ended();
         };
     }
     return __code__;

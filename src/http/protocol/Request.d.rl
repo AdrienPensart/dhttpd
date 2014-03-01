@@ -230,7 +230,7 @@ class Request : Message
 
 unittest
 {
-    Request request = new Request();
+    scope Request request = new Request();
     assert(request.getStatus() == Request.Status.NotFinished, "Should NOT be finished if nothing parsed.");
     assert(!request.hasError(), "Should not have an error at the beginning.");
     assert(!request.isFinished(), "Should not be finished since never handed anything.");

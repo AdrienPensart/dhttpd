@@ -3,8 +3,8 @@ module http.server.Handler;
 import http.server.Connection;
 import http.server.Route;
 
-import http.protocol.Request;
-import http.protocol.Response;
+public import http.protocol.Request;
+public import http.protocol.Response;
 
 interface Handler
 {
@@ -20,11 +20,5 @@ class ErrorHandler : Handler
 	}
 }
 
-class WorkerHandler : Handler
-{
-	Response execute(Request request, string hit)
-	{
-		return true;
-	}
-}
+
 */

@@ -22,6 +22,7 @@ class EventLoop
         version(assert)
         {
             ev_timer_init (&m_reference_counter_timer, &count_reference_cb, 0, 3);
+            ev_timer_again (ev_loop, &m_reference_counter_timer);
         }
 
         //ev_timer_init (&m_gc_timer, &gc_collect_cb, 0., 0.300);
@@ -54,7 +55,6 @@ class EventLoop
     void run()
     {
         ev_signal_start (ev_loop, &m_signal_watcher);
-        ev_timer_again (ev_loop, &m_reference_counter_timer);
 
         //GC.disable();
         //scope(exit) GC.enable();
@@ -101,8 +101,8 @@ class EventLoop
             log.info("Connection alive : ", Connection.alive());
             import http.protocol.Message;
             log.info("Message alive : ", Message.alive());
-            import http.protocol.Transaction;
-            log.info("Transaction alive : ", Transaction.alive());
+            //import http.protocol.Transaction;
+            //log.info("Transaction alive : ", Transaction.alive());
             import http.server.Route;
             log.info("Route alive : ", Route.alive());
             import http.server.VirtualHost;

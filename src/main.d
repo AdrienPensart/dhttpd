@@ -14,7 +14,6 @@ import http.protocol.Status;
 import http.protocol.Mime;
 
 import http.server.Server;
-import http.server.Cache;
 import http.server.Handler;
 import http.server.Directory;
 import http.server.Proxy;
@@ -37,12 +36,11 @@ int main()
     try
     {
         log.register(new ConsoleLogger);
-
-        auto eventLoop = new EventLoop();
         Config config;
         config[Parameter.MIME_TYPES] = new MimeMap();
-        config[Parameter.FILE_CACHE] = new FileCache(true);
-        config[Parameter.HTTP_CACHE] = new HttpCache(true);
+        config[Parameter.DEFAULT_MIME] = "application/octet-stream";
+        config[Parameter.FILE_CACHE] = true;
+        config[Parameter.HTTP_CACHE] = true;
         config[Parameter.MAX_CONNECTION] = 60;
         config[Parameter.BACKLOG] = 131072;
         config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(5);
@@ -64,17 +62,20 @@ int main()
             log.info(key, " : ", value.toString());
         }
 
-        auto mainDir = new Directory(config, "/public", "index.html");
+        auto eventLoop = new EventLoop();
+        auto mainDir = new Directory("/public", "index.html", config);
         auto workerHandler = new Worker(eventLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
         auto proxyHandler = new Proxy();
 
         auto workerRoute = new Route("^/worker", workerHandler);
         auto proxyRoute = new Route("^/proxy", proxyHandler);
         auto mainRoute = new Route("^/main", mainDir);
+        
         auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
         auto mainVirtualHostConfig = new VirtualHostConfig([mainHost], mainHost);
-        auto mainServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
 
+        auto firstServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
+        auto secondServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8081], mainVirtualHostConfig, config);
         eventLoop.run();
     }
     catch (SocketOSException e)

@@ -3,7 +3,7 @@
 set -e
 
 ragel -G2 -E src/http/protocol/Request.d.rl -o src/http/protocol/Request.d
-sources="src/*.d src/dlog/*.d src/http/protocol/*.d src/http/server/*.d src/libev/*.d"
+sources="src/*.d src/crunch/* src/dlog/*.d src/http/protocol/*.d src/http/server/*.d src/libev/*.d"
 includes="-Isrc/ -Isrc/libev -Isrc/czmq"
 
 #gdc $includes $sources 
@@ -17,7 +17,7 @@ if [[ $1 == "release" ]]; then
 elif [[ $1 == "release_profiled" ]]; then
 	dmd_flags="-O -release -noboundscheck -profile"
 else
-	dmd_flags="-unittest -debug -vtls -profile -gc -gs -gx -g"
+	dmd_flags="-unittest -debug -profile -gc -gs -gx -g"
 fi
 
 dmd $sources $includes $binoutput $libraries $dmd_flags

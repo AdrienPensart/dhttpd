@@ -1,5 +1,6 @@
 module http.server.VirtualHost;
 
+import std.string;
 import std.conv;
 
 import http.server.Route;
@@ -7,6 +8,7 @@ import http.protocol.Request;
 import http.protocol.Response;
 import http.protocol.Header;
 import dlog.Logger;
+import crunch.AliveReference;
 
 class VirtualHostConfig : AliveReference!VirtualHostConfig
 {
@@ -28,7 +30,7 @@ class VirtualHostConfig : AliveReference!VirtualHostConfig
         // not host found, fallback on default host
         if(fallback !is null)
         {
-            log.warning("Host not found => fallback");
+            log.trace("Host not found => fallback");
             return fallback.dispatch(request);
         }
         return null;
@@ -39,7 +41,7 @@ class VirtualHostConfig : AliveReference!VirtualHostConfig
     VirtualHost fallback;
 }
 
-class VirtualHost : AliveReference!VirtualHostConfig
+class VirtualHost : AliveReference!VirtualHost
 {        
     this(string[] hosts, Route[] routes)
     {
@@ -54,9 +56,12 @@ class VirtualHost : AliveReference!VirtualHostConfig
         {
             foreach(port ; ports)
             {
-                auto newHost = host ~ ":" ~ to!string(port);
-                log.info("Added new host + port : ", newHost);
-                bufferHosts ~= newHost;
+                if(!inPattern(':', host))
+                {
+                    auto newHost = host ~ ":" ~ to!string(port);
+                    bufferHosts ~= newHost;
+                    log.info("Added new host + port : ", newHost);
+                }
             }
         }
         hosts = bufferHosts;

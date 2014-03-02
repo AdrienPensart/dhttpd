@@ -18,13 +18,15 @@ static this()
     string cachedDate = toDateRFC1123(date);
 }
 
-void updateToRFC1123(const ref SysTime dateRef, ref string buffer)
+void updateToRFC1123(ref SysTime dateRef, ref string buffer)
 {
     auto now = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
     if(now - dateRef > 1000.msecs)
     {
         buffer = toDateRFC1123(now);
+        dateRef = now;
     }
+    // don't update, date didn't changed (1 second precision)
 }
 
 // cache date with second precision

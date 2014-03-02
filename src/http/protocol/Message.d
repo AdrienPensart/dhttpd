@@ -1,12 +1,12 @@
 module http.protocol.Message;
 
-import std.uuid;
 import std.uni;
 
 import http.protocol.Protocol;
 import http.protocol.Header;
 
 import dlog.Logger;
+import crunch.AliveReference;
 
 alias string[string] Headers;
 
@@ -14,7 +14,6 @@ abstract class Message : AliveReference!Message
 {
     this()
     {
-        //m_id = randomUUID();
         m_updated = false;
     }
 
@@ -34,7 +33,6 @@ abstract class Message : AliveReference!Message
         return m_updated = a_updated;
     }
 
-    
     @property ref string raw()
     {
         return m_raw;
@@ -49,18 +47,12 @@ abstract class Message : AliveReference!Message
     {        
         m_raw ~= data;
         m_updated = true;
-        log.trace("Message data size is now = ", m_raw.length);
     }
     ref string get()
     {
         return raw;
     }
     
-    @property UUID getId()
-    {
-        return sha1UUID(get());
-    }
-
     @property ref Headers headers()
     {
         return m_headers;

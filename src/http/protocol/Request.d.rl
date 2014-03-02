@@ -136,10 +136,6 @@ class Request : Message
     size_t parse()
     {
         mixin(Tracer);
-        log.trace("before parsing, raw.length = ", raw.length);
-        log.trace("before parsing, lengthadded = ", lengthadded);
-        log.trace("before parsing, off = ", off);
-
         off = raw.length - lengthadded;
         char * buffer = cast(char*)raw.ptr;
         char * p = buffer + off;
@@ -149,28 +145,21 @@ class Request : Message
 
         nread += p - (buffer + off);
         lengthadded = off;
-
-        log.trace("after parsing, lengthadded = ", lengthadded);
-        log.trace("after parsing, off = ", off);
-        log.trace("after parsing, nread = ", nread);
         return nread;
     }
 
-    auto getStatus()
+    @property auto status()
     {
         if (hasError())
-        {
-            //log.test("Has error");
+        {            
             return Status.HasError;
         }
         else if (isFinished())
         {
-            //log.test("Is finished");
             return Status.Finished;
         } 
         else 
         {
-            //log.test("Is not finished");
             return Status.NotFinished;
         }
     }
@@ -231,7 +220,7 @@ class Request : Message
 unittest
 {
     scope Request request = new Request();
-    assert(request.getStatus() == Request.Status.NotFinished, "Should NOT be finished if nothing parsed.");
+    assert(request.status == Request.Status.NotFinished, "Should NOT be finished if nothing parsed.");
     assert(!request.hasError(), "Should not have an error at the beginning.");
     assert(!request.isFinished(), "Should not be finished since never handed anything.");
 }

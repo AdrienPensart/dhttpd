@@ -11,17 +11,18 @@ import http.protocol.Response;
 import http.protocol.Status;
 import http.protocol.Header;
 
+import http.server.Transaction;
 import http.server.Config;
-import http.server.Cache;
 import http.server.VirtualHost;
 
 import dlog.Logger;
+import crunch.Caching;
+import crunch.AliveReference;
 
 class Connection : AliveReference!Connection
 {
     private
     {
-        HttpCache cache;
         bool keepalive;
         Config config;
         Address address;
@@ -41,7 +42,6 @@ class Connection : AliveReference!Connection
             this.socket = socket;
             this.address = socket.remoteAddress();
             this.config = config;
-            this.cache = config[Parameter.HTTP_CACHE].get!(HttpCache);
             setKeepAliveDuration(config[Parameter.KEEP_ALIVE_TIMEOUT].get!(Duration));
             setMaxRequest(config[Parameter.MAX_REQUEST].get!(int));
             refreshKeepAlive();
@@ -62,32 +62,21 @@ class Connection : AliveReference!Connection
             }
             currentRequest.feed(buffer);
 
-            Transaction transaction = new Transaction();
-
-            // search in cache, build UUID of request
-            UUID requestId = currentRequest.getId();
-            if(cache.exists(requestId))
+            scope Transaction transaction = new Transaction(virtualHostConfig);
+            currentRequest.parse();
+            final switch(currentRequest.status())
             {
-                log.trace("HTTP cache hit on ", requestId);
-                transaction = cache.get(requestId);
-            }
-            else
-            {
-                log.trace("HTTP cache DIT NOT hit, parsing request");
-                currentRequest.parse();
-                Request.Status status = currentRequest.getStatus();
-                if(status == Request.Status.Finished)
-                {
+                case Request.Status.NotFinished:
+                    return;
+                case Request.Status.Finished:
                     log.trace("Request ready : \n\"\n",currentRequest.get(), "\"");
-
                     transaction.response = virtualHostConfig.dispatch(currentRequest);
                     if(transaction.response is null)
                     {
-                        log.warning("Host not found and no fallback => Not Found");
+                        log.trace("Host not found and no fallback => Not Found");
                         transaction.response = new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
                     }
 
-                    log.trace("Saving transaction in cache");
                     if(!currentRequest.keepalive())
                     {
                         log.trace("Disable keep-alive");
@@ -99,28 +88,19 @@ class Connection : AliveReference!Connection
 
                     // put request and response in cache
                     transaction.request = currentRequest;
+                    /*
                     cache.add(requestId, transaction);
                     log.info("Request cached : \n", transaction.request.get());
                     log.info("Response cached : \n", transaction.response.get());
-                }
-                else if(status == Request.Status.HasError)
-                {
+                    */
+                    break;
+                case Request.Status.HasError:
                     // don't cache malformed request
                     log.warning("Malformed request => Bad Request");
                     transaction.response = new BadRequestResponse(config[Parameter.BAD_REQUEST_FILE].toString());
                     transaction.response.protocol = currentRequest.protocol;
-                }
-                else if(status == Request.Status.NotFinished)
-                {
-                    log.trace("Request not finished");
-                    return;
-                }
-                else
-                {
-                    log.error("Request status not defined.");
-                    return;
-                }
             }
+            
             send(transaction);
             currentRequest = null;
         }

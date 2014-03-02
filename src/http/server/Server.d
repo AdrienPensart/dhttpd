@@ -1,4 +1,4 @@
- module http.server.Server;
+module http.server.Server;
 
 import std.socket;
 import std.file;
@@ -20,7 +20,7 @@ import http.protocol.Status;
 import libev.ev;
 
 class Server
-{    
+{
     struct ListenerPoller
     {
         ev_io io;
@@ -86,6 +86,7 @@ class Server
                 listenerPoller.socket.bind(new InternetAddress(netInterface, port));
                 listenerPoller.socket.blocking = false;
                 listenerPoller.socket.listen(config[Parameter.BACKLOG].get!(int));
+
                 GC.addRoot(cast(void*)listenerPoller);
                 GC.setAttr(cast(void*)listenerPoller, GC.BlkAttr.NO_MOVE);
 
@@ -102,15 +103,17 @@ class Server
             try
             {
                 mixin(Tracer);
+                auto listenerPoller = cast(ListenerPoller *)watcher;
                 if(EV_ERROR & revents)
                 {
-                    log.error("got invalid event");
+                    log.error("Listener in error.");
+                    ev_io_stop(loop, &listenerPoller.io);
+                    listenerPoller.socket.close();
+                    GC.removeRoot(listenerPoller);
+                    GC.clrAttr(cast(void*)listenerPoller, GC.BlkAttr.NO_MOVE);
                     return;
                 }
-                log.trace("handling connection on ", watcher.fd);
-
-                auto listenerPoller = cast(ListenerPoller *)watcher;
-
+                log.trace("Handling connection on ", watcher.fd);
                 auto listener = listenerPoller.socket;
                 auto connectionPoller = new ConnectionPoller;
                 auto acceptedSocket = listener.accept();
@@ -125,7 +128,7 @@ class Server
                 connectionPoller.server = listenerPoller.server;
 
                 GC.addRoot(cast(void*)connectionPoller);
-                //GC.setAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
+                GC.setAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
 
                 ev_io_init(&connectionPoller.io, &handleRequest, acceptedSocket.handle(), EV_READ);
                 ev_io_start(loop, &connectionPoller.io);
@@ -141,29 +144,25 @@ class Server
             try
             {
                 mixin(Tracer);
+                auto connectionPoller = cast(ConnectionPoller *)watcher;
                 if(EV_ERROR & revents)
                 {
-                    log.error("got invalid event");
+                    log.error("Connection in error on ", watcher.fd);
+                    ev_io_stop(loop, &connectionPoller.io);
+                    connectionPoller.connection.shutdown();
+                    GC.removeRoot(connectionPoller);
+                    GC.clrAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
                     return;
                 }
-                log.trace("handling request on ", watcher.fd);
-
-                auto connectionPoller = cast(ConnectionPoller *)watcher;
+                
+                log.trace("Handling request on ", watcher.fd);
                 connectionPoller.connection.handleRequest(connectionPoller.server.virtualHostConfig);
                 if(!connectionPoller.connection.isValid())
                 {
                     ev_io_stop(loop, &connectionPoller.io);
-
-                    //delete connectionPoller;
-                    //GC.free(connectionPoller);
-
                     connectionPoller.connection.shutdown();
-                    //connectionPoller.connection.close();
-                    
-                    //GC.free(connectionPoller);
-                    
                     GC.removeRoot(connectionPoller);
-                    //GC.clrAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
+                    GC.clrAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
                 }
             }
             catch(Exception e)

@@ -1,6 +1,6 @@
-module dlog.AliveReference;
+module crunch.AliveReference;
 
-class AliveReference (T)
+abstract class AliveReference (T)
 {
 	static ulong m_alive = 0;
 

@@ -37,7 +37,6 @@ class Response : Message
             {
                 headers[FieldDate] = "";
                 updateToRFC1123(buildAt, headers[FieldDate]);
-                buildAt = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
             }
 
             // HTTP 1.0 does not keep connection alive by default

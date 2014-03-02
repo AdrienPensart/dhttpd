@@ -2,8 +2,8 @@
 
 set -e
 
-if [[ ! -f utils/profile ]]; then
-    utils/build.sh
+if [[ ! -f protfiler/profiler ]]; then
+    profiler/build.sh
 fi
 
 rm dhttpd
@@ -11,4 +11,4 @@ rm dhttpd
 
 rm trace.*   
 ./dhttpd
-utils/profile trace.log
+profiler/profiler trace.log

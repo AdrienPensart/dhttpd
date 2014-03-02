@@ -4,6 +4,7 @@ import std.variant;
 
 enum Parameter
 {
+	DEFAULT_MIME,
 	MIME_TYPES,
 	SOCKET_LINGER,
 	TCP_NODELAY,

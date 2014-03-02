@@ -10,6 +10,7 @@ import http.server.Config;
 import http.server.Handler;
 import http.server.Cache;
 
+import http.protocol.Mime;
 import http.protocol.Header;
 import http.protocol.Request;
 import http.protocol.Response;
@@ -18,11 +19,20 @@ import http.protocol.Status;
 
 class Directory : Handler
 {
-    this(Config config, string directory, string indexFilename, bool authListing=false)
+    private
+    {
+        Config config;
+        string directory;
+        string indexFilename;
+        string defaultMime;
+    }
+
+    this(Config config, string directory, string indexFilename, string defaultMime="application/octet-stream")
     {
         this.config = config;
         this.directory = config[Parameter.ROOT_DIR].toString() ~ directory;
         this.indexFilename = indexFilename;
+        this.defaultMime = defaultMime;
     }
     
     Response execute(Request request, string hit)
@@ -43,9 +53,11 @@ class Directory : Handler
             if(method == Method.GET)
             {
                 log.trace("GET method");
-                response.headers[FieldServer] = config[Parameter.SERVER_STRING].toString();
+                response.headers[FieldServer] = config[Parameter.SERVER_STRING].get!(string);
                 response.status = Status.Ok;
-                response.headers[ContentType] = "text/html";
+
+                auto mimes = config[Parameter.MIME_TYPES].get!(MimeMap);
+                response.headers[ContentType] = mimes.match(finalPath, defaultMime);
 
                 // cache lookup
                 auto cache = config[Parameter.FILE_CACHE].get!(FileCache);
@@ -96,10 +108,4 @@ class Directory : Handler
     {
         return true;
     }
-
-    private:
-
-        Config config;
-        string directory;
-        string indexFilename;
 }

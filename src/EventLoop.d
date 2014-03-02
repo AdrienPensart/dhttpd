@@ -3,6 +3,7 @@ module EventLoop;
 import std.string;
 import dlog.Logger;
 import czmq;
+import zsys;
 import libev.ev;
 import core.stdc.signal;
 
@@ -10,10 +11,31 @@ class EventLoop
 {
     this()
     {
-        m_loop = ev_default_loop(EVFLAG_AUTO);
+        zsys_handler_reset ();
+        zsys_handler_set (null);
+        
+        ev_loop = ev_default_loop(EVFLAG_AUTO);
+        assert(ev_loop);
+
         ev_signal_init (&m_signal_watcher, &sigint_cb, SIGINT);
-        ev_timer_init (&m_reference_counter_timer, &count_reference_cb, 0, 3);
-        ev_timer_init (&m_gc_timer, &gc_collect_cb, 0., 0.300);
+
+        version(assert)
+        {
+            ev_timer_init (&m_reference_counter_timer, &count_reference_cb, 0, 3);
+        }
+
+        //ev_timer_init (&m_gc_timer, &gc_collect_cb, 0., 0.300);
+
+        zctx = zctx_new();
+        assert(zctx);
+        
+        //zctx_set_linger (context, 10);
+        zloop = zloop_new();
+    }
+
+    ~this()
+    {
+        zctx_destroy(&zctx);
     }
 
     void info()
@@ -31,8 +53,8 @@ class EventLoop
 
     void run()
     {
-        ev_signal_start (m_loop, &m_signal_watcher);
-        ev_timer_again (m_loop, &m_reference_counter_timer);
+        ev_signal_start (ev_loop, &m_signal_watcher);
+        ev_timer_again (ev_loop, &m_reference_counter_timer);
 
         //GC.disable();
         //scope(exit) GC.enable();
@@ -41,7 +63,12 @@ class EventLoop
 
     auto loop()
     {
-        return m_loop;
+        return ev_loop;
+    }
+
+    auto context()
+    {
+        return zctx;
     }
 
     private
@@ -49,7 +76,10 @@ class EventLoop
         ev_signal m_signal_watcher;
         ev_timer m_reference_counter_timer;
         ev_timer m_gc_timer;
-        ev_loop_t * m_loop;
+
+        ev_loop_t * ev_loop;
+        zctx_t * zctx;
+        zloop_t * zloop;
     }
 
     private extern(C)
@@ -66,12 +96,18 @@ class EventLoop
 
         static void count_reference_cb (ev_loop_t * loop, ev_timer * w, int revents)
         {
+            log.info("\nReference counting : ");
             import http.server.Connection;
             log.info("Connection alive : ", Connection.alive());
             import http.protocol.Message;
             log.info("Message alive : ", Message.alive());
             import http.protocol.Transaction;
             log.info("Transaction alive : ", Transaction.alive());
+            import http.server.Route;
+            log.info("Route alive : ", Route.alive());
+            import http.server.VirtualHost;
+            log.info("VirtualHost alive : ", VirtualHost.alive());
+            log.info("VirtualHostConfig alive : ", VirtualHostConfig.alive());
         }
     }
 }

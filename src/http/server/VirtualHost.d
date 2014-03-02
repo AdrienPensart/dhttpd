@@ -8,7 +8,7 @@ import http.protocol.Response;
 import http.protocol.Header;
 import dlog.Logger;
 
-class VirtualHostConfig
+class VirtualHostConfig : AliveReference!VirtualHostConfig
 {
     this(VirtualHost[] a_hosts, VirtualHost a_fallback=null)
     {
@@ -39,7 +39,7 @@ class VirtualHostConfig
     VirtualHost fallback;
 }
 
-class VirtualHost
+class VirtualHost : AliveReference!VirtualHostConfig
 {        
     this(string[] hosts, Route[] routes)
     {

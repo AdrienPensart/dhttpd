@@ -69,13 +69,19 @@ class Server
                 listenerPoller.server = this;
 
                 listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, true);
-                /*
-                Linger l;
-                l.on = 1;
-                l.time = 1;
-                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, l);
-                listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
-                */
+
+                if(config[Parameter.TCP_NODELAY].get!(bool))
+                {
+                    listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+                }
+
+                if(config[Parameter.SOCKET_LINGER].get!(bool))
+                {
+                    Linger linger;
+                    linger.on = 1;
+                    linger.time = 1;
+                    listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
+                }
 
                 listenerPoller.socket.bind(new InternetAddress(netInterface, port));
                 listenerPoller.socket.blocking = false;
@@ -110,7 +116,11 @@ class Server
                 auto acceptedSocket = listener.accept();
 
                 acceptedSocket.blocking = false;
-                acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+                if(listenerPoller.server.config[Parameter.TCP_NODELAY].get!(bool))
+                {
+                    acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+                }
+
                 connectionPoller.connection = new Connection(acceptedSocket, listenerPoller.server.config);
                 connectionPoller.server = listenerPoller.server;
 

@@ -8,7 +8,7 @@ import http.server.Handler;
 
 import dlog.Logger;
 
-class Route
+class Route : AliveReference!Route
 {
     this(string route, Handler handler)
     {

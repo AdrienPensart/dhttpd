@@ -11,6 +11,7 @@ import core.memory;
 import dlog.Logger;
 
 import http.protocol.Status;
+import http.protocol.Mime;
 
 import http.server.Server;
 import http.server.Cache;
@@ -39,11 +40,14 @@ int main()
 
         auto eventLoop = new EventLoop();
         Config config;
+        config[Parameter.MIME_TYPES] = new MimeMap();
         config[Parameter.FILE_CACHE] = new FileCache(true);
         config[Parameter.HTTP_CACHE] = new HttpCache(true);
         config[Parameter.MAX_CONNECTION] = 60;
         config[Parameter.BACKLOG] = 131072;
         config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(5);
+        config[Parameter.TCP_NODELAY] = false;
+        config[Parameter.SOCKET_LINGER] = false;
         config[Parameter.MAX_REQUEST] = 1_000_000;
         config[Parameter.MAX_HEADER] = 100;
         config[Parameter.MAX_REQUEST_SIZE] = 1000000;
@@ -61,17 +65,15 @@ int main()
         }
 
         auto mainDir = new Directory(config, "/public", "index.html");
-        auto workerHandler = new Worker();
+        auto workerHandler = new Worker(eventLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
         auto proxyHandler = new Proxy();
 
+        auto workerRoute = new Route("^/worker", workerHandler);
+        auto proxyRoute = new Route("^/proxy", proxyHandler);
         auto mainRoute = new Route("^/main", mainDir);
         auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
         auto mainVirtualHostConfig = new VirtualHostConfig([mainHost], mainHost);
         auto mainServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
-
-        Server[] servers;
-        servers ~= mainServer;
-
 
         eventLoop.run();
     }

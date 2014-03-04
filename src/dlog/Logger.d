@@ -58,7 +58,7 @@ else
             "fatal" : true,
             "error" : true,
             "warning" : true,
-            "statistic" : false,
+            "statistic" : true,
             "trace" : false,
             "test" : false
         ];

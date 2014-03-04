@@ -6,7 +6,7 @@ import std.datetime;
 import std.file;
 import std.path : dirName;
 import std.parallelism : totalCPUs;
-import core.memory;
+
 
 import dlog.Logger;
 
@@ -30,12 +30,35 @@ auto installDir()
     return thisdir;
 }
 
+import core.thread;
+class HandleThread : Thread
+{
+    this()
+    {
+        super(&run);
+    }
+
+    private void run()
+    {
+        mixin(Tracer);
+
+        sleep(1000.msecs);
+    }
+}
+
 int main()
 {
     mixin(Tracer);
     try
     {
         log.register(new ConsoleLogger);
+
+        /*
+        auto wt = new HandleThread();
+        wt.start();
+        wt.join();
+        */
+
         Config config;
         config[Parameter.MIME_TYPES] = new MimeMap();
         config[Parameter.DEFAULT_MIME] = "application/octet-stream";
@@ -43,10 +66,13 @@ int main()
         config[Parameter.HTTP_CACHE] = true;
         config[Parameter.MAX_CONNECTION] = 60;
         config[Parameter.BACKLOG] = 131072;
-        config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(5);
+        config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
+        
+        config[Parameter.TCP_REUSEADDR] = true;
         config[Parameter.TCP_NODELAY] = false;
-        config[Parameter.SOCKET_LINGER] = false;
-        config[Parameter.MAX_REQUEST] = 1_000_000;
+        config[Parameter.TCP_LINGER] = false;
+
+        config[Parameter.MAX_REQUEST] = 1_000_000u;
         config[Parameter.MAX_HEADER] = 100;
         config[Parameter.MAX_REQUEST_SIZE] = 1000000;
         config[Parameter.SERVER_STRING] = "dhttpd";
@@ -62,11 +88,15 @@ int main()
             log.info(key, " : ", value.toString());
         }
 
-        auto eventLoop = new EventLoop();
-        auto mainDir = new Directory("/public", "index.html", config);
-        auto workerHandler = new Worker(eventLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
-        auto proxyHandler = new Proxy();
+        auto eventLoop = new LibevLoop();
 
+
+        auto zmqLoop = new ZmqLoop();
+        auto mainDir = new Directory("/public", "index.html", config);
+        auto workerHandler = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
+        
+        auto proxyHandler = new Proxy();
+        
         auto workerRoute = new Route("^/worker", workerHandler);
         auto proxyRoute = new Route("^/proxy", proxyHandler);
         auto mainRoute = new Route("^/main", mainDir);
@@ -76,6 +106,10 @@ int main()
 
         auto firstServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
         auto secondServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8081], mainVirtualHostConfig, config);
+        
+        auto blockInterrupt = new BlockInterruption(eventLoop.loop());
+        auto timedStatistic = new TimedStatistic(eventLoop.loop());
+        
         eventLoop.run();
     }
     catch (SocketOSException e)

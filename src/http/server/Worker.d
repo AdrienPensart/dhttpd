@@ -13,14 +13,24 @@ class Worker : Handler
 	this(zctx_t * zctx, string sendAddress, string recvAddress)
 	{
 		this.zctx = zctx;
-
+		
 		sender = zsocket_new (zctx, ZMQ_PUSH);
+		assert(sender);
+		zsocket_bind(sender, toStringz(sendAddress));
+		
+		receiver = zsocket_new (zctx, ZMQ_PULL);
+		assert(receiver);
+		zsocket_bind(receiver, toStringz(recvAddress));
+		
+		/*
+		sender = zsocket_new(zctx, ZMQ_PUB);
 		assert(sender);
 		zsocket_bind(sender, toStringz(sendAddress));
 
 		receiver = zsocket_new (zctx, ZMQ_PULL);
 		assert(receiver);
 		zsocket_bind(receiver, toStringz(recvAddress));
+		*/
 	}
 	
 	~this()

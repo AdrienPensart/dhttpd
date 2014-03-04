@@ -127,8 +127,6 @@ class Request : Message
 
     override void feed(char[] data)
     {
-        mixin(Tracer);
-        log.trace("Feeding request");
         super.feed(data);
         lengthadded += data.length;
     }

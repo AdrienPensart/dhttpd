@@ -23,197 +23,173 @@ class Connection : AliveReference!Connection
 {
     private
     {
-        bool keepalive;
-        Config config;
-        Address address;
-        Socket socket;
-        Duration keepAliveDuration;
-        TickDuration keepAliveTimer;
+        Address m_address;
+        Socket m_socket;
+        Config m_config;
+
         uint maxRequest;
         uint processedRequest;
         Request currentRequest;
+        Transaction[] queue;
     }
 
     public
     {
-        this(Socket socket, Config config)
+        this(Socket a_socket, Config a_config)
         {
-            keepalive = true;
-            this.socket = socket;
-            this.address = socket.remoteAddress();
-            this.config = config;
-            setKeepAliveDuration(config[Parameter.KEEP_ALIVE_TIMEOUT].get!(Duration));
-            setMaxRequest(config[Parameter.MAX_REQUEST].get!(int));
-            refreshKeepAlive();
+            m_socket = a_socket;
+            m_address = m_socket.remoteAddress();
+            m_config = a_config;
+            maxRequest = m_config[Parameter.MAX_REQUEST].get!(uint);
         }
 
-        void handleRequest(VirtualHostConfig virtualHostConfig)
+        bool synctreat(VirtualHostConfig virtualHostConfig)
         {
             mixin(Tracer);
             auto buffer = readChunk();
             if(!buffer.length)
             {
-                return;
+                return false;
+            }
+
+            if(currentRequest is null)
+            {
+                currentRequest = new Request();
+            }
+
+            log.trace("Feeding request on ", handle());
+            currentRequest.feed(buffer);
+
+            Transaction transaction = new Transaction(m_config, virtualHostConfig, currentRequest);
+            if(transaction.get() !is null)
+            {
+                processedRequest++;
+                currentRequest = null;
+                return writeChunk(transaction.response.get()) && transaction.keepalive;
+            }
+            return true;
+        }
+
+        bool recv(VirtualHostConfig virtualHostConfig)
+        {
+            mixin(Tracer);
+            auto buffer = readChunk();
+            if(!buffer.length)
+            {
+                return false;
             }
             
             if(currentRequest is null)
             {
                 currentRequest = new Request();
             }
+
+            log.trace("Feeding request on ", handle());
             currentRequest.feed(buffer);
 
-            scope Transaction transaction = new Transaction(virtualHostConfig);
-            currentRequest.parse();
-            final switch(currentRequest.status())
+            Transaction transaction = new Transaction(m_config, virtualHostConfig, currentRequest);
+            if(transaction.get() !is null)
             {
-                case Request.Status.NotFinished:
-                    return;
-                case Request.Status.Finished:
-                    log.trace("Request ready : \n\"\n",currentRequest.get(), "\"");
-                    transaction.response = virtualHostConfig.dispatch(currentRequest);
-                    if(transaction.response is null)
-                    {
-                        log.trace("Host not found and no fallback => Not Found");
-                        transaction.response = new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
-                    }
-
-                    if(!currentRequest.keepalive())
-                    {
-                        log.trace("Disable keep-alive");
-                        transaction.response.headers[FieldConnection] = "close";
-                    }
-                    
-                    transaction.response.protocol = currentRequest.protocol;
-                    transaction.response.headers[FieldServer] = config[Parameter.SERVER_STRING].toString();
-
-                    // put request and response in cache
-                    transaction.request = currentRequest;
-                    /*
-                    cache.add(requestId, transaction);
-                    log.info("Request cached : \n", transaction.request.get());
-                    log.info("Response cached : \n", transaction.response.get());
-                    */
-                    break;
-                case Request.Status.HasError:
-                    // don't cache malformed request
-                    log.warning("Malformed request => Bad Request");
-                    transaction.response = new BadRequestResponse(config[Parameter.BAD_REQUEST_FILE].toString());
-                    transaction.response.protocol = currentRequest.protocol;
+                log.trace("Pushing transaction into queue for ", handle());
+                processedRequest++;
+                queue ~= transaction;
+                currentRequest = null;
             }
+            return true;
+        }
+
+        bool send()
+        {
+            mixin(Tracer);
+            if(queue.empty)
+            {
+                log.trace("Empty queue on ", handle());
+                return true;
+            }
+
+            auto transaction = queue.front();
+            queue.popFront();
+            return writeChunk(transaction.response.get()) && transaction.keepalive;
+        }
+
+        auto empty()
+        {
+            return queue.empty();
+        }
+
+        auto handle()
+        {
+            return socket.handle;
+        }
+
+        auto socket()
+        {
+            return m_socket;
+        }
             
-            send(transaction);
-            currentRequest = null;
-        }
-
-        auto getHandle()
+        auto setMaxRequest(uint a_maxRequest)
         {
-            return this.socket.handle;
-        }
-
-        auto getSocket()
-        {
-            return this.socket;
-        }
-            
-        auto setMaxRequest(uint maxRequest)
-        {
-            this.maxRequest = maxRequest;
-        }
-
-        auto setKeepAliveDuration(Duration keepAliveDuration)
-        {
-            this.keepAliveDuration = keepAliveDuration;
+            maxRequest = a_maxRequest;
         }
 
         void close()
         {
             mixin(Tracer);
             log.trace("Closing ", address);
-            this.socket.close();
+            m_socket.close();
         }
 
         void shutdown()
         {
             mixin(Tracer);
-            log.trace("Shutting down ", address);
-            if(this.socket.isAlive)
+            log.trace("Shutting down ", address, " on ", handle());
+            if(m_socket.isAlive)
             {
                 this.socket.shutdown(SocketShutdown.BOTH);
             }
         }
-            
-        auto isAlive()
+        
+        auto alive()
         {
-            return socket.isAlive;
+            return socket.isAlive && socket.handle != -1;
         }
 
         auto tooMuchRequests()
         {
+            /*
             log.trace("Processed requests : ", processedRequest);
             log.trace("Max requests : ", maxRequest);
             log.trace("Too much request : ", processedRequest > maxRequest);
+            */
             return processedRequest > maxRequest;
         }
 
-        auto isValid()
+        auto valid()
         {
-            log.trace("keep alive ? : ", keepalive);
-            return keepalive && !isTimeout() && !tooMuchRequests() && socket.handle != -1 && isAlive();
+            return !tooMuchRequests() && alive();
         }
 
-        auto isTimeout()
+        @property auto address()
         {
-            TickDuration currentDuration = TickDuration.currSystemTick() - keepAliveTimer;
-            Duration duration = keepAliveDuration - currentDuration;
-            log.trace("Duration : ", duration);
-            log.trace("Connection timeout ? ", duration.isNegative());
-            return duration.isNegative();
-        }
-
-        auto getAddress()
-        {
-            return address;
+            return m_address;
         }
     }
 
     private
     {
-        bool send(Transaction transaction)
-        {
-            mixin(Tracer);
-            auto response = transaction.response;
-            //log.trace("Sending response : \n\"\n", response.get(), "\"");
-            if(response.keepalive())
-            {
-                processedRequest++;
-                refreshKeepAlive();
-            }
-            else
-            {
-                keepalive = false;
-            }
-            return writeChunk(response.get());
-        }
-
-        void refreshKeepAlive()
-        {
-            keepAliveTimer = TickDuration.currSystemTick();
-        }
-
         char[] readChunk()
         {
+            mixin(Tracer);
             static char buffer[1024];
             auto datalength = socket.receive(buffer);
             if (datalength == Socket.ERROR)
             {
-                log.trace("receive socket error");
-                keepalive = false;
+                log.warning("Socket error : ", lastSocketError());
                 return [];
             }
             else if(datalength == 0)
             {
-                log.trace("no data on socket, disconnected");
-                keepalive = false;
+                log.trace("Disconnection on ", handle());
                 return [];
             }
             return buffer[0..datalength];
@@ -221,16 +197,21 @@ class Connection : AliveReference!Connection
 
         bool writeChunk(ref string data)
         {
+            mixin(Tracer);
             auto datalength = socket.send(data);
             if (datalength == Socket.ERROR)
             {
-                log.trace("Connection error.");
+                log.warning("Connection error ", m_address, " on ", handle());
                 return false;
             }
             else if(datalength == 0)
             {
-                log.trace("Connection from ", address, " closed.");
+                log.warning("Connection from ", m_address, " closed on ", handle(), " (", lastSocketError(), ")");
                 return false;
+            }
+            else if(datalength < data.length)
+            {
+                log.warning("Data not sent on ", handle(), " : ", datalength, " < ", data.length, " (", lastSocketError(), ")");
             }
             return true;
         }

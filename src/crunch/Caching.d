@@ -1,4 +1,5 @@
 module crunch.Caching;
+import dlog.Logger;
 
 struct Cache (Key, Value)
 {
@@ -35,7 +36,8 @@ class Cacheable (Key, Value)
         if(cache.enabled)
         {
         	Key m_key = key();
-            return cache.store.get(m_key, (cache.store[m_key] = value()));
+        	Value m_value = cache.store.get(m_key, (cache.store[m_key] = value()));
+            return m_value;
         }
         return value();
     }

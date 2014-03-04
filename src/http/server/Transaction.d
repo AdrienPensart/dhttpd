@@ -2,7 +2,9 @@ module http.server.Transaction;
 
 import http.protocol.Request;
 import http.protocol.Response;
+import http.protocol.Header;
 import http.server.VirtualHost;
+import http.server.Config;
 
 import crunch.Caching;
 import std.uuid;
@@ -10,15 +12,26 @@ import std.uuid;
 import dlog.Logger;
 
 // AliveReference!Transaction, 
-class Transaction : Cacheable!(Request, Response)
+class Transaction : Cacheable!(UUID, Response)
 {
-	Request m_request;
+	UUID m_key_request;
+    Request m_request;
 	Response m_response;
     VirtualHostConfig m_vhc;
+    Config m_config;
 
-    this(VirtualHostConfig a_vhc)
+    this(Config a_config, VirtualHostConfig a_vhc, Request a_request)
     {
+        m_config = a_config;
         m_vhc = a_vhc;
+        m_key_request = sha1UUID(a_request.get());
+        m_request = a_request;
+        m_response = null;
+    }
+
+    @property auto keepalive()
+    {
+        return !m_response.hasHeader(FieldConnection, "close");
     }
 
     @property auto request()
@@ -26,28 +39,55 @@ class Transaction : Cacheable!(Request, Response)
         return m_request;
     }
 
-    @property auto request(Request a_request)
-    {
-        return m_request = a_request;
-    }
-
     @property auto response()
     {
         return m_response;
     }
 
-    @property auto response(Response a_response)
+	override UUID key()
     {
-        return m_response = a_response;
+        return m_key_request;
     }
 
-	override Request key()
+    override Response get()
     {
-        return request;
+        m_response = super.get();
+        return m_response;
     }
 
     override Response value()
     {
-        return response;
+        mixin(Tracer);
+        m_request.parse();
+        final switch(m_request.status())
+        {
+            case Request.Status.NotFinished:
+                log.trace("Request not finished");
+                break;
+            case Request.Status.Finished:
+                log.trace("Request ready : \n\"\n",m_request.get(), "\"");
+                m_response = m_vhc.dispatch(m_request);
+                if(m_response is null)
+                {
+                    log.trace("Host not found and no fallback => Not Found");
+                    m_response = new NotFoundResponse(m_config[Parameter.NOT_FOUND_FILE].toString());
+                }
+
+                if(!m_request.keepalive())
+                {
+                    m_response.headers[FieldConnection] = "close";
+                }
+                
+                m_response.protocol = m_request.protocol;
+                m_response.headers[FieldServer] = m_config[Parameter.SERVER_STRING].toString();                
+                break;
+            case Request.Status.HasError:
+                // don't cache malformed request
+                log.trace("Malformed request => Bad Request");
+                m_response = new BadRequestResponse(m_config[Parameter.BAD_REQUEST_FILE].toString());
+                m_response.headers[FieldConnection] = "close";
+                m_response.protocol = m_request.protocol;
+        }
+        return m_response;
     }
 }

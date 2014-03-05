@@ -29,7 +29,7 @@ auto installDir()
     const string thisdir = dirName(thisExePath());
     return thisdir;
 }
-
+/*
 import core.thread;
 class HandleThread : Thread
 {
@@ -45,7 +45,7 @@ class HandleThread : Thread
         sleep(1000.msecs);
     }
 }
-
+*/
 int main()
 {
     mixin(Tracer);
@@ -89,8 +89,6 @@ int main()
         }
 
         auto eventLoop = new LibevLoop();
-
-
         auto zmqLoop = new ZmqLoop();
         auto mainDir = new Directory("/public", "index.html", config);
         auto workerHandler = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");

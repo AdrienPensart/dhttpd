@@ -1,8 +1,10 @@
 module http.server.Transaction;
 
+import http.protocol.Protocol;
 import http.protocol.Request;
 import http.protocol.Response;
 import http.protocol.Header;
+
 import http.server.VirtualHost;
 import http.server.Config;
 
@@ -11,7 +13,6 @@ import std.uuid;
 
 import dlog.Logger;
 
-// AliveReference!Transaction, 
 class Transaction : Cacheable!(UUID, Response)
 {
 	UUID m_key_request;
@@ -73,7 +74,14 @@ class Transaction : Cacheable!(UUID, Response)
                     m_response = new NotFoundResponse(m_config[Parameter.NOT_FOUND_FILE].toString());
                 }
 
-                if(!m_request.keepalive())
+                if(m_request.keepalive())
+                {
+                    if(m_request.protocol == HTTP_1_0)
+                    {
+                        m_response.headers[FieldConnection] = KeepAlive;
+                    }
+                }
+                else
                 {
                     m_response.headers[FieldConnection] = "close";
                 }

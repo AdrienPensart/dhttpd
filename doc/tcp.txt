@@ -1,0 +1,26 @@
+architecture : 
+
+io loop : listen thread
+io loop : handling request + timer pour chaque client (keep alive ?)
+io loop : I/O filesystem, calcul => worker thread
+
+gestion des connexions : 
+
+si parsing => nouveau tread
+pas de parsing et petit paquet à envoyer => envoi direct par send
+pas de parsing et gros paquet à envoyer => sendfile queued dans un thread
+
+réception de paquet : 
+
+recv => parse
+
+envoi de paquet : 
+
+set TCP_CORK par défaut
+
+si petit paquet => activer TCP_NODELAY
+si gros paquet => désactiver TCP_NODELAY
+
+send => réponse normale
+writev => pleins de petits buffers à envoyer en une seule fois
+sendfile => gros buffer à envoyer

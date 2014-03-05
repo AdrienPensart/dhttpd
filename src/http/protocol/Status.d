@@ -8,6 +8,7 @@ import dlog.Logger;
 
 enum Status
 {
+    Invalid = 0,
     // 1xx
     Continue = 100,
     SwitchProtocol = 101,

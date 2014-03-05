@@ -3,6 +3,7 @@ module http.server.Connection;
 import std.socket;
 import std.array;
 import std.file;
+import std.typecons;
 import core.time;
 
 import http.protocol.Protocol;
@@ -17,9 +18,8 @@ import http.server.VirtualHost;
 
 import dlog.Logger;
 import crunch.Caching;
-import crunch.AliveReference;
 
-class Connection : AliveReference!Connection
+class Connection : ReferenceCounter!Connection
 {
     private
     {
@@ -61,11 +61,25 @@ class Connection : AliveReference!Connection
             currentRequest.feed(buffer);
 
             Transaction transaction = new Transaction(m_config, virtualHostConfig, currentRequest);
-            if(transaction.get() !is null)
+            Response response = transaction.get();
+            if(response !is null)
             {
                 processedRequest++;
                 currentRequest = null;
-                return writeChunk(transaction.response.get()) && transaction.keepalive;
+                string data = response.get();
+                if(transaction.keepalive)
+                {
+                    log.trace("keep-alive !");
+                }
+                else
+                {
+                    log.trace("do no keep alive !");
+                }
+                return writeChunk(data) && transaction.keepalive;
+            }
+            else
+            {
+                log.trace("request not finished");
             }
             return true;
         }
@@ -198,6 +212,7 @@ class Connection : AliveReference!Connection
         bool writeChunk(ref string data)
         {
             mixin(Tracer);
+            log.trace("Chunk to be written : ", data);
             auto datalength = socket.send(data);
             if (datalength == Socket.ERROR)
             {

@@ -10,6 +10,7 @@ import http.server.Config;
 import http.server.Handler;
 import http.server.FileRecord;
 
+import http.protocol.Date;
 import http.protocol.Mime;
 import http.protocol.Header;
 import http.protocol.Request;
@@ -60,6 +61,8 @@ class Directory : Handler
             response.status = Status.Ok;
             response.headers[FieldServer] = config[Parameter.SERVER_STRING].get!(string);
             response.headers[ContentType] = mimes.match(finalPath, defaultMime);
+            response.headers[LastModified] = convertToRFC1123(timeLastModified(finalPath));
+
             if(method == Method.GET)
             {
                 scope auto file = new FileRecord(finalPath, indexFilename);
@@ -73,7 +76,7 @@ class Directory : Handler
             return new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
         }
     }
-
+    
     private bool headRequest()
     {
         return true;

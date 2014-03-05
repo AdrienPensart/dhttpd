@@ -7,10 +7,10 @@ import http.server.Route;
 import http.protocol.Request;
 import http.protocol.Response;
 import http.protocol.Header;
-import dlog.Logger;
-import crunch.AliveReference;
 
-class VirtualHostConfig : AliveReference!VirtualHostConfig
+import dlog.Logger;
+
+class VirtualHostConfig
 {
     this(VirtualHost[] a_hosts, VirtualHost a_fallback=null)
     {
@@ -41,7 +41,7 @@ class VirtualHostConfig : AliveReference!VirtualHostConfig
     VirtualHost fallback;
 }
 
-class VirtualHost : AliveReference!VirtualHost
+class VirtualHost
 {        
     this(string[] hosts, Route[] routes)
     {
@@ -89,8 +89,9 @@ class VirtualHost : AliveReference!VirtualHost
         return null;
     }
 
-    private:
-
+    private
+    {
         string[] hosts;
         Route[] routes;
+    }
 }

@@ -9,45 +9,57 @@ immutable string[] days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 immutable string[] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 enum rfc1123_format = "%s, %s %s %s %.02d:%.02d:%.02d GMT";
 
-__gshared SysTime date;
-__gshared string cachedDate;
+private __gshared TickDuration lastTick;
+private __gshared string cachedDate;
 
 static this()
 {
-	SysTime date = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
-    string cachedDate = toDateRFC1123(date);
+    lastTick = TickDuration.currSystemTick();
 }
 
-void updateToRFC1123(ref SysTime dateRef, ref string buffer)
+bool updateToRFC1123(ref string buffer)
 {
-    auto now = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
-    if(now - dateRef > 1000.msecs)
+    mixin(Tracer);
+    
+    auto current = TickDuration.currSystemTick();
+    if(current - lastTick > TickDuration(TickDuration.ticksPerSec))
     {
-        buffer = toDateRFC1123(now);
-        dateRef = now;
+        buffer = nowRFC1123();
+        lastTick = current;
+        return true;
     }
     // don't update, date didn't changed (1 second precision)
+    return false;
 }
 
+/*
 // cache date with second precision
 ref string getDateRFC1123()
 {
     auto now = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
-    if(now - date > 1000.msecs)
+    if(now - lastdate > 1000.msecs)
     {
     	// one second elapsed, update string cache
     	cachedDate = toDateRFC1123(now);
-    	date = now;
+    	lastdate = now;
     }
     return cachedDate;
 }
+*/
 
-private string toDateRFC1123(SysTime now)
+string nowRFC1123()
 {
-    return format(rfc1123_format, days[now.dayOfWeek()], now.day(), months[now.month()], now.year(), now.hour(), now.minute(), now.second());
+    mixin(Tracer);
+    SysTime now = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
+    return convertToRFC1123(now);
+}
+
+string convertToRFC1123(SysTime date)
+{
+    return format(rfc1123_format, days[date.dayOfWeek()], date.day(), months[date.month()], date.year(), date.hour(), date.minute(), date.second());
 }
 
 unittest
 {
-    assert("Wed, 02 Oct 2002 08:00:00 GMT", toDateRFC1123(SysTime(DateTime(2002, 10, 02, 8, 0, 0), UTC())));
+    assert("Wed, 02 Oct 2002 08:00:00 GMT", convertToRFC1123(SysTime(DateTime(2002, 10, 02, 8, 0, 0), UTC())));
 }

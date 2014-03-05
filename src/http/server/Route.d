@@ -7,9 +7,8 @@ import http.protocol.Response;
 import http.server.Handler;
 
 import dlog.Logger;
-import crunch.AliveReference;
 
-class Route : AliveReference!Route
+class Route
 {
     this(string route, Handler handler)
     {
@@ -44,9 +43,10 @@ class Route : AliveReference!Route
         return match(path, rex);
     }
 
-    private:
-
+    private
+    {
         Regex!char rex;
     	string route;
     	Handler handler;
+    }
 }

@@ -2,6 +2,7 @@ module EventLoop;
 
 import std.string;
 import dlog.Logger;
+
 import czmq;
 import zsys;
 import libev.ev;
@@ -78,15 +79,24 @@ class TimedStatistic
     private extern(C) static void callback (ev_loop_t * loop, ev_timer * w, int revents)
     {
         import http.server.Connection;
-        import http.protocol.Message;
+        Connection.showReferences();
+
+        /*
+        import http.protocol.Response;
+        import http.protocol.Request;
         import http.server.Route;
         import http.server.VirtualHost;
-
-        Connection.showReferences();
-        Message.showReferences();
+        import http.server.Server;
+        */
+        /*
+        Server.showReferences();
+        
+        Response.showReferences();
+        Request.showReferences();
         Route.showReferences();
         VirtualHost.showReferences();
         VirtualHostConfig.showReferences();
+        */
     }
 }
 

@@ -6,7 +6,7 @@ struct Cache (Key, Value)
 	alias Value[Key] Store;
 
 	private bool m_enabled;
-	protected Store m_store;
+	private Store m_store;
 
 	@property auto enabled()
 	{
@@ -17,12 +17,12 @@ struct Cache (Key, Value)
 		return m_enabled = a_enabled;
 	}
 
-	@property ref auto store()
+	protected @property ref auto store()
 	{
 		return m_store;
 	}
 
-	@property ref auto store(Store a_store)
+	protected @property ref auto store(Store a_store)
 	{
 		return m_store = a_store;
 	}

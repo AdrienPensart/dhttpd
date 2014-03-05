@@ -12,6 +12,7 @@ import http.server.Connection;
 import http.server.VirtualHost;
 import http.server.Config;
 import http.server.Transaction;
+import http.server.Poller;
 
 import http.protocol.Header;
 import http.protocol.Response;
@@ -22,34 +23,22 @@ import libev.ev;
 
 class Server
 {
-    struct ListenerPoller
-    {
-        ev_io io;
-        Socket socket;
-        Server server;
-    }
-
-    struct ConnectionPoller
-    {
-        ev_io io;
-        ev_timer timer_io;
-        Connection connection;
-        Server server;
-
-        void updateEvents(int events)
-        {
-            ev_io_stop(server.loop, &io);
-            ev_io_set(&io, connection.handle(), events);
-            ev_io_start(server.loop, &io);
-        }
-    }
-
     VirtualHostConfig virtualHostConfig;
     ushort[] ports;
     string[] interfaces;
-    Config config;
+    Config m_config;
     Duration keepAliveDuration;
-    ev_loop_t * loop;
+    ev_loop_t * m_loop;
+    
+    auto loop()
+    {
+        return m_loop;
+    }
+
+    auto config()
+    {
+        return m_config;
+    }
 
     this(
         ev_loop_t * loop,
@@ -59,8 +48,8 @@ class Server
         Config config)
     {
         mixin(Tracer);
-        this.loop = loop;
-        this.config = config;
+        this.m_loop = loop;
+        this.m_config = config;
         this.interfaces = interfaces;
         this.ports = ports;
         this.virtualHostConfig = virtualHostConfig;
@@ -80,10 +69,10 @@ class Server
                 listenerPoller.socket = new TcpSocket;
                 listenerPoller.server = this;
 
-                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, config[Parameter.TCP_REUSEADDR].get!(bool));
-                listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, config[Parameter.TCP_NODELAY].get!(bool));
+                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, m_config[Parameter.TCP_REUSEADDR].get!(bool));
+                listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, m_config[Parameter.TCP_NODELAY].get!(bool));
 
-                if(config[Parameter.TCP_LINGER].get!(bool))
+                if(m_config[Parameter.TCP_LINGER].get!(bool))
                 {
                     Linger linger;
                     linger.on = 1;
@@ -93,29 +82,20 @@ class Server
 
                 listenerPoller.socket.bind(new InternetAddress(netInterface, port));
                 listenerPoller.socket.blocking = false;
-                listenerPoller.socket.listen(config[Parameter.BACKLOG].get!(int));
+                listenerPoller.socket.listen(m_config[Parameter.BACKLOG].get!(int));
 
                 GC.addRoot(cast(void*)listenerPoller);
                 GC.setAttr(cast(void*)listenerPoller, GC.BlkAttr.NO_MOVE);
 
                 ev_io_init(&listenerPoller.io, &handleConnection, listenerPoller.socket.handle(), EV_READ);
                 ev_set_priority (&listenerPoller.io, EV_MINPRI);
-                ev_io_start(loop, &listenerPoller.io);
+                ev_io_start(m_loop, &listenerPoller.io);
             }
         }
     }
 
     static extern(C) 
     {
-        void shutdown(ConnectionPoller * poller)
-        {
-            ev_io_stop(poller.server.loop, &poller.io);
-            ev_timer_stop(poller.server.loop, &poller.timer_io);
-            poller.connection.shutdown();
-            GC.removeRoot(poller);
-            GC.clrAttr(cast(void*)poller, GC.BlkAttr.NO_MOVE);
-        }
-
         void handleConnection(ev_loop_t *loop, ev_io * watcher, int revents)
         {
             try
@@ -133,23 +113,11 @@ class Server
                 acceptedSocket.blocking = false;
                 acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, listenerPoller.server.config[Parameter.TCP_NODELAY].get!(bool));
 
-                auto connectionPoller = new ConnectionPoller;
-                connectionPoller.connection = new Connection(acceptedSocket, listenerPoller.server.config);
-                connectionPoller.server = listenerPoller.server;
-
-                log.trace("Handling connection on ", listener.handle(), ", new connection on ", acceptedSocket.handle());
-                GC.addRoot(cast(void*)connectionPoller);
-                GC.setAttr(cast(void*)connectionPoller, GC.BlkAttr.NO_MOVE);
-
-                ev_io_init(&connectionPoller.io, &handleRequest, acceptedSocket.handle(), EV_READ);
-                ev_set_priority(&connectionPoller.io, EV_MAXPRI);
-                ev_io_start(loop, &connectionPoller.io);
-
-                auto duration = listenerPoller.server.config[Parameter.KEEP_ALIVE_TIMEOUT].get!(Duration);
-                connectionPoller.timer_io.data = cast(void*)connectionPoller;
-                ev_timer_init (&connectionPoller.timer_io, &connectionTimeout, 0., cast(double)duration.seconds());
-                ev_set_priority (&connectionPoller.timer_io, EV_MINPRI);
-                ev_timer_again (loop, &connectionPoller.timer_io);
+                auto connectionPoller = new ConnectionPoller(
+                    listenerPoller.server, 
+                    new Connection(acceptedSocket, listenerPoller.server.config),
+                    &handleRequest);
+                log.trace("Handling connection on ", listener.handle(), ", new connection on ", connectionPoller.connection.handle());
             }
             catch(Exception e)
             {
@@ -171,9 +139,11 @@ class Server
 
                 if(EV_READ & revents)
                 {
+                    ev_timer_again (loop, &connectionPoller.timer_io);
                     if(!connectionPoller.connection.synctreat(connectionPoller.server.virtualHostConfig))
                     {
-                        shutdown(connectionPoller);
+                        log.trace("connection shot down");
+                        connectionPoller.shutdown();
                     }
                 }
                 /*
@@ -211,26 +181,6 @@ class Server
                     shutdown(connectionPoller);
                 }
                 */
-            }
-            catch(Exception e)
-            {
-                log.error(e);
-            }
-        }
-
-        void connectionTimeout(ev_loop_t * loop, ev_timer * watcher, int revents)
-        {
-            try
-            {
-                mixin(Tracer);
-                auto connectionPoller = cast(ConnectionPoller *)watcher.data;
-                if(EV_ERROR & revents)
-                {
-                    log.error("Connection in error.");
-                    return;
-                }
-                log.trace("Connection timeout on ", connectionPoller.connection.handle());
-                shutdown(connectionPoller);
             }
             catch(Exception e)
             {

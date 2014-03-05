@@ -6,11 +6,9 @@ import http.protocol.Protocol;
 import http.protocol.Header;
 
 import dlog.Logger;
-import crunch.AliveReference;
-
 alias string[string] Headers;
 
-abstract class Message : AliveReference!Message
+abstract class Message
 {
     this()
     {
@@ -28,7 +26,7 @@ abstract class Message : AliveReference!Message
     {
         return m_updated;
     }
-    protected @property bool updated(bool a_updated)
+    @property bool updated(bool a_updated)
     {
         return m_updated = a_updated;
     }

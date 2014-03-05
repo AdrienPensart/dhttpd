@@ -17,26 +17,28 @@ import dlog.Logger;
 
 class Response : Message
 {
-    Status status;
+    Status status = Status.Invalid;
     string[string] cookies;
-    SysTime buildAt;
+    string dateBuffer;
 
     this()
     {
+        mixin(Tracer);
         updated = true;
+        headers[FieldDate] = "";
     }
 
     // TODO : Cookies handling
     override ref string get()
     {
         mixin(Tracer);
-        // one field was updated, rebuild response buffer
-        if(updated)
+
+        assert(status != Status.Invalid, "HTTP Status code invalid");
+        if(updateToRFC1123(headers[FieldDate]) || updated)
         {
-            if(status != Status.Continue || status != Status.SwitchProtocol || isError(status))
+            if(status != Status.Continue && status != Status.SwitchProtocol && !isError(status))
             {
                 headers[FieldDate] = "";
-                updateToRFC1123(buildAt, headers[FieldDate]);
             }
 
             // HTTP 1.0 does not keep connection alive by default
@@ -57,7 +59,10 @@ class Response : Message
             
             foreach(index, value ; headers)
             {
-                formattedWrite(writer, "%s: %s\r\n", index, value);
+                if(value.length)
+                {
+                    formattedWrite(writer, "%s: %s\r\n", index, value);
+                }
             }
             
             formattedWrite(writer, "\r\n");
@@ -69,7 +74,7 @@ class Response : Message
             raw = writer.data;
             updated = false;
         }
-        return super.get();
+        return raw;
     }
 }
 
@@ -80,7 +85,6 @@ class BadRequestResponse : Response
         status = Status.BadRequest;            
         content = readText(file);
         headers[ContentType] = "text/html";
-        headers[FieldDate] = getDateRFC1123();
     }
 }
 
@@ -91,7 +95,6 @@ class NotFoundResponse : Response
         status = Status.NotFound;
         content = readText(file);
         headers[ContentType] = "text/html";
-        headers[FieldDate] = getDateRFC1123();
     }
 }
 
@@ -102,6 +105,5 @@ class NotAllowedResponse : Response
         status = Status.NotAllowed;         
         content = readText(file);
         headers[ContentType] = "text/html";
-        headers[FieldDate] = getDateRFC1123();
     }
 }

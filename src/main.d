@@ -69,8 +69,8 @@ int main()
         config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
         
         config[Parameter.TCP_REUSEADDR] = true;
-        config[Parameter.TCP_NODELAY] = false;
-        config[Parameter.TCP_LINGER] = false;
+        config[Parameter.TCP_NODELAY] = true;
+        config[Parameter.TCP_LINGER] = true;
 
         config[Parameter.MAX_REQUEST] = 1_000_000u;
         config[Parameter.MAX_HEADER] = 100;

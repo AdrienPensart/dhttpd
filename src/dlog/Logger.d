@@ -1,6 +1,8 @@
 module dlog.Logger;
 
 import core.thread : TickDuration, Thread, nsecs;
+import core.sync.mutex;
+
 import std.algorithm : sort;
 import std.format;
 import std.array;
@@ -47,7 +49,8 @@ version(assert)
             "warning" : true,
             "statistic" : true,
             "trace" : true,
-            "test" : false
+            "test" : false,
+            "dbg" : false,
         ];
 }
 else
@@ -61,15 +64,23 @@ else
             "warning" : true,
             "statistic" : true,
             "trace" : false,
-            "test" : false
+            "test" : false,
+            "dbg" : false,
         ];
 }
 
 __gshared Logger log;
+__gshared Mutex globalLogMutex;
+__gshared Mutex tracerMutex;
 
 shared static this()
 {
+    tracerMutex = new Mutex;
+    globalLogMutex = new Mutex;
     log = new Logger();
+
+    log.register(new ConsoleLogger);
+    log.trace("ConsoleLogger registered");
 }
 
 shared static ~this()
@@ -81,48 +92,33 @@ class Logger
 {
     mixin(logLevelGenerator());
 
-    this()
-    {
-        gen.seed(unpredictableSeed);
-    }
-
-    private string getThreadName()
-    {
-        return Thread.getThis().name();
-    }
-
-    private ref ThreadLog getThreadLog()
-    {
-        auto threadName = getThreadName();
-        // thread uuid creation
-        if(!threadName.length)
-        {
-            UUID currentThreadUUID = randomUUID(gen);
-            threadName = currentThreadUUID.toString();
-            Thread.getThis().name(threadName);
-            threadLogs[threadName] = ThreadLog(threadName);
-        }
-        return threadLogs[threadName];
-    }
-
     bool enabled()
     {
-        return getThreadLog().enabled();
+        synchronized(globalLogMutex)
+        {
+            return getThreadLog().enabled();
+        }
     }
 
     void enable()
     {
-        getThreadLog().enable();
+        synchronized(globalLogMutex)
+        {
+            getThreadLog().enable();
+        }
     }
 
     void disable()
     {
-        getThreadLog().disable();
+        synchronized(globalLogMutex)
+        {
+            getThreadLog().disable();
+        }
     }
 
   	auto register(LogBackend lb, typeof(levels) levelsFilter=levels)
    	{
-        synchronized
+        synchronized(globalLogMutex)
         {
             foreach(level, active; levelsFilter)
             {
@@ -136,23 +132,9 @@ class Logger
         }
    	}
 
-    auto log(S...)(string level, S args)
-    {
-        synchronized
-        {
-            if(enabled())
-            {
-                TickDuration duration = TickDuration.currSystemTick();
-                write(level, args);
-                duration =  TickDuration.currSystemTick() - duration;
-                writeDuration += duration;
-            }
-        }
-    }
-
     auto enter(FunctionLog currentFunction)
     {
-        synchronized
+        synchronized(globalLogMutex)
         {
             getThreadLog().push(currentFunction);
         }
@@ -160,15 +142,16 @@ class Logger
 
     auto leave(FunctionLog currentFunction)
     {
-        synchronized
+        synchronized(globalLogMutex)
         {
             getThreadLog().pop();
+            savePerfFunction(currentFunction.fullname, currentFunction.duration);
         }
     }
 
     auto savePerfFunction(string functionFullName, TickDuration duration)
     {
-        synchronized
+        synchronized(globalLogMutex)
         {
             if(!(functionFullName in functionStats))
             {
@@ -181,7 +164,7 @@ class Logger
 
     auto printStats()
     {
-        synchronized
+        synchronized(globalLogMutex)
         {
             foreach(functionStat ; getSortedFunctionStats())
             {
@@ -207,7 +190,7 @@ class Logger
 
     auto getSortedFunctionStats() 
     {
-        synchronized
+        synchronized(globalLogMutex)
         {
             auto sortedFunctionStats = functionStats.values;
             sort!((a,b) {return a.totalDuration > b.totalDuration;})(sortedFunctionStats);
@@ -217,6 +200,47 @@ class Logger
 
     private:
         
+        auto log(S...)(string level, S args)
+        {
+            synchronized(globalLogMutex)
+            {
+                if(enabled())
+                {
+                    TickDuration duration = TickDuration.currSystemTick();
+                    write(level, args);
+                    duration =  TickDuration.currSystemTick() - duration;
+                    writeDuration += duration;
+                }
+            }
+        }
+        
+        this()
+        {
+            gen.seed(unpredictableSeed);
+        }
+
+        string getThreadName()
+        {
+            return Thread.getThis().name();
+        }
+
+        ref ThreadLog getThreadLog()
+        {
+            synchronized(globalLogMutex)
+            {
+                auto threadName = getThreadName();
+                // thread uuid creation
+                if(!threadName.length)
+                {
+                    UUID currentThreadUUID = randomUUID(gen);
+                    threadName = currentThreadUUID.toString();
+                    Thread.getThis().name(threadName);
+                    threadLogs[threadName] = ThreadLog(threadName);
+                }
+                return threadLogs[threadName];
+            }
+        }
+
         static string logLevelGenerator()
         {
             string code;
@@ -229,7 +253,7 @@ class Logger
         }
         
     	void write(S...)(string type, S args)
-	    {            
+	    {
             if(type in backends)
             {
                 auto writer = appender!string();

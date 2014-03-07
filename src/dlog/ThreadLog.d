@@ -8,12 +8,15 @@ import dlog.FunctionLog;
 
 struct ThreadLog
 {
-	private string m_name;
-	private FunctionLog[] m_callstack;
-	private TickDuration m_origin;
-	private TickDuration m_duration;
-	private bool m_enabled;
-
+	private 
+	{
+		string m_name;
+		FunctionLog[] m_callstack;
+		TickDuration m_origin;
+		TickDuration m_duration;
+		bool m_enabled;
+	}
+	
 	this(string a_name)
 	{
 		m_name = a_name;

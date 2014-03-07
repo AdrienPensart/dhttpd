@@ -1,12 +1,11 @@
-#!/usr/bin/rdmd
-
-import std.string;
+import std.getopt;
+import std.stdio;
 import std.socket;
-import std.datetime;
 import std.file;
+import std.conv;
 import std.path : dirName;
 import std.parallelism : totalCPUs;
-
+import std.process;
 
 import dlog.Logger;
 
@@ -17,10 +16,10 @@ import http.server.Server;
 import http.server.Handler;
 import http.server.Directory;
 import http.server.Proxy;
-import http.server.Worker;
 import http.server.Route;
 import http.server.VirtualHost;
 import http.server.Config;
+import http.server.Poller;
 
 import EventLoop;
 
@@ -29,86 +28,114 @@ auto installDir()
     const string thisdir = dirName(thisExePath());
     return thisdir;
 }
-/*
-import core.thread;
-class HandleThread : Thread
-{
-    this()
-    {
-        super(&run);
-    }
 
-    private void run()
-    {
-        mixin(Tracer);
-
-        sleep(1000.msecs);
-    }
-}
-*/
-int main()
+void start(uint nbThreads)
 {
     mixin(Tracer);
-    try
+    http.server.Config.Config config;
+    config[Parameter.MIME_TYPES] = new MimeMap();
+    config[Parameter.DEFAULT_MIME] = "application/octet-stream";
+    config[Parameter.FILE_CACHE] = true;
+    config[Parameter.HTTP_CACHE] = true;
+    config[Parameter.MAX_CONNECTION] = 60;
+    config[Parameter.BACKLOG] = 131072;
+    config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
+    
+    config[Parameter.TCP_REUSEPORT] = true;
+    config[Parameter.TCP_REUSEADDR] = true;
+    config[Parameter.TCP_NODELAY] = true;
+    config[Parameter.TCP_LINGER] = true;
+
+    config[Parameter.MAX_REQUEST] = 1_000_000u;
+    config[Parameter.MAX_HEADER] = 100;
+    config[Parameter.MAX_REQUEST_SIZE] = 1000000;
+    config[Parameter.SERVER_STRING] = "dhttpd";
+    config[Parameter.INSTALL_DIR] = installDir();
+    config[Parameter.ROOT_DIR] = installDir();
+    config[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
+    config[Parameter.NOT_FOUND_FILE] = installDir() ~ "/public/404.html";
+    config[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
+    /*
+    foreach(key, value ; config)
     {
-        log.register(new ConsoleLogger);
-
-        /*
-        auto wt = new HandleThread();
-        wt.start();
-        wt.join();
-        */
-
-        Config config;
-        config[Parameter.MIME_TYPES] = new MimeMap();
-        config[Parameter.DEFAULT_MIME] = "application/octet-stream";
-        config[Parameter.FILE_CACHE] = true;
-        config[Parameter.HTTP_CACHE] = true;
-        config[Parameter.MAX_CONNECTION] = 60;
-        config[Parameter.BACKLOG] = 131072;
-        config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
-        
-        config[Parameter.TCP_REUSEADDR] = true;
-        config[Parameter.TCP_NODELAY] = true;
-        config[Parameter.TCP_LINGER] = true;
-
-        config[Parameter.MAX_REQUEST] = 1_000_000u;
-        config[Parameter.MAX_HEADER] = 100;
-        config[Parameter.MAX_REQUEST_SIZE] = 1000000;
-        config[Parameter.SERVER_STRING] = "dhttpd";
-        config[Parameter.TOTAL_CPU] = totalCPUs;
-        config[Parameter.INSTALL_DIR] = installDir();
-        config[Parameter.ROOT_DIR] = installDir();
-        config[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
-        config[Parameter.NOT_FOUND_FILE] = installDir() ~ "/public/404.html";
-        config[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
-
-        foreach(key, value ; config)
+        log.info(key, " : ", value.toString());
+    }
+    */
+    auto mainDir = new Directory("/public", "index.html", config);
+    auto mainRoute = new Route("^/main", mainDir);
+    
+    auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
+    auto mainVirtualHostConfig = new VirtualHostConfig([mainHost], mainHost);
+    
+    if(nbThreads == 1)
+    {
+        auto mainServer = new Server(LibevLoop.defaultLoop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
+        LibevLoop.runDefaultLoop();
+    }
+    else if(nbThreads <= totalCPUs)
+    {
+        ThreadGroup workers = new ThreadGroup();
+        foreach(threadIndex ; 0..nbThreads)
         {
-            log.info(key, " : ", value.toString());
+            log.trace("New thread ", threadIndex);
+            auto worker = new ServerWorker(["0.0.0.0"], [8080], mainVirtualHostConfig, config);
+            worker.start();
+            workers.add(worker);
         }
 
-        auto eventLoop = new LibevLoop();
-        auto zmqLoop = new ZmqLoop();
-        auto mainDir = new Directory("/public", "index.html", config);
-        auto workerHandler = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
-        
-        auto proxyHandler = new Proxy();
-        
-        auto workerRoute = new Route("^/worker", workerHandler);
-        auto proxyRoute = new Route("^/proxy", proxyHandler);
-        auto mainRoute = new Route("^/main", mainDir);
-        
-        auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
-        auto mainVirtualHostConfig = new VirtualHostConfig([mainHost], mainHost);
+        LibevLoop.runDefaultLoop();
+        log.info("Waiting for worker thread to join");
+        workers.joinAll();
+    }
+    else
+    {
+        log.error("Invalid thread count (1 <= t <= ", totalCPUs, ") ");
+    }
+}
 
-        auto firstServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
-        auto secondServer = new Server(eventLoop.loop(), ["0.0.0.0"], [8081], mainVirtualHostConfig, config);
-        
-        auto blockInterrupt = new BlockInterruption(eventLoop.loop());
-        auto timedStatistic = new TimedStatistic(eventLoop.loop());
-        
-        eventLoop.run();
+int main(string[] args)
+{
+    try
+    {
+        mixin(Tracer);
+        uint nbProcesses = 0;
+        uint nbThreads = 1;
+
+        getopt(
+            args,
+            "processes|p",  &nbProcesses,
+            "threads|t",    &nbThreads,
+        );
+
+        if(!nbProcesses)
+        {
+            // we are in child process
+            start(nbThreads);
+        }
+        else if(nbProcesses <= totalCPUs)
+        {
+            Pid[] processes;
+            // we are in the master process
+            foreach(processIndex ; 0..nbProcesses)
+            {
+                auto process = spawnProcess([thisExePath()," -t " ~ to!string(nbThreads)]);
+                processes ~= process;
+                log.info("Process created ", processIndex, " with ID : ", process.processID);
+            }
+
+            writeln("Press ENTER to end all processes");
+            stdin.readln();
+
+            foreach(process; processes)
+            {
+                kill(process, SIGINT);
+                log.info("Process ", process.processID, " ended with code : ", wait(process));
+            }
+        }
+        else
+        {
+            log.error("Invalid process count (1 <= p <= ", totalCPUs, ") ");
+        }
     }
     catch (SocketOSException e)
     {
@@ -124,6 +151,12 @@ int main()
 }
 
 /*
+    auto zmqLoop = new ZmqLoop();
+    auto workerHandler = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
+    auto proxyHandler = new Proxy();
+    auto workerRoute = new Route("^/worker", workerHandler);
+    auto proxyRoute = new Route("^/proxy", proxyHandler);
+
     defaultHandlers[Status.BadRequest] = new ErrorHandler();
     defaultHandlers[Status.Unauthorized] = new ErrorHandler();
     defaultHandlers[Status.Payment] = new ErrorHandler();

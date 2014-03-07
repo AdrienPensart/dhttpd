@@ -1,37 +1,16 @@
 module EventLoop;
 
 import std.string;
+import std.uuid;
+import std.random;
+import std.stdio;
 import dlog.Logger;
 
-import czmq;
-import zsys;
-import libev.ev;
-import core.stdc.signal;
-import core.memory;
-
-class BlockInterruption
-{
-    this(ev_loop_t * ev_loop)
-    {
-        ev_signal_init (&m_signal_watcher, &callback, SIGINT);
-        ev_signal_start (ev_loop, &m_signal_watcher);
-    }
-    
-    auto getIO()
-    {
-        return m_signal_watcher;
-    }
-
-    private
-    {
-        ev_signal m_signal_watcher;
-    }
-
-    private extern(C) static void callback (ev_loop_t * loop, ev_signal * w, int revents)
-    {
-        ev_break(loop, EVBREAK_ALL);
-    }
-}
+public import libev.ev;
+public import core.sync.mutex;
+public import core.stdc.signal;
+public import core.thread;
+public import core.memory;
 
 class TimedGarbageCollection
 {
@@ -41,12 +20,7 @@ class TimedGarbageCollection
         ev_timer_init (&m_gc_timer, &callback, 0., 0.300);
         ev_timer_again (ev_loop, &m_gc_timer);
     }
-
-    auto getIO()
-    {
-        return m_gc_timer;
-    }
-
+    
     private
     {
         ev_timer m_gc_timer;
@@ -65,12 +39,7 @@ class TimedStatistic
         ev_timer_init(&m_reference_counter_timer, &callback, 0, 1);
         ev_timer_again (ev_loop, &m_reference_counter_timer);
     }
-
-    auto getIO()
-    {
-        return m_reference_counter_timer;
-    }
-
+    
     private
     {
         ev_timer m_reference_counter_timer;
@@ -80,23 +49,6 @@ class TimedStatistic
     {
         import http.server.Connection;
         Connection.showReferences();
-
-        /*
-        import http.protocol.Response;
-        import http.protocol.Request;
-        import http.server.Route;
-        import http.server.VirtualHost;
-        import http.server.Server;
-        */
-        /*
-        Server.showReferences();
-        
-        Response.showReferences();
-        Request.showReferences();
-        Route.showReferences();
-        VirtualHost.showReferences();
-        VirtualHostConfig.showReferences();
-        */
     }
 }
 
@@ -105,71 +57,137 @@ abstract class Loop
     void run();
 }
 
-class ZmqLoop : Loop
+__gshared Mutex globalLoopMutex;
+__gshared ev_loop_t* default_loop;
+__gshared LibevLoop [UUID] children;
+
+__gshared ev_signal illegal_instruction_watcher;
+__gshared ev_signal interruption_watcher;
+
+
+__gshared TimedStatistic timedStatistic;
+
+private extern(C)
 {
-    this()
+    static void illegal      (ev_loop_t * default_loop, ev_signal * interruption_watcher, int revents)
     {
+        // do nothing
         /*
-        zsys_handler_reset ();
-        zsys_handler_set (null);
+        void sighandler (int signo, siginfo_t si, void *data) {
+            ucontext_t *uc = (ucontext_t *)data;
+
+            int instruction_length = // the length of the "instruction" to skip
+
+            uc->uc_mcontext.gregs[REG_RIP] += instruction_length;
+        }
+
+        install the sighandler like that:
+
+        struct sigaction sa, osa;
+        sa.sa_flags = SA_ONSTACK | SA_RESTART | SA_SIGINFO;
+        sa.sa_sigaction = sighandler;
+        sigaction(SIGILL, &sa, &osa);
+        That could work if you know how far to skip (
         */
-        int zmqMajor, zmqMinor, zmqPatch;
-        zmq_version(&zmqMajor, &zmqMinor, &zmqPatch);
-        string zmqVersion = format("%s.%s.%s", zmqMajor, zmqMinor, zmqPatch);
-        log.info("ZMQ version : ", zmqVersion);
-
-        zctx = zctx_new();
-        assert(zctx);
-        
-        //zctx_set_linger (context, 10);
-        zloop = zloop_new();
-        assert(zloop);
     }
 
-    ~this()
+    static void interruption (ev_loop_t * default_loop, ev_signal * interruption_watcher, int revents)
     {
-        zctx_destroy(&zctx);
+        synchronized(globalLoopMutex)
+        {
+            foreach(childId, child ; children)
+            {
+                log.info("Sending async break to child ", childId, ", loop : ", child.loop, ", watcher = ", &child.stop_watcher);
+                ev_async_send(child.loop, &child.stop_watcher);
+            }
+            log.info("Breaking parent loop : ", default_loop);
+            ev_break(default_loop, EVBREAK_ALL);
+        }
     }
 
-    auto context()
+    static void endchild (ev_loop_t * loop, ev_async * pstop_watcher, int revents)
     {
-        return zctx;
+        log.info("Received terminating order : ", loop, " cause of async io = ", pstop_watcher);
+        ev_break(loop, EVBREAK_ALL);
     }
+}
 
-    override void run()
+shared static this()
+{
+    version(assert)
     {
-        
+        int evMajor = ev_version_major();
+        int evMinor = ev_version_minor();
+        string evVersion = format("%s.%s", evMajor, evMinor);
+        log.trace("Libev version : ", evVersion);
     }
 
-    zctx_t * zctx;
-    zloop_t * zloop;
+    globalLoopMutex = new Mutex;
+    default_loop = ev_default_loop(EVFLAG_AUTO);
+    assert(default_loop);
+
+    debug timedStatistic = new TimedStatistic(default_loop);
+    
+    ev_signal_init (&interruption_watcher, &interruption, SIGINT);
+    ev_signal_start (default_loop, &interruption_watcher);
+
+    ev_signal_init (&illegal_instruction_watcher, &illegal, SIGILL);
+    ev_signal_start (default_loop, &illegal_instruction_watcher);
 }
 
 class LibevLoop : Loop
 {
     this()
     {
-        ev_loop = ev_default_loop(EVFLAG_AUTO);
-        assert(ev_loop);
+        synchronized(globalLoopMutex)
+        {
+            m_loop = ev_loop_new(EVFLAG_AUTO);
+            assert(m_loop);
+
+            ev_async_init(&stop_watcher, &endchild);
+            ev_async_start(m_loop, &stop_watcher);
+
+            gen.seed(unpredictableSeed);
+            id = randomUUID(gen);
+            children[id] = this;
+        }
+    }
+
+    ~this()
+    {
+        synchronized(globalLoopMutex)
+        {
+            ev_async_stop(m_loop, &stop_watcher);
+            children.remove(id);
+            ev_loop_destroy(m_loop);
+        }
     }
 
     override void run()
     {
-        int evMajor = ev_version_major();
-        int evMinor = ev_version_minor();
-        string evVersion = format("%s.%s", evMajor, evMinor);
-        log.info("Libev version : ", evVersion);
-
-        ev_run(loop, 0);
+        ev_run(m_loop, 0);
     }
 
+    static auto defaultLoop()
+    {
+        return default_loop;
+    }
+
+    static auto runDefaultLoop()
+    {
+        ev_run(default_loop, 0);
+    }
+    
     auto loop()
     {
-        return ev_loop;
+        return m_loop;
     }
 
     private
     {
-        ev_loop_t * ev_loop;
+        ev_loop_t * m_loop;
+        ev_async stop_watcher;
+        Xorshift192 gen;
+        UUID id;
     }
 }

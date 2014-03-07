@@ -2,6 +2,7 @@ module dlog.FunctionLog;
 
 import dlog.Logger;
 import std.datetime;
+import core.sync.mutex;
 
 class FunctionLog
 {
@@ -11,10 +12,13 @@ class FunctionLog
 
     this(string name, string fullname)
     {
-        this.m_duration = TickDuration.currSystemTick();
-        this.m_name = name;
-        this.m_fullname = fullname;
-        log.enter(this);
+        synchronized(tracerMutex)
+        {
+            this.m_duration = TickDuration.currSystemTick();
+            this.m_name = name;
+            this.m_fullname = fullname;
+            log.enter(this);
+        }
     }
 
     @property auto name()
@@ -34,8 +38,10 @@ class FunctionLog
 
     void ended()
     {
-        m_duration =  TickDuration.currSystemTick() - m_duration;
-        log.leave(this);
-        log.savePerfFunction(m_fullname, m_duration);
+        synchronized(tracerMutex)
+        {
+            m_duration =  TickDuration.currSystemTick() - m_duration;
+            log.leave(this);
+        }
     }
 }

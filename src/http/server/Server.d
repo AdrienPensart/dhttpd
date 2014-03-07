@@ -19,7 +19,7 @@ import http.protocol.Response;
 import http.protocol.Request;
 import http.protocol.Status;
 
-import libev.ev;
+import EventLoop;
 
 class Server
 {
@@ -40,12 +40,7 @@ class Server
         return m_config;
     }
 
-    this(
-        ev_loop_t * loop,
-        string[] interfaces, 
-        ushort[] ports, 
-        VirtualHostConfig virtualHostConfig,
-        Config config)
+    this(ev_loop_t * loop, string[] interfaces, ushort[] ports, VirtualHostConfig virtualHostConfig, Config config)
     {
         mixin(Tracer);
         this.m_loop = loop;
@@ -70,6 +65,10 @@ class Server
                 listenerPoller.server = this;
 
                 listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, m_config[Parameter.TCP_REUSEADDR].get!(bool));
+
+                enum REUSEPORT = 15;
+                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)REUSEPORT, m_config[Parameter.TCP_REUSEPORT].get!(bool));
+
                 listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, m_config[Parameter.TCP_NODELAY].get!(bool));
 
                 if(m_config[Parameter.TCP_LINGER].get!(bool))
@@ -188,4 +187,23 @@ class Server
             }
         }
     }
+}
+
+class ServerWorker : Thread
+{
+    this(string[] interfaces, ushort[] ports, VirtualHostConfig virtualHostConfig, Config config)
+    {
+        super(&run);
+        m_loop = new LibevLoop();
+        m_server = new Server(m_loop.loop(), interfaces, ports, virtualHostConfig, config);
+    }
+
+    void run()
+    {
+        mixin(Tracer);
+        m_loop.run();
+    }
+    
+    private LibevLoop m_loop;
+    private Server m_server;
 }

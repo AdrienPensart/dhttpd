@@ -1,6 +1,5 @@
 module http.protocol.Date;
 
-import std.c.string;
 import std.datetime;
 import std.string : format;
 import dlog.Logger;
@@ -10,9 +9,8 @@ immutable string[] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "A
 enum rfc1123_format = "%s, %s %s %s %.02d:%.02d:%.02d GMT";
 
 private __gshared TickDuration lastTick;
-private __gshared string cachedDate;
 
-static this()
+shared static this()
 {
     lastTick = TickDuration.currSystemTick();
 }
@@ -20,7 +18,6 @@ static this()
 bool updateToRFC1123(ref string buffer)
 {
     mixin(Tracer);
-    
     auto current = TickDuration.currSystemTick();
     if(current - lastTick > TickDuration(TickDuration.ticksPerSec))
     {
@@ -31,21 +28,6 @@ bool updateToRFC1123(ref string buffer)
     // don't update, date didn't changed (1 second precision)
     return false;
 }
-
-/*
-// cache date with second precision
-ref string getDateRFC1123()
-{
-    auto now = Clock.currTime(TimeZone.getTimeZone("Etc/GMT+0"));
-    if(now - lastdate > 1000.msecs)
-    {
-    	// one second elapsed, update string cache
-    	cachedDate = toDateRFC1123(now);
-    	lastdate = now;
-    }
-    return cachedDate;
-}
-*/
 
 string nowRFC1123()
 {

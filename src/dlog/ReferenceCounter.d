@@ -1,22 +1,51 @@
 module dlog.ReferenceCounter;
 import dlog.Logger;
+import core.sync.mutex;
 
 class ReferenceCounter (T)
 {
-	this()
+	version(dmdprofiling)
 	{
-		m_alive++;
+		static Mutex mutex;
+		static this()
+		{
+			mutex = new Mutex();
+		}
+
+		this()
+		{
+			synchronized(mutex)
+			{
+				m_alive += 1;
+			}
+		}
+
+		~this()
+		{
+			synchronized(mutex)
+			{
+				m_alive -= 1;
+			}
+		}
+	}
+	else
+	{
+		import core.atomic;
+		this()
+		{
+			atomicOp!("+=", ulong, ulong)(m_alive, 1);
+		}
+
+		~this()
+		{
+			atomicOp!("-=", ulong, ulong)(m_alive, 1);
+		}
 	}
 
-	~this()
-	{
-		m_alive--;
-	}
+	shared static ulong m_alive = 0;
+	shared static ulong m_alive_show = -1;
 
-	static ulong m_alive = 0;
-	static ulong m_alive_show = -1;
-
-	static void showReferences()
+	shared static void showReferences()
 	{
 		if(m_alive != m_alive_show)
 	    {

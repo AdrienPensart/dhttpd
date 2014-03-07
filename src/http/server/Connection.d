@@ -206,13 +206,14 @@ class Connection : ReferenceCounter!Connection
                 log.trace("Disconnection on ", handle());
                 return [];
             }
+            log.dbg("Read chunk : ", buffer[0..datalength]);
             return buffer[0..datalength];
         }
 
         bool writeChunk(ref string data)
         {
             mixin(Tracer);
-            log.trace("Chunk to be written : ", data);
+            log.dbg("Chunk to be written : ", data);
             auto datalength = socket.send(data);
             if (datalength == Socket.ERROR)
             {

@@ -2,5 +2,7 @@ src/http/protocol/Request.d
 *.o
 *.log
 *.def
+*.dot
+*.png
 dhttpd
 utils/profile

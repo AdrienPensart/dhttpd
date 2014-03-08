@@ -19,6 +19,7 @@ import http.server.Proxy;
 import http.server.Route;
 import http.server.VirtualHost;
 import http.server.Config;
+import http.server.Options;
 import http.server.Poller;
 
 import EventLoop;
@@ -32,44 +33,44 @@ auto installDir()
 void start(uint nbThreads)
 {
     mixin(Tracer);
-    http.server.Config.Config config;
-    config[Parameter.MIME_TYPES] = new MimeMap();
-    config[Parameter.DEFAULT_MIME] = "application/octet-stream";
-    config[Parameter.FILE_CACHE] = true;
-    config[Parameter.HTTP_CACHE] = true;
-    config[Parameter.MAX_CONNECTION] = 60;
-    config[Parameter.BACKLOG] = 131072;
-    config[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
-    
-    config[Parameter.TCP_REUSEPORT] = true;
-    config[Parameter.TCP_REUSEADDR] = true;
-    config[Parameter.TCP_NODELAY] = true;
-    config[Parameter.TCP_LINGER] = true;
 
-    config[Parameter.MAX_REQUEST] = 1_000_000u;
-    config[Parameter.MAX_HEADER] = 100;
-    config[Parameter.MAX_REQUEST_SIZE] = 1000000;
-    config[Parameter.SERVER_STRING] = "dhttpd";
-    config[Parameter.INSTALL_DIR] = installDir();
-    config[Parameter.ROOT_DIR] = installDir();
-    config[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
-    config[Parameter.NOT_FOUND_FILE] = installDir() ~ "/public/404.html";
-    config[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
+    Options options;
+    options[Parameter.MIME_TYPES] = new MimeMap();
+    options[Parameter.DEFAULT_MIME] = "application/octet-stream";
+    options[Parameter.FILE_CACHE] = true;
+    options[Parameter.HTTP_CACHE] = true;
+    options[Parameter.MAX_CONNECTION] = 60;
+    options[Parameter.BACKLOG] = 131072;
+    options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
+    
+    options[Parameter.TCP_REUSEPORT] = true;
+    options[Parameter.TCP_REUSEADDR] = true;
+    options[Parameter.TCP_NODELAY] = true;
+    options[Parameter.TCP_LINGER] = true;
+
+    options[Parameter.MAX_REQUEST] = 1_000_000u;
+    options[Parameter.MAX_HEADER] = 100;
+    options[Parameter.MAX_REQUEST_SIZE] = 1000000;
+    options[Parameter.SERVER_STRING] = "dhttpd";
+    options[Parameter.INSTALL_DIR] = installDir();
+    options[Parameter.ROOT_DIR] = installDir();
+    options[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
+    options[Parameter.NOT_FOUND_FILE] = installDir() ~ "/public/404.html";
+    options[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
     /*
-    foreach(key, value ; config)
+    foreach(key, value ; options)
     {
         log.info(key, " : ", value.toString());
     }
     */
-    auto mainDir = new Directory("/public", "index.html", config);
+    auto mainDir = new Directory("/public", "index.html", options);
     auto mainRoute = new Route("^/main", mainDir);
-    
     auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
-    auto mainVirtualHostConfig = new VirtualHostConfig([mainHost], mainHost);
-    
+    auto mainConfig = new http.server.Config.Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);
+
     if(nbThreads == 1)
     {
-        auto mainServer = new Server(LibevLoop.defaultLoop(), ["0.0.0.0"], [8080], mainVirtualHostConfig, config);
+        auto mainServer = new Server(LibevLoop.defaultLoop(), mainConfig);
         LibevLoop.runDefaultLoop();
     }
     else if(nbThreads <= totalCPUs)
@@ -78,7 +79,7 @@ void start(uint nbThreads)
         foreach(threadIndex ; 0..nbThreads)
         {
             log.trace("New thread ", threadIndex);
-            auto worker = new ServerWorker(["0.0.0.0"], [8080], mainVirtualHostConfig, config);
+            auto worker = new ServerWorker(mainConfig);
             worker.start();
             workers.add(worker);
         }

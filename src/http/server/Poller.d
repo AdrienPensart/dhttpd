@@ -34,14 +34,14 @@ struct ConnectionPoller
 
         ev_io_init(&io, pc, connection.handle(), EV_READ);
         ev_set_priority(&io, EV_MAXPRI);
-        ev_io_start(server.loop(), &io);
+        ev_io_start(server.loop, &io);
 
         timer_io.data = cast(void*)&this;
 
-        auto duration = server.config[Parameter.KEEP_ALIVE_TIMEOUT].get!(Duration);
+        auto duration = server.options[Parameter.KEEP_ALIVE_TIMEOUT].get!(Duration);
         ev_timer_init (&timer_io, &connectionTimeout, 0., cast(double)duration.seconds());
         ev_set_priority (&timer_io, EV_MINPRI);
-        ev_timer_again (server.loop(), &timer_io);
+        ev_timer_again (server.loop, &timer_io);
 
         GC.addRoot(cast(void*)&this);
         GC.setAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
@@ -59,7 +59,7 @@ struct ConnectionPoller
         mixin(Tracer);
         log.trace("Shuting down : ", connection.handle());
 
-        ev_io_stop(server.loop(), &io);
+        ev_io_stop(server.loop, &io);
         ev_timer_stop(server.loop, &timer_io);
         
         connection.shutdown();

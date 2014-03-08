@@ -6,7 +6,7 @@ import std.file;
 
 import dlog.Logger;
 
-import http.server.Config;
+import http.server.Options;
 import http.server.Handler;
 import http.server.FileRecord;
 
@@ -23,22 +23,22 @@ class Directory : Handler
     private
     {
         MimeMap mimes;
-        Config config;
+        Options options;
         string directory;
         string indexFilename;
         string indexPath;
         string defaultMime;
     }
 
-    this(string directory, string indexFilename, Config config)
+    this(string directory, string indexFilename, Options options)
     {
-        this.config = config;
-        this.directory = config[Parameter.ROOT_DIR].toString() ~ directory;
+        this.options = options;
+        this.directory = options[Parameter.ROOT_DIR].toString() ~ directory;
         this.indexFilename = indexFilename;
         this.defaultMime = defaultMime;
-        FileRecord.enable_cache(config[Parameter.FILE_CACHE].get!(bool));
-        this.mimes = config[Parameter.MIME_TYPES].get!(MimeMap);
-        this.defaultMime = config[Parameter.DEFAULT_MIME].get!(string);
+        FileRecord.enable_cache(options[Parameter.FILE_CACHE].get!(bool));
+        this.mimes = options[Parameter.MIME_TYPES].get!(MimeMap);
+        this.defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
     
     Response execute(Request request, string hit)
@@ -50,7 +50,7 @@ class Directory : Handler
             if(method != Method.GET && method != Method.HEAD)
             {
                 log.trace("Bad method ", method, " => Not Allowed");
-                return new NotAllowedResponse(config[Parameter.NOT_ALLOWED_FILE].toString());
+                return new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
             }
 
             string finalPath = request.getPath();
@@ -59,7 +59,7 @@ class Directory : Handler
 
             Response response = new Response();
             response.status = Status.Ok;
-            response.headers[FieldServer] = config[Parameter.SERVER_STRING].get!(string);
+            response.headers[FieldServer] = options[Parameter.SERVER_STRING].get!(string);
             response.headers[ContentType] = mimes.match(finalPath, defaultMime);
             response.headers[LastModified] = convertToRFC1123(timeLastModified(finalPath));
 
@@ -73,7 +73,7 @@ class Directory : Handler
         catch(FileException fe)
         {
             log.trace(fe);
-            return new NotFoundResponse(config[Parameter.NOT_FOUND_FILE].toString());
+            return new NotFoundResponse(options[Parameter.NOT_FOUND_FILE].toString());
         }
     }
     

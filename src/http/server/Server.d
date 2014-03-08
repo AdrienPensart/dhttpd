@@ -11,7 +11,6 @@ import dlog.Logger;
 import http.server.Connection;
 import http.server.VirtualHost;
 import http.server.Config;
-import http.server.Transaction;
 import http.server.Poller;
 
 import http.protocol.Header;
@@ -23,73 +22,62 @@ import EventLoop;
 
 class Server
 {
-    VirtualHostConfig virtualHostConfig;
-    ushort[] ports;
-    string[] interfaces;
     Config m_config;
-    Duration keepAliveDuration;
     ev_loop_t * m_loop;
     
-    auto loop()
+    @property auto loop()
     {
         return m_loop;
     }
 
-    auto config()
+    @property auto config()
     {
         return m_config;
     }
 
-    this(ev_loop_t * loop, string[] interfaces, ushort[] ports, VirtualHostConfig virtualHostConfig, Config config)
+    @property auto options()
+    {
+        return m_config.options;
+    }
+
+    this(ev_loop_t * loop, Config config)
     {
         mixin(Tracer);
         this.m_loop = loop;
         this.m_config = config;
-        this.interfaces = interfaces;
-        this.ports = ports;
-        this.virtualHostConfig = virtualHostConfig;
-        Transaction.enable_cache(config[Parameter.HTTP_CACHE].get!(bool));
-
-        foreach(host; virtualHostConfig.hosts)
+        
+        foreach(address ; config.addresses)
         {
-            host.addSupportedPorts(ports);
-        }
+            log.info("Listening on : ", address);
+            
+            auto listenerPoller = new ListenerPoller;
+            listenerPoller.socket = new TcpSocket;
+            listenerPoller.server = this;
 
-        foreach(netInterface ; interfaces)
-        {
-            log.info("Listening on ports : ", ports, " on interface ", netInterface);
-            foreach(port ; ports)
+            listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, m_config.options[Parameter.TCP_REUSEADDR].get!(bool));
+            enum REUSEPORT = 15;
+            listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)REUSEPORT, m_config.options[Parameter.TCP_REUSEPORT].get!(bool));
+            listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, m_config.options[Parameter.TCP_NODELAY].get!(bool));
+
+            if(m_config.options[Parameter.TCP_LINGER].get!(bool))
             {
-                auto listenerPoller = new ListenerPoller;
-                listenerPoller.socket = new TcpSocket;
-                listenerPoller.server = this;
-
-                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, m_config[Parameter.TCP_REUSEADDR].get!(bool));
-
-                enum REUSEPORT = 15;
-                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)REUSEPORT, m_config[Parameter.TCP_REUSEPORT].get!(bool));
-
-                listenerPoller.socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, m_config[Parameter.TCP_NODELAY].get!(bool));
-
-                if(m_config[Parameter.TCP_LINGER].get!(bool))
-                {
-                    Linger linger;
-                    linger.on = 1;
-                    linger.time = 1;
-                    listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
-                }
-
-                listenerPoller.socket.bind(new InternetAddress(netInterface, port));
-                listenerPoller.socket.blocking = false;
-                listenerPoller.socket.listen(m_config[Parameter.BACKLOG].get!(int));
-
-                GC.addRoot(cast(void*)listenerPoller);
-                GC.setAttr(cast(void*)listenerPoller, GC.BlkAttr.NO_MOVE);
-
-                ev_io_init(&listenerPoller.io, &handleConnection, listenerPoller.socket.handle(), EV_READ);
-                ev_set_priority (&listenerPoller.io, EV_MINPRI);
-                ev_io_start(m_loop, &listenerPoller.io);
+                Linger linger;
+                linger.on = 1;
+                linger.time = 1;
+                listenerPoller.socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
             }
+
+            listenerPoller.socket.bind(address);
+            listenerPoller.socket.blocking = false;
+            listenerPoller.socket.listen(m_config.options[Parameter.BACKLOG].get!(int));
+
+            GC.addRoot(cast(void*)listenerPoller);
+            GC.setAttr(cast(void*)listenerPoller, GC.BlkAttr.NO_MOVE);
+
+            ev_io_init(&listenerPoller.io, &handleConnection, listenerPoller.socket.handle(), EV_READ);
+            ev_set_priority (&listenerPoller.io, EV_MINPRI);
+            ev_io_start(m_loop, &listenerPoller.io);
+            
         }
     }
 
@@ -110,7 +98,7 @@ class Server
                 
                 auto acceptedSocket = listener.accept();
                 acceptedSocket.blocking = false;
-                acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, listenerPoller.server.config[Parameter.TCP_NODELAY].get!(bool));
+                acceptedSocket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, listenerPoller.server.options[Parameter.TCP_NODELAY].get!(bool));
 
                 auto connectionPoller = new ConnectionPoller(
                     listenerPoller.server, 
@@ -139,7 +127,7 @@ class Server
                 if(EV_READ & revents)
                 {
                     ev_timer_again (loop, &connectionPoller.timer_io);
-                    if(!connectionPoller.connection.synctreat(connectionPoller.server.virtualHostConfig))
+                    if(!connectionPoller.connection.synctreat())
                     {
                         log.trace("connection shot down");
                         connectionPoller.shutdown();
@@ -149,7 +137,7 @@ class Server
                 if(EV_READ & revents)
                 {
                     log.trace("Receiving request on ", connectionPoller.connection.handle());
-                    if(connectionPoller.connection.recv(connectionPoller.server.virtualHostConfig))
+                    if(connectionPoller.connection.recv())
                     {
                         ev_timer_again (loop, &connectionPoller.timer_io);
                         if(!connectionPoller.connection.empty())
@@ -191,11 +179,11 @@ class Server
 
 class ServerWorker : Thread
 {
-    this(string[] interfaces, ushort[] ports, VirtualHostConfig virtualHostConfig, Config config)
+    this(Config config)
     {
         super(&run);
         m_loop = new LibevLoop();
-        m_server = new Server(m_loop.loop(), interfaces, ports, virtualHostConfig, config);
+        m_server = new Server(m_loop.loop(), config);
     }
 
     void run()

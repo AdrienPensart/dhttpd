@@ -40,10 +40,10 @@ class Connection : ReferenceCounter!Connection
             m_socket = a_socket;
             m_address = m_socket.remoteAddress();
             m_config = a_config;
-            maxRequest = m_config[Parameter.MAX_REQUEST].get!(uint);
+            maxRequest = m_config.options[Parameter.MAX_REQUEST].get!(uint);
         }
 
-        bool synctreat(VirtualHostConfig virtualHostConfig)
+        bool synctreat()
         {
             mixin(Tracer);
             auto buffer = readChunk();
@@ -60,7 +60,7 @@ class Connection : ReferenceCounter!Connection
             log.trace("Feeding request on ", handle());
             currentRequest.feed(buffer);
 
-            Transaction transaction = new Transaction(m_config, virtualHostConfig, currentRequest);
+            Transaction transaction = new Transaction(m_config, currentRequest);
             Response response = transaction.get();
             if(response !is null)
             {
@@ -84,7 +84,7 @@ class Connection : ReferenceCounter!Connection
             return true;
         }
 
-        bool recv(VirtualHostConfig virtualHostConfig)
+        bool recv()
         {
             mixin(Tracer);
             auto buffer = readChunk();
@@ -101,7 +101,7 @@ class Connection : ReferenceCounter!Connection
             log.trace("Feeding request on ", handle());
             currentRequest.feed(buffer);
 
-            Transaction transaction = new Transaction(m_config, virtualHostConfig, currentRequest);
+            Transaction transaction = new Transaction(m_config, currentRequest);
             if(transaction.get() !is null)
             {
                 log.trace("Pushing transaction into queue for ", handle());

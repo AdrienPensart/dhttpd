@@ -19,6 +19,7 @@ public import dlog.ReferenceCounter;
 import dlog.ThreadLog;
 import dlog.FunctionStatistic;
 import dlog.Message;
+
 /*
 // WTF ?
 const enum bool[string] classdebugs = 
@@ -38,6 +39,7 @@ const enum bool[string] functiondebugs =
     "handleRequest" : false
 ];
 */
+
 version(assert)
 {
     // DEBUG

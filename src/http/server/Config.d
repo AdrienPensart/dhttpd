@@ -1,36 +1,78 @@
 module http.server.Config;
 
-import std.variant;
+import std.socket;
 
-enum Parameter
+import http.protocol.Request;
+import http.protocol.Response;
+
+public import http.server.Options;
+import http.server.Transaction;
+import http.server.VirtualHost;
+
+import dlog.Logger;
+
+class Config
 {
-	DEFAULT_MIME,
-	MIME_TYPES,
+	private
+	{
+		InternetAddress[] m_addresses;
+	    ushort[] m_ports;
+	    string[] m_interfaces;
+	    Options m_options;
 
-	TCP_REUSEPORT,
-	TCP_REUSEADDR,
-	TCP_CORK,
-	TCP_NOWAIT,
-	TCP_LINGER,
-	TCP_NODELAY,
-	TCP_SEND_BUFFER_SIZE,
-	TCP_RECV_BUFFER_SIZE,
+	    VirtualHost[] m_hosts;
+	    // default host
+	    VirtualHost m_fallback;
+    }
+    
+    this(Options a_options, string[] a_interfaces, ushort[] a_ports, VirtualHost[] a_hosts, VirtualHost a_fallback=null)
+    {
+    	m_options = a_options;
+    	m_interfaces = a_interfaces;
+        m_ports = a_ports;
+        m_hosts = a_hosts;
+        m_fallback = a_fallback;
 
-	MAX_CONNECTION, 
-	MAX_HEADER_SIZE, 
-	BACKLOG, 
-	KEEP_ALIVE_TIMEOUT, 
-	MAX_REQUEST, 
-	MAX_HEADER,
-	MAX_REQUEST_SIZE,
-	HTTP_CACHE,
-	FILE_CACHE,
-	INSTALL_DIR,
-	ROOT_DIR,
-	SERVER_STRING,
-	BAD_REQUEST_FILE,
-	NOT_FOUND_FILE,
-	NOT_ALLOWED_FILE
+        Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
+        foreach(host; m_hosts)
+        {
+            host.addSupportedPorts(m_ports);
+        }
+
+        foreach(netInterface ; m_interfaces)
+        {
+            foreach(port ; m_ports)
+            {
+            	m_addresses ~= new InternetAddress(netInterface, port);
+            }
+        }
+    }
+
+    @property auto options()
+    {
+    	return m_options;
+    }
+
+    @property auto addresses()
+    {
+    	return m_addresses;
+    }
+
+    Response dispatch(Request request)
+    {
+        foreach(host ; m_hosts)
+        {
+            if(host.matchHostHeader(request))
+            {
+                return host.dispatch(request);
+            }
+        }
+        // not host found, fallback on default host
+        if(m_fallback !is null)
+        {
+            log.trace("Host not found => fallback");
+            return m_fallback.dispatch(request);
+        }
+        return null;
+    }
 }
-
-alias Variant[Parameter] Config;

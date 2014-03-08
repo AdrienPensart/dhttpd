@@ -23,9 +23,7 @@ class Message
         this.type = type;
         this.message = message;
         this.graph = graph;
-        
         this.date = Clock.currTime();
         this.tick = TickDuration.currSystemTick();
     }
 }
-

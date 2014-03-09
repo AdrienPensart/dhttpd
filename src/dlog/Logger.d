@@ -83,6 +83,9 @@ shared static this()
 
     log.register(new ConsoleLogger);
     log.trace("ConsoleLogger registered");
+
+    // test xml archive serialization of message
+    // log.register(new ConsoleLogger(new SerializationFormater()));
 }
 
 shared static ~this()

@@ -9,9 +9,6 @@ import std.csv;
 import std.xml;
 import dlog.Message;
 
-import orange.serialization._;
-import orange.serialization.archives._;
-
 abstract class MessageFormater
 {
     string format(const Message m);
@@ -73,10 +70,20 @@ class LineMessageFormater : MessageFormater
     }
 }
 
+import orange.serialization._;
+import orange.serialization.archives._;
+
 class SerializationFormater : MessageFormater
 {
     override string format(const Message m)
     {
-        return "";
+        // does not work cause of Serializable toArray in Orange
+        static assert(isSerializable!(Message));
+
+        auto archive = new XmlArchive!(char);
+        auto serializer = new Serializer(archive);
+
+        serializer.serialize(m);
+        return archive.data;
     }
 }

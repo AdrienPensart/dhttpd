@@ -6,7 +6,7 @@ import std.random;
 import std.stdio;
 import dlog.Logger;
 
-public import libev.ev;
+public import deimos.ev;
 public import core.sync.mutex;
 public import core.stdc.signal;
 public import core.thread;

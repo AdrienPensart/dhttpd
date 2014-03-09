@@ -28,8 +28,8 @@ if [[ ! -f $rageloutput || ! -f $tmpfile || $ragelfile -nt $tmpfile ]]; then
 	touch $tmpfile -r $ragelfile
 fi
 
-includes="-Isrc/"
-libraries="-L-luuid -L-lev"
+includes="-Isrc/ -Isrc/orange/import"
+libraries="-L-luuid -L-lev -Lsrc/orange/lib/64/liborange.a"
 # -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a
 binoutput="-ofdhttpd"
 

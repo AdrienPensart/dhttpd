@@ -1,0 +1,3 @@
+[submodule "src/orange"]
+	path = src/orange
+	url = git://github.com/jacob-carlborg/orange.git

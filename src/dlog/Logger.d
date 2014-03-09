@@ -90,13 +90,14 @@ shared static ~this()
     log.printStats();
 }
 
-class Logger
+// issue 5105, synchronized class can't declare template functions
+/*synchronized */class Logger
 {
     mixin(logLevelGenerator());
 
     bool enabled()
     {
-        synchronized(globalLogMutex)
+        synchronized
         {
             return getThreadLog().enabled();
         }
@@ -202,6 +203,17 @@ class Logger
 
     private:
         
+        static auto logLevelGenerator()
+        {
+            string code;
+            foreach(level, active ; levels)
+            {
+                // when a log level is disabled, the compiler optimize empty calls
+                code ~= "void "~ level ~"(S...)(S args){"~ (active ? "log(\""~ level ~"\", args);" : "") ~ "}";
+            }
+            return code;
+        }
+
         auto log(S...)(string level, S args)
         {
             synchronized(globalLogMutex)
@@ -228,7 +240,7 @@ class Logger
 
         ref ThreadLog getThreadLog()
         {
-            synchronized(globalLogMutex)
+            //synchronized(globalLogMutex)
             {
                 auto threadName = getThreadName();
                 // thread uuid creation
@@ -241,17 +253,6 @@ class Logger
                 }
                 return threadLogs[threadName];
             }
-        }
-
-        static string logLevelGenerator()
-        {
-            string code;
-            foreach(level, active ; levels)
-            {
-                // when a log level is disabled, the compiler optimize empty calls
-                code ~= "void "~ level ~"(S...)(S args){"~ (active ? "log(\""~ level ~"\", args);" : "") ~ "}";
-            }
-            return code;
         }
         
     	void write(S...)(string type, S args)

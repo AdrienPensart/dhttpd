@@ -70,3 +70,11 @@ class LineMessageFormater : MessageFormater
         return writer.data;
     }
 }
+
+class SerializationFormater : MessageFormater
+{
+    override string format(const Message m)
+    {
+        return "";
+    }
+}

@@ -33,4 +33,4 @@ libraries="-L-luuid -L-lev"
 # -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a
 binoutput="-ofdhttpd"
 
-rdmd --build-only --chatty $includes $binoutput $libraries $dmd_flags src/main.d #$sources
+rdmd --build-only $includes $binoutput $libraries $dmd_flags src/main.d #$sources

@@ -32,5 +32,5 @@ includes="-Isrc/ -Isrc/orange -Isrc/libev -Isrc/czmq/deimos"
 libraries="-L-luuid -L-lev -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a -Lsrc/orange/lib/64/liborange.a"
 binoutput="-ofdhttpd"
 
-rdmd --chatty --build-only $includes $binoutput $libraries $dmd_flags src/main.d
+rdmd --build-only $includes $binoutput $libraries $dmd_flags src/main.d
 #dmd $includes $binoutput $libraries $dmd_flags src/*.d src/http/server/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d

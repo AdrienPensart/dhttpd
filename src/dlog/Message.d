@@ -40,7 +40,6 @@ class Message : Serializable
         serializer.serialize(graph, graph.stringof);
         serializer.serialize(message, message.stringof);
         serializer.serialize(type, type.stringof);
-
         serializer.serialize(date.toISOString(), date.stringof);
     }
 
@@ -51,7 +50,6 @@ class Message : Serializable
         graph = serializer.deserialize!(typeof(graph))(graph.stringof);
         message = serializer.deserialize!(typeof(message))(message.stringof);
         type = serializer.deserialize!(typeof(type))(type.stringof);
-
         date = date.fromISOString(serializer.deserialize!(string)(date.stringof));
     }
 }

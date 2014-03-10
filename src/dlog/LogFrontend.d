@@ -81,7 +81,7 @@ class LogServer : LogFrontend
 				{
 					if(set.isSet(client))
 					{
-						char[2048] buffer;
+						char[64000] buffer;
 						auto datalength = client.receive(buffer);
 				        if (datalength == Socket.ERROR)
 				        {
@@ -92,12 +92,13 @@ class LogServer : LogFrontend
 				            log.trace("Disconnection on ", client.handle());
 				        }
 
-				        //auto archive = new XmlArchive!(char);
-				        //archive.data = buffer;				     
-				        //auto serializer = new Serializer(archive);
-				        //Message message = serializer.deserialize!(Message)(archive.untypedData);
-				        //auto message = new Message(buffer);
-				        log.info(buffer[0..datalength]);
+				        auto archive = new XmlArchive!(char);
+				        archive.data = buffer;				     
+				        auto serializer = new Serializer(archive);
+
+				        Message message = serializer.deserialize!(Message)(archive.untypedData);
+				        //auto message = new Message(buffer[0..datalength]);
+				        //log.info(buffer[0..datalength]);
 					}
 				}
 

@@ -54,7 +54,6 @@ class XmlMessageFormater : MessageFormater
     string format(const Message m)
     {
         // does not work cause of Serializable toArray in Orange
-        /*
         static assert(isSerializable!(Message));
 
         auto archive = new XmlArchive!(char);
@@ -62,9 +61,10 @@ class XmlMessageFormater : MessageFormater
 
         serializer.serialize(m);
         return archive.data;
-        */
+        /*
         auto dmf = new DefaultMessageFormater;
         return dmf.format(m);
+        */
     }
 }
 

@@ -1,9 +1,9 @@
-[submodule "src/orange"]
-	path = src/orange
-	url = git://github.com/jacob-carlborg/orange.git
 [submodule "src/libev"]
 	path = src/libev
 	url = https://github.com/D-Programming-Deimos/libev.git
 [submodule "src/czmq"]
 	path = src/czmq
 	url = git://github.com/1100110/CZMQ.git
+[submodule "src/msgpack"]
+	path = src/msgpack
+	url = git://github.com/msgpack/msgpack-d.git

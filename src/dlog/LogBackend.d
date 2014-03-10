@@ -100,7 +100,7 @@ class ZmqLogger : LogBackend
 
 class TcpLogger : LogBackend
 {       
-    this(string host, ushort port, MessageFormater formater = new LineMessageFormater)
+    this(string host, ushort port, MessageFormater formater = new XmlMessageFormater)
     {
         try
         {

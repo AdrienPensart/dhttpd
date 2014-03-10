@@ -13,7 +13,7 @@ import http.protocol.Status;
 import http.protocol.Mime;
 
 import http.server.Server;
-import http.server.Handler;
+import http.server.Worker;
 import http.server.Directory;
 import http.server.Proxy;
 import http.server.Route;

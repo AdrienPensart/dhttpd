@@ -12,6 +12,7 @@ import std.uuid;
 import std.conv;
 
 public import dlog.LogBackend;
+public import dlog.LogFrontend;
 public import dlog.Tracer;
 public import dlog.FunctionLog;
 public import dlog.ReferenceCounter;
@@ -80,12 +81,6 @@ shared static this()
     tracerMutex = new Mutex;
     globalLogMutex = new Mutex;
     log = new Logger();
-
-    log.register(new ConsoleLogger);
-    log.trace("ConsoleLogger registered");
-
-    // test xml archive serialization of message
-    // log.register(new ConsoleLogger(new SerializationFormater()));
 }
 
 shared static ~this()
@@ -132,8 +127,7 @@ shared static ~this()
             }
             version(assert)
             {
-                import std.stdio : writeln;
-                writeln("Existing levels : ", levelsFilter);
+                info("Registering ", typeid(lb), " with log levels : ", levelsFilter);
             }
         }
    	}
@@ -204,6 +198,18 @@ shared static ~this()
         }
     }
 
+    void opCall(string level, Message message)
+    {
+        synchronized(globalLogMutex)
+        {     
+            auto supportedBackends = backends[level];
+            foreach(backend; supportedBackends)
+            {
+                backend.log(message);
+            }
+        }
+    }
+
     private:
         
         static auto logLevelGenerator()
@@ -221,16 +227,26 @@ shared static ~this()
         {
             synchronized(globalLogMutex)
             {
-                if(enabled())
+                auto threadLog = getThreadLog();
+                if(threadLog.enabled() && level in backends)
                 {
                     TickDuration duration = TickDuration.currSystemTick();
-                    write(level, args);
+
+                    auto writer = appender!string();
+                    foreach(arg; args)
+                    {
+                        formattedWrite(writer, "%s", arg);
+                    }
+
+                    auto message = new Message(level, threadLog.name, writer.data, threadLog.stack());                    
+                    opCall(level, message);
+
                     duration =  TickDuration.currSystemTick() - duration;
                     writeDuration += duration;
                 }
             }
         }
-        
+
         this()
         {
             gen.seed(unpredictableSeed);
@@ -258,26 +274,6 @@ shared static ~this()
             }
         }
         
-    	void write(S...)(string type, S args)
-	    {
-            if(type in backends)
-            {
-                auto writer = appender!string();
-                foreach(arg; args)
-                {
-                    formattedWrite(writer, "%s", arg);
-                }
-
-                auto supportedBackends = backends[type];
-	            foreach(backend; supportedBackends)
-	            {
-                    auto threadLog = getThreadLog();
-                    auto message = new Message(type, threadLog.name, writer.data, threadLog.stack());
-	                backend.log(message);
-        	    }
-        	}
-    	}
-
         // UUID Random generator
         Xorshift192 gen;
 

@@ -26,11 +26,10 @@ import EventLoop;
 
 auto installDir()
 {
-    const string thisdir = dirName(thisExePath());
-    return thisdir;
+    return dirName(thisExePath());
 }
 
-void start(uint nbThreads)
+void startThreads(uint nbThreads)
 {
     mixin(Tracer);
 
@@ -100,32 +99,36 @@ int main(string[] args)
     {
         mixin(Tracer);
 
-        uint nbProcesses = 0;
+        uint nbProcesses = 1;
         uint nbThreads = 1;
+        ushort logPort = 0;
 
         getopt(
             args,
             "processes|p",  &nbProcesses,
             "threads|t",    &nbThreads,
+            "logport|lp",   &logPort
         );
 
-        if(!nbProcesses)
+        if(nbProcesses > 0 && nbProcesses <= totalCPUs)
         {
-            // we are in child process
-            start(nbThreads);
-        }
-        else if(nbProcesses <= totalCPUs)
-        {
-            Pid[] processes;
+            LogServer logServer = new LogServer(logPort);
+            logServer.start();
+
             // we are in the master process
+            log.register(new ConsoleLogger);
+
+            log.info("Entering master process");
+
+            Pid[] processes;
             foreach(processIndex ; 0..nbProcesses)
             {
-                auto process = spawnProcess([thisExePath()," -t " ~ to!string(nbThreads)]);
+                auto process = spawnProcess([thisExePath(),"--processes", "0", "--logport", to!string(logServer.port()), "--threads", to!string(nbThreads)]);
                 processes ~= process;
                 log.info("Process created ", processIndex, " with ID : ", process.processID);
             }
 
-            writeln("Press ENTER to end all processes");
+            log.info("Press ENTER to end all processes");
             stdin.readln();
 
             foreach(process; processes)
@@ -133,6 +136,17 @@ int main(string[] args)
                 kill(process, SIGINT);
                 log.info("Process ", process.processID, " ended with code : ", wait(process));
             }
+
+            logServer.stop();
+            logServer.join();
+        }
+        else if(!nbProcesses)
+        {
+            // we are in child process
+
+            log.register(new TcpLogger("127.0.0.1", logPort));
+            log.info("Entering child process");
+            startThreads(nbThreads);
         }
         else
         {

@@ -43,7 +43,7 @@ class ReferenceCounter (T)
 	}
 
 	shared static ulong m_alive = 0;
-	shared static ulong m_alive_show = -1;
+	shared static ulong m_alive_show = 0;
 
 	shared static void showReferences()
 	{

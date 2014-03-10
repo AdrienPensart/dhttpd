@@ -9,46 +9,22 @@ import std.csv;
 import std.xml;
 import dlog.Message;
 
-abstract class MessageFormater
+interface MessageFormater
 {
     string format(const Message m);
 }
 
-class SqlRequestMessageFormater : MessageFormater
+class DefaultMessageFormater : MessageFormater
 {
-    override string format(const Message m)
+    string format(const Message m)
     {
-        return "";
-   	}
-}
-
-class CsvMessageFormater : MessageFormater
-{
-    override string format(const Message m)
-    {
-        return "";
-    }
-}
-
-class XmlMessageFormater : MessageFormater
-{
-    override string format(const Message m)
-    {
-        return "";
-   	}
-}
-
-class JsonMessageFormater : MessageFormater
-{
-    override string format(const Message)
-	{
-        return "";
+        return .format("%s\n%s\n%s\n%s\n%s\n%s\n", m.tick, m.date, m.threadName, m.graph, m.message, m.type);
     }
 }
 
 class LineMessageFormater : MessageFormater
 {
-    override string format(const Message m)
+    string format(const Message m)
 	{
         auto writer = appender!string();
         version(assert)
@@ -73,11 +49,12 @@ class LineMessageFormater : MessageFormater
 import orange.serialization._;
 import orange.serialization.archives._;
 
-class SerializationFormater : MessageFormater
+class XmlMessageFormater : MessageFormater
 {
-    override string format(const Message m)
+    string format(const Message m)
     {
         // does not work cause of Serializable toArray in Orange
+        /*
         static assert(isSerializable!(Message));
 
         auto archive = new XmlArchive!(char);
@@ -85,5 +62,34 @@ class SerializationFormater : MessageFormater
 
         serializer.serialize(m);
         return archive.data;
+        */
+        auto dmf = new DefaultMessageFormater;
+        return dmf.format(m);
     }
 }
+
+/*
+class SqlRequestMessageFormater : MessageFormater
+{
+    override string format(const Message m)
+    {
+        return "";
+    }
+}
+
+class CsvMessageFormater : MessageFormater
+{
+    override string format(const Message m)
+    {
+        return "";
+    }
+}
+
+class JsonMessageFormater : MessageFormater
+{
+    override string format(const Message)
+    {
+        return "";
+    }
+}
+*/

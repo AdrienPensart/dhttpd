@@ -194,7 +194,7 @@ class Connection : ReferenceCounter!Connection
         char[] readChunk()
         {
             mixin(Tracer);
-            static char buffer[1024];
+            static char[1024] buffer;
             auto datalength = socket.receive(buffer);
             if (datalength == Socket.ERROR)
             {

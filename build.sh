@@ -28,7 +28,7 @@ if [[ ! -f $rageloutput || ! -f $tmpfile || $ragelfile -nt $tmpfile ]]; then
 	touch $tmpfile -r $ragelfile
 fi
 
-includes="-Isrc/ -Isrc/orange -Isrc/libev"
+includes="-Isrc/ -Isrc/orange -Isrc/libev -Isrc/czmq/deimos"
 libraries="-L-luuid -L-lev"
 # -L-lstdc++ -L/usr/local/lib/libczmq.a -L/usr/local/lib/libzmq.a
 binoutput="-ofdhttpd"

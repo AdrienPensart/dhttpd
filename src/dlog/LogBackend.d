@@ -8,6 +8,8 @@ import std.conv;
 import dlog.Message;
 import dlog.MessageFormater;
 
+import czmq;
+
 class FailedRegistering : Exception
 {
     this(string msg="Registering of log backend failed.", string file = __FILE__, ulong line = cast(ulong)__LINE__, Throwable next = null)
@@ -85,13 +87,34 @@ class ConsoleLogger : FileLogger
     }
 }
 
+class ZmqLogger : LogBackend
+{
+    this(string endpoint)
+    {
+    }
+        
+    override void log(Message m)
+    {
+    }
+}
+
 class TcpLogger : LogBackend
 {       
-    this(string host, ushort port)
+    this(string host, ushort port, MessageFormater formater = new LineMessageFormater)
     {
         try
         {
+            super(formater);
+            writeln("Connection on master process logger ", host, ":", port);
             client = new TcpSocket(new InternetAddress(host, port));
+            if(client.isAlive)
+            {
+                writeln("Connected on master process");
+            }
+            else
+            {
+                writeln("NOT Connected on master process");
+            }
         }
         catch(SocketException e)
         {
@@ -101,13 +124,7 @@ class TcpLogger : LogBackend
 
     override void log(Message m)
     {
-        if(client !is null)
-        {
-            if(client.isAlive())
-            {
-                client.send(getFormater().format(m));
-            }
-        }
+        client.send(getFormater().format(m));
     }
 
     private Socket client;
@@ -115,8 +132,9 @@ class TcpLogger : LogBackend
 
 class UdpLogger : LogBackend
 {
-    this(string host, ushort port)
+    this(string host, ushort port, MessageFormater formater = new LineMessageFormater)
     {
+        super(formater);
         address = new InternetAddress(host,port);
         client = new UdpSocket;
     }
@@ -131,6 +149,7 @@ class UdpLogger : LogBackend
         Socket client;
         Address address;
 }
+
 /*
 class SmtpLogger : LogBackend
 {        
@@ -171,7 +190,7 @@ class SmtpLogger : LogBackend
         const uint flushLimit;
         Message[] messageBuffer;
 }
-*/
+
 class SqlLogger : LogBackend
 {        
     override void log(Message)
@@ -201,14 +220,4 @@ class SyslogLogger : LogBackend
     }
 }
 
-class ZeromqLogger : LogBackend
-{
-    this(string endpoint)
-  	{
-   	}
-    	
-   	override void log(Message)
-    {
-    }
-}
-
+*/

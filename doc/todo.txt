@@ -2,11 +2,11 @@ ToDo :
 
 Logging framework : 
 
-- implements SNMP, SQL, AMQP, FTP, HTTP backends
+- zmq client / server logging
 
 HTTP Server : 
 
-- url routing
+- parser plugging : joyent, ragel parser, homemade
 - redirect
 - caching : E-Tag
 - compression
@@ -20,12 +20,12 @@ SR - The Single Responsibility Principle -
 OCP - The Open Closed Principle -
       You should be able to extend a classes behavior, without modifying it.
 
-LSP - The Liskov Substitution Principle-
+LSP - The Liskov Substitution Principle -
       Derived classes must be substitutable for their base classes.
 
-DIP - The Dependency Inversion Principle-
+DIP - The Dependency Inversion Principle -
       Depend on abstractions, not on concretions.
 
-ISP - The Interface Segregation Principle-
+ISP - The Interface Segregation Principle -
       Make fine grained interfaces that are client specific.
 

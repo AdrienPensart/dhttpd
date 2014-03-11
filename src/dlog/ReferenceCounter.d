@@ -2,8 +2,10 @@ module dlog.ReferenceCounter;
 import dlog.Logger;
 import core.sync.mutex;
 
+// per thread reference counter
 class ReferenceCounter (T)
 {
+	/*
 	version(dmdprofiling)
 	{
 		static Mutex mutex;
@@ -41,11 +43,21 @@ class ReferenceCounter (T)
 			atomicOp!("-=", ulong, ulong)(m_alive, 1);
 		}
 	}
+	*/
+	this()
+	{
+		m_alive++;
+	}
 
-	shared static ulong m_alive = 0;
-	shared static ulong m_alive_show = 0;
+	~this()
+	{
+		m_alive--;
+	}
 
-	shared static void showReferences()
+	static ulong m_alive = 0;
+	static ulong m_alive_show = 0;
+
+	static void showReferences()
 	{
 		if(m_alive != m_alive_show)
 	    {

@@ -11,32 +11,16 @@ import std.random;
 import std.uuid;
 import std.conv;
 
-public import std.stdio;
 public import dlog.LogBackend;
 public import dlog.Tracer;
 public import dlog.FunctionLog;
 public import dlog.ReferenceCounter;
 import dlog.Message;
 
-/*
-// WTF ?
-const enum bool[string] classdebugs = 
-[
-    "Connection" : true,
-    "Server" : false,
-    "Request" : true,
-    "Response" : true,
-    "Directory" : true,
-    "VirtualHost" : true,
-    "Route" : true
-];
 
-// WTF ??? again.
-const enum bool[string] functiondebugs = 
-[
-    "handleRequest" : false
-];
-*/
+// WTF this type is LoL
+// TODO : correct this declaration type
+const enum bool[string] internalLevels = ["logging" : true];
 
 version(assert)
 {
@@ -48,7 +32,7 @@ version(assert)
             "error" : true,
             "warning" : true,
             "statistic" : true,
-            "trace" : true,
+            "trace" : false,
             "test" : false,
             "dbg" : false,
         ];
@@ -56,7 +40,7 @@ version(assert)
 else
 {
     // RELEASE
-    const enum bool[string] levels = 
+    enum bool[string] levels = 
         [
             "info" : true, 
             "fatal" : true,
@@ -93,11 +77,7 @@ ThreadLogger log;
 static this()
 {
     log = new ThreadLogger;
-}
-
-static ~this()
-{
-    log.stats();
+    log.register(new ConsoleLogger, internalLevels);
 }
 
 // issue 5105, synchronized class can't declare template functions
@@ -127,16 +107,23 @@ class ThreadLogger
 
     mixin(logLevelGenerator());
 
+    @property auto name()
+    {
+        return m_name;
+    }
+
   	auto register(LogBackend lb, typeof(levels) levelsFilter=levels)
    	{
         foreach(level, active; levelsFilter)
         {
             m_backends[level] ~= lb;
         }
+        /*
         version(assert)
         {
             info("Registering ", typeid(lb), " with log levels : ", levelsFilter);
         }
+        */
    	}
 
     auto enter(FunctionLog currentFunction)
@@ -202,6 +189,10 @@ class ThreadLogger
             foreach(level, active ; levels)
             {
                 // when a log level is disabled, the compiler optimize empty calls
+                code ~= "void "~ level ~"(S...)(S args){"~ (active ? "write(\""~ level ~"\", args);" : "") ~ "}";
+            }
+            foreach(level, active ; internalLevels)
+            {
                 code ~= "void "~ level ~"(S...)(S args){"~ (active ? "write(\""~ level ~"\", args);" : "") ~ "}";
             }
             return code;

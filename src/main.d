@@ -1,5 +1,4 @@
 import std.getopt;
-import std.stdio;
 import std.socket;
 import std.file;
 import std.conv;
@@ -91,6 +90,7 @@ void startThreads(uint nbThreads)
     {
         log.error("Invalid thread count (1 <= t <= ", totalCPUs, ") ");
     }
+    log.stats();
 }
 
 int main(string[] args)
@@ -98,7 +98,7 @@ int main(string[] args)
     try
     {
         mixin(Tracer);
-        uint nbProcesses = 1;
+        uint nbProcesses = 0;
         uint nbThreads = 1;
         ushort logPort = 9090;
 
@@ -109,20 +109,25 @@ int main(string[] args)
             "logport|lp",   &logPort
         );
 
-        if(nbProcesses > 0 && nbProcesses <= totalCPUs)
+        log.register(new TcpLogger("127.0.0.1", to!ushort(logPort)));
+        log.info("Threads to create : ", nbThreads);
+
+        if(nbProcesses > 0 && nbProcesses <= (2 * totalCPUs))
         {
-            log.register(new TcpLogger("127.0.0.1", to!ushort(logPort)));
             log.info("Entering master process");
 
             Pid[] processes;
             foreach(processIndex ; 0..nbProcesses)
             {
-                auto processArgs = thisExePath() ~ " --processes 0 --logport" ~ to!string(logPort) ~ " --threads " ~ to!string(nbThreads);
-                auto process = spawnShell(processArgs);
+                //auto processArgs = thisExePath() ~ " --processes 0 --logport" ~ to!string(logPort) ~ " --threads " ~ to!string(nbThreads);
+                auto processArgs = [thisExePath(), "--processes 0", "--logport", to!string(logPort), "--threads", to!string(nbThreads)];
+
+                auto process = spawnProcess(processArgs);
                 processes ~= process;
                 log.info("Process created ", processIndex, " with ID : ", process.processID);
             }
-            /*
+            
+            import std.stdio;
             writeln("Press ENTER to end server...");
             stdin.readln();
 
@@ -130,23 +135,22 @@ int main(string[] args)
             {
                 log.info("Sending SIGINT to ", process.processID);
                 kill(process, SIGINT);
+                wait(process);
             }
-            */
+        }
+        else if(!nbProcesses)
+        {
+            log.info("Entering child process");
+            startThreads(nbThreads);
         }
         else
         {
             log.error("Invalid process count (1 <= p <= ", totalCPUs, ") ");
         }
     }
-    catch (SocketOSException e)
-    {
-        log.fatal(e);
-        writeln(e);
-        return -1;
-    }
     catch(Exception e)
     {
-        log.fatal(e);
+        log.error(e);
         return -1;
     }
     return 0;

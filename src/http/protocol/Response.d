@@ -3,7 +3,6 @@ module http.protocol.Response;
 import std.datetime;
 import std.file;
 import std.array;
-import std.stdio;
 import std.format;
 import std.conv;
 

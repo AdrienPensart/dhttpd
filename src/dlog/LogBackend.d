@@ -3,8 +3,8 @@ module dlog.LogBackend;
 import std.stdio;
 import std.socket;
 import std.conv;
-//import std.net.curl;
 
+import dlog.Logger;
 import dlog.Message;
 import dlog.MessageFormater;
 
@@ -61,7 +61,7 @@ class FileLogger : LogBackend
 
 	override void log(Message lm)
     {
-	    file.writeln(getFormater.format(lm));
+	    file.writeln(cast(string)getFormater.format(lm));
     }
 	
     private	File file;    
@@ -103,35 +103,43 @@ class TcpLogger : LogBackend
     this(string host, ushort port, MessageFormater formater = new BinaryMessageFormater)
     {
         super(formater);
-        writeln("TcpLogger : Connection on process logger ", host, ":", port);
-        client = new TcpSocket(new InternetAddress(host, port));
-        /*
         try
         {
-            
+            client = new TcpSocket;
+            address = new InternetAddress(host, port);
+            client.connect(address);
         }
-        catch(SocketException e)
+        catch(Exception e)
         {
-            throw new FailedRegistering("Can't register TCP log backend server at " ~ host ~ ":" ~ to!string(port) ~ " cause of " ~ e.msg);
+            //throw new FailedRegistering("Can't register TCP log backend server at " ~ host ~ ":" ~ to!string(port) ~ " cause of " ~ e.msg);
+            .log.error("TcpLogger : Can't register TCP log backend server at ", host, ":", port, " cause of ", e.msg);
         }
-        */
     }
 
     override void log(Message m)
     {
-        auto datalength = client.send(getFormater().format(m));
-        if (datalength == Socket.ERROR)
+        if(client.isAlive)
         {
-            writeln("TcpLogger : Socket error : ", lastSocketError());
-            client.close();
+            auto data = getFormater().format(m);
+            auto datalength = client.send(data);
+            if (datalength == Socket.ERROR)
+            {
+                .log.logging("TcpLogger : Socket error : ", lastSocketError());
+                client.close();
+            }
+            else if(datalength == 0)
+            {
+                .log.logging("TcpLogger : Disconnection on ", client.handle());
+                client.close();
+            }
         }
-        else if(datalength == 0)
+        else
         {
-            writeln("TcpLogger : Disconnection on ", client.handle());
-            client.close();
+            .log.logging("TcpLogger : not alive");
         }
     }
 
+    private Address address;
     private Socket client;
 }
 

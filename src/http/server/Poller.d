@@ -29,6 +29,7 @@ struct ConnectionPoller
 
     this(Server server, Connection connection, PollerCallback pc)
     {
+        mixin(Tracer);
         this.server = server;
         this.connection = connection;
 
@@ -49,6 +50,7 @@ struct ConnectionPoller
 
     void updateEvents(int events)
     {
+        mixin(Tracer);
         ev_io_stop(server.loop, &io);
         ev_io_set(&io, connection.handle(), events);
         ev_io_start(server.loop, &io);

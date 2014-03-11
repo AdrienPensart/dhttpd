@@ -12,20 +12,20 @@ import msgpack;
 
 interface MessageFormater
 {
-    string format(const Message m);
+    void[] format(const Message m);
 }
 
 class DefaultMessageFormater : MessageFormater
 {
-    string format(const Message m)
+    void[] format(const Message m)
     {
-        return .format("%s\n%s\n%s\n%s\n%s\n%s\n", m.type, m.pid, m.tag, m.tick, m.sysdate, m.graph, m.message);
+        return cast(void[]).format("%s\n%s\n%s\n%s\n%s\n%s\n", m.type, m.pid, m.tag, m.tick, m.sysdate, m.graph, m.message);
     }
 }
 
 class LineMessageFormater : MessageFormater
 {
-    string format(const Message m)
+    void[] format(const Message m)
 	{
         auto writer = appender!string();
         version(assert)
@@ -43,33 +43,22 @@ class LineMessageFormater : MessageFormater
             formattedWrite(writer, "{%s}", m.graph);
         }
         formattedWrite(writer, " %s", m.message);
-        return writer.data;
+        return cast(void[])writer.data;
     }
 }
 
 class BinaryMessageFormater : MessageFormater
 {
-    string format(const Message m)
+    void[] format(const Message m)
     {
-        ubyte[] outData = pack(m);
-        char * outChar = cast(char*)outData;
-        string outString = cast(string)outChar[0..outData.length];
-        /*
-        import std.stdio;
-        writeln(outString);
-        */
-        return outString;
-        /*
-        auto dmf = new DefaultMessageFormater;
-        return dmf.format(m);
-        */
+        return pack(m);
     }
 }
 
 /*
 class SqlRequestMessageFormater : MessageFormater
 {
-    override string format(const Message m)
+    override void[] format(const Message m)
     {
         return "";
     }
@@ -77,7 +66,7 @@ class SqlRequestMessageFormater : MessageFormater
 
 class CsvMessageFormater : MessageFormater
 {
-    override string format(const Message m)
+    override void[] format(const Message m)
     {
         return "";
     }
@@ -85,7 +74,7 @@ class CsvMessageFormater : MessageFormater
 
 class JsonMessageFormater : MessageFormater
 {
-    override string format(const Message)
+    override void[] format(const Message)
     {
         return "";
     }

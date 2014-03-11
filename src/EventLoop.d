@@ -3,7 +3,6 @@ module EventLoop;
 import std.string;
 import std.uuid;
 import std.random;
-import std.stdio;
 import dlog.Logger;
 
 public import deimos.ev;
@@ -60,41 +59,15 @@ abstract class Loop
 __gshared Mutex globalLoopMutex;
 __gshared ev_loop_t* default_loop;
 __gshared LibevLoop [UUID] children;
-
-__gshared ev_signal illegal_instruction_watcher;
 __gshared ev_signal interruption_watcher;
-
-__gshared TimedStatistic timedStatistic;
 
 private extern(C)
 {
-    static void illegal      (ev_loop_t * default_loop, ev_signal * interruption_watcher, int revents)
-    {
-        // do nothing
-        /*
-        void sighandler (int signo, siginfo_t si, void *data) {
-            ucontext_t *uc = (ucontext_t *)data;
-
-            int instruction_length = // the length of the "instruction" to skip
-
-            uc->uc_mcontext.gregs[REG_RIP] += instruction_length;
-        }
-
-        install the sighandler like that:
-
-        struct sigaction sa, osa;
-        sa.sa_flags = SA_ONSTACK | SA_RESTART | SA_SIGINFO;
-        sa.sa_sigaction = sighandler;
-        sigaction(SIGILL, &sa, &osa);
-        That could work if you know how far to skip (
-        */
-    }
-
     static void interruption (ev_loop_t * default_loop, ev_signal * interruption_watcher, int revents)
     {
         synchronized(globalLoopMutex)
         {
-            writeln("Received SIGINT");
+            log.error("Received SIGINT");
             foreach(childId, child ; children)
             {
                 log.info("Sending async break to child ", childId, ", loop : ", child.loop, ", watcher = ", &child.stop_watcher);
@@ -127,14 +100,9 @@ shared static this()
     globalLoopMutex = new Mutex;
     default_loop = ev_default_loop(EVFLAG_AUTO);
     assert(default_loop);
-
-    debug timedStatistic = new TimedStatistic(default_loop);
     
     ev_signal_init (&interruption_watcher, &interruption, SIGINT);
     ev_signal_start (default_loop, &interruption_watcher);
-
-    ev_signal_init (&illegal_instruction_watcher, &illegal, SIGILL);
-    ev_signal_start (default_loop, &illegal_instruction_watcher);
 }
 
 class LibevLoop : Loop
@@ -145,6 +113,8 @@ class LibevLoop : Loop
         {
             m_loop = ev_loop_new(EVFLAG_AUTO);
             assert(m_loop);
+
+            timedStatistic = new TimedStatistic(m_loop);
 
             ev_async_init(&stop_watcher, &endchild);
             ev_async_start(m_loop, &stop_watcher);
@@ -187,6 +157,7 @@ class LibevLoop : Loop
 
     private
     {
+        TimedStatistic timedStatistic;
         ev_loop_t * m_loop;
         ev_async stop_watcher;
         Xorshift192 gen;

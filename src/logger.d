@@ -110,7 +110,7 @@ class Poller
         try
         {
             auto client = clients[item.fd];
-            char[64000] buffer;
+            ubyte[64000] buffer;
             auto datalength = client.receive(buffer);
             if (datalength == Socket.ERROR || datalength == 0)
             {
@@ -121,9 +121,8 @@ class Poller
             }
             else
             {
-                ubyte[] outData = cast(ubyte[])buffer[0..datalength];
                 Message message = new Message();
-                message = outData.unpack!Message();
+                message = buffer[0..datalength].unpack!Message();
                 log(message.type, message);
             }
         }

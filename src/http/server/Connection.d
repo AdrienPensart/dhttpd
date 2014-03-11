@@ -37,6 +37,7 @@ class Connection : ReferenceCounter!Connection
     {
         this(Socket a_socket, Config a_config)
         {
+            mixin(Tracer);
             m_socket = a_socket;
             m_address = m_socket.remoteAddress();
             m_config = a_config;

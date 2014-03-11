@@ -11,14 +11,11 @@ import std.random;
 import std.uuid;
 import std.conv;
 
+public import std.stdio;
 public import dlog.LogBackend;
-public import dlog.LogFrontend;
 public import dlog.Tracer;
 public import dlog.FunctionLog;
 public import dlog.ReferenceCounter;
-
-import dlog.ThreadLog;
-import dlog.FunctionStatistic;
 import dlog.Message;
 
 /*
@@ -72,9 +69,9 @@ else
         ];
 }
 
+/*
 __gshared Logger log;
 __gshared Mutex globalLogMutex;
-__gshared Mutex tracerMutex;
 
 shared static this()
 {
@@ -87,206 +84,159 @@ shared static ~this()
 {
     log.printStats();
 }
+__gshared Mutex tracerMutex;
+
+*/
+
+ThreadLogger log;
+
+static this()
+{
+    log = new ThreadLogger;
+}
+
+static ~this()
+{
+    log.stats();
+}
 
 // issue 5105, synchronized class can't declare template functions
-/*synchronized */class Logger
+/*synchronized */
+class ThreadLogger
 {
+    private
+    {
+        // UUID Random generator
+        Xorshift192 m_gen;
+
+        // log name
+        string m_name;
+
+        // call stack trace
+        FunctionLog[] m_callstack;
+        
+        // output backends : console, file, network, etc
+        LogBackend[][string] m_backends;
+
+        // logger creation, for computing logging timings
+        TickDuration m_creation;
+
+        // time taken for logging
+        TickDuration m_duration;
+    }
+
     mixin(logLevelGenerator());
-
-    bool enabled()
-    {
-        synchronized
-        {
-            return getThreadLog().enabled();
-        }
-    }
-
-    void enable()
-    {
-        synchronized(globalLogMutex)
-        {
-            getThreadLog().enable();
-        }
-    }
-
-    void disable()
-    {
-        synchronized(globalLogMutex)
-        {
-            getThreadLog().disable();
-        }
-    }
 
   	auto register(LogBackend lb, typeof(levels) levelsFilter=levels)
    	{
-        synchronized(globalLogMutex)
+        foreach(level, active; levelsFilter)
         {
-            foreach(level, active; levelsFilter)
-            {
-                backends[level] ~= lb;
-            }
-            version(assert)
-            {
-                info("Registering ", typeid(lb), " with log levels : ", levelsFilter);
-            }
+            m_backends[level] ~= lb;
+        }
+        version(assert)
+        {
+            info("Registering ", typeid(lb), " with log levels : ", levelsFilter);
         }
    	}
 
     auto enter(FunctionLog currentFunction)
     {
-        synchronized(globalLogMutex)
-        {
-            getThreadLog().push(currentFunction);
-        }
+        m_callstack ~= currentFunction;
     }
 
     auto leave(FunctionLog currentFunction)
     {
-        synchronized(globalLogMutex)
+        if(m_callstack.length)
         {
-            getThreadLog().pop();
-            savePerfFunction(currentFunction.fullname, currentFunction.duration);
+            m_callstack.popBack();
         }
     }
 
-    auto savePerfFunction(string functionFullName, TickDuration duration)
+    auto stats()
     {
-        synchronized(globalLogMutex)
+        auto getSortedFunctionStats()
         {
-            if(!(functionFullName in functionStats))
-            {
-                functionStats[functionFullName] = FunctionStatistic(functionFullName);
-            }
-            functionStats[functionFullName].totalDuration += duration;
-            functionStats[functionFullName].timesCalled += 1;
-        }
-    }
-
-    auto printStats()
-    {
-        synchronized(globalLogMutex)
-        {
-            foreach(functionStat ; getSortedFunctionStats())
-            {
-                statistic(functionStat.fullName,
-                     ", called : ", functionStat.timesCalled," time(s)"
-                     ", took : ", functionStat.totalTime.nsecs,
-                     ", average : ", functionStat.averageTimePerCall.nsecs);
-            }
-
-            TickDuration total;
-            foreach(threadLog ; threadLogs)
-            {
-                total += threadLog.duration;
-            }
-
-            statistic("Threads created : ", threadLogs.length);
-            statistic("Virtual total time (all threads) : ", toTime(total).nsecs);
-            statistic("Virtal total time of log writing (all threads) : ", toTime(writeDuration).nsecs);
-            double ratio = cast(double)writeDuration.nsecs / cast(double)total.nsecs * 100;
-            statistic("Ratio of log writing (all threads) : ", ratio, "%");
-        }
-    }
-
-    auto getSortedFunctionStats() 
-    {
-        synchronized(globalLogMutex)
-        {
-            auto sortedFunctionStats = functionStats.values;
+            auto sortedFunctionStats = FunctionLog.m_stats.values;
             sort!((a,b) {return a.totalDuration > b.totalDuration;})(sortedFunctionStats);
             return sortedFunctionStats;
         }
+
+        foreach(stat ; getSortedFunctionStats())
+        {
+            statistic(stat.fullname,
+                 ", called : ", stat.timesCalled," time(s)"
+                 ", took : ", stat.totalTime.nsecs,
+                 ", average : ", stat.averageTime.nsecs);
+        }
+
+        TickDuration m_at = TickDuration.currSystemTick() - m_creation;
+
+        statistic("Virtual total time : ", toTime(m_at).nsecs);
+        statistic("Virtual total time for logging : ", toTime(m_duration).nsecs);
+        double ratio = cast(double)m_duration.nsecs / cast(double)m_at.nsecs * 100;
+        statistic("Time wasted : ", ratio, "%");
     }
 
     void opCall(string level, Message message)
     {
-        synchronized(globalLogMutex)
-        {     
-            auto supportedBackends = backends[level];
-            foreach(backend; supportedBackends)
-            {
-                backend.log(message);
-            }
+        auto supportedBackends = m_backends[level];
+        foreach(backend; supportedBackends)
+        {
+            backend.log(message);
         }
     }
 
     private:
-        
+
+        this()
+        {
+            m_gen.seed(unpredictableSeed);
+            UUID currentThreadUUID = randomUUID(m_gen);
+            m_name = currentThreadUUID.toString();
+            m_creation = TickDuration.currSystemTick();
+        }
+
         static auto logLevelGenerator()
         {
             string code;
             foreach(level, active ; levels)
             {
                 // when a log level is disabled, the compiler optimize empty calls
-                code ~= "void "~ level ~"(S...)(S args){"~ (active ? "log(\""~ level ~"\", args);" : "") ~ "}";
+                code ~= "void "~ level ~"(S...)(S args){"~ (active ? "write(\""~ level ~"\", args);" : "") ~ "}";
             }
             return code;
         }
 
-        auto log(S...)(string level, S args)
+        auto write(S...)(string level, S args)
         {
-            synchronized(globalLogMutex)
+            if(level in m_backends)
             {
-                auto threadLog = getThreadLog();
-                if(threadLog.enabled() && level in backends)
+                TickDuration duration = TickDuration.currSystemTick();
+
+                auto writer = appender!string();
+                foreach(arg; args)
                 {
-                    TickDuration duration = TickDuration.currSystemTick();
-
-                    auto writer = appender!string();
-                    foreach(arg; args)
-                    {
-                        formattedWrite(writer, "%s", arg);
-                    }
-
-                    auto message = new Message(level, threadLog.name, writer.data, threadLog.stack());                    
-                    opCall(level, message);
-
-                    duration =  TickDuration.currSystemTick() - duration;
-                    writeDuration += duration;
+                    formattedWrite(writer, "%s", arg);
                 }
+
+                auto message = new Message(level, m_name, writer.data, stack());                    
+                opCall(level, message);
+
+                duration =  TickDuration.currSystemTick() - duration;
+                m_duration += duration;
             }
         }
 
-        this()
+        string stack()
         {
-            gen.seed(unpredictableSeed);
-        }
-
-        string getThreadName()
-        {
-            return Thread.getThis().name();
-        }
-
-        ref ThreadLog getThreadLog()
-        {
-            //synchronized(globalLogMutex)
+            string s;
+            foreach(functionLog ; m_callstack)
             {
-                auto threadName = getThreadName();
-                // thread uuid creation
-                if(!threadName.length)
-                {
-                    UUID currentThreadUUID = randomUUID(gen);
-                    threadName = currentThreadUUID.toString();
-                    Thread.getThis().name(threadName);
-                    threadLogs[threadName] = ThreadLog(threadName);
-                }
-                return threadLogs[threadName];
+                s ~= functionLog.name;
+                s ~= ":";
             }
+            return s.chop();
         }
-        
-        // UUID Random generator
-        Xorshift192 gen;
-
-        // stores the total time of execution for each functions
-        FunctionStatistic[string] functionStats;
-
-        // one call stack per thread
-        ThreadLog[string] threadLogs;
-
-        LogBackend[][string] backends;
-
-        // total time of printing
-        TickDuration writeDuration;
 }
 
 /*

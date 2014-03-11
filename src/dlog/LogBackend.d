@@ -100,31 +100,36 @@ class ZmqLogger : LogBackend
 
 class TcpLogger : LogBackend
 {       
-    this(string host, ushort port, MessageFormater formater = new XmlMessageFormater)
+    this(string host, ushort port, MessageFormater formater = new BinaryMessageFormater)
     {
+        super(formater);
+        writeln("TcpLogger : Connection on process logger ", host, ":", port);
+        client = new TcpSocket(new InternetAddress(host, port));
+        /*
         try
         {
-            super(formater);
-            writeln("Connection on master process logger ", host, ":", port);
-            client = new TcpSocket(new InternetAddress(host, port));
-            if(client.isAlive)
-            {
-                writeln("Connected on master process");
-            }
-            else
-            {
-                writeln("NOT Connected on master process");
-            }
+            
         }
         catch(SocketException e)
         {
             throw new FailedRegistering("Can't register TCP log backend server at " ~ host ~ ":" ~ to!string(port) ~ " cause of " ~ e.msg);
         }
+        */
     }
 
     override void log(Message m)
     {
-        client.send(getFormater().format(m));
+        auto datalength = client.send(getFormater().format(m));
+        if (datalength == Socket.ERROR)
+        {
+            writeln("TcpLogger : Socket error : ", lastSocketError());
+            client.close();
+        }
+        else if(datalength == 0)
+        {
+            writeln("TcpLogger : Disconnection on ", client.handle());
+            client.close();
+        }
     }
 
     private Socket client;

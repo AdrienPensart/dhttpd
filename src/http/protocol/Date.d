@@ -4,13 +4,13 @@ import std.datetime;
 import std.string : format;
 import dlog.Logger;
 
-immutable string[] days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-immutable string[] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-enum rfc1123_format = "%s, %s %s %s %.02d:%.02d:%.02d GMT";
+private immutable string[] days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+private immutable string[] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+private enum rfc1123_format = "%s, %s %s %s %.02d:%.02d:%.02d GMT";
 
-private __gshared TickDuration lastTick;
+private TickDuration lastTick;
 
-shared static this()
+static this()
 {
     lastTick = TickDuration.currSystemTick();
 }

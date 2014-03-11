@@ -98,10 +98,9 @@ int main(string[] args)
     try
     {
         mixin(Tracer);
-
         uint nbProcesses = 1;
         uint nbThreads = 1;
-        ushort logPort = 0;
+        ushort logPort = 9090;
 
         getopt(
             args,
@@ -112,41 +111,27 @@ int main(string[] args)
 
         if(nbProcesses > 0 && nbProcesses <= totalCPUs)
         {
-            LogServer logServer = new LogServer(logPort);
-            logServer.start();
-
-            // we are in the master process
-            log.register(new ConsoleLogger);
-
+            log.register(new TcpLogger("127.0.0.1", to!ushort(logPort)));
             log.info("Entering master process");
 
             Pid[] processes;
             foreach(processIndex ; 0..nbProcesses)
             {
-                auto process = spawnProcess([thisExePath(),"--processes", "0", "--logport", to!string(logServer.port()), "--threads", to!string(nbThreads)]);
+                auto processArgs = thisExePath() ~ " --processes 0 --logport" ~ to!string(logPort) ~ " --threads " ~ to!string(nbThreads);
+                auto process = spawnShell(processArgs);
                 processes ~= process;
                 log.info("Process created ", processIndex, " with ID : ", process.processID);
             }
-
-            log.info("Press ENTER to end all processes");
+            /*
+            writeln("Press ENTER to end server...");
             stdin.readln();
 
             foreach(process; processes)
             {
+                log.info("Sending SIGINT to ", process.processID);
                 kill(process, SIGINT);
-                log.info("Process ", process.processID, " ended with code : ", wait(process));
             }
-
-            logServer.stop();
-            logServer.join();
-        }
-        else if(!nbProcesses)
-        {
-            // we are in child process
-
-            log.register(new TcpLogger("127.0.0.1", logPort));
-            log.info("Entering child process");
-            startThreads(nbThreads);
+            */
         }
         else
         {
@@ -156,6 +141,7 @@ int main(string[] args)
     catch (SocketOSException e)
     {
         log.fatal(e);
+        writeln(e);
         return -1;
     }
     catch(Exception e)

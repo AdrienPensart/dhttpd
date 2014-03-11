@@ -8,6 +8,7 @@ import std.json;
 import std.csv;
 import std.xml;
 import dlog.Message;
+import msgpack;
 
 interface MessageFormater
 {
@@ -18,7 +19,7 @@ class DefaultMessageFormater : MessageFormater
 {
     string format(const Message m)
     {
-        return .format("%s\n%s\n%s\n%s\n%s\n%s\n", m.tick, m.date, m.threadName, m.graph, m.message, m.type);
+        return .format("%s\n%s\n%s\n%s\n%s\n%s\n", m.type, m.pid, m.tag, m.tick, m.sysdate, m.graph, m.message);
     }
 }
 
@@ -29,8 +30,8 @@ class LineMessageFormater : MessageFormater
         auto writer = appender!string();
         version(assert)
         {
-            formattedWrite(writer, "[%s from %s]", m.type, m.threadName[0..8]);
-            formattedWrite(writer, "(%s/%s/%s %s:%s:%s)", m.date.day(), m.date.month(), m.date.year(), m.date.hour(), m.date.minute(), m.date.second());
+            formattedWrite(writer, "[%s, %s, %s]", m.type, m.pid, m.tag[0..8]);
+            formattedWrite(writer, "(%s/%s/%s %s:%s:%s)", m.sysdate.day(), m.sysdate.month(), m.sysdate.year(), m.sysdate.hour(), m.sysdate.minute(), m.sysdate.second());
         }
         else
         {
@@ -46,21 +47,18 @@ class LineMessageFormater : MessageFormater
     }
 }
 
-import orange.serialization._;
-import orange.serialization.archives._;
-
-class XmlMessageFormater : MessageFormater
+class BinaryMessageFormater : MessageFormater
 {
     string format(const Message m)
     {
-        // does not work cause of Serializable toArray in Orange
-        static assert(isSerializable!(Message));
-
-        auto archive = new XmlArchive!(char);
-        auto serializer = new Serializer(archive);
-
-        serializer.serialize(m);
-        return archive.data;
+        ubyte[] outData = pack(m);
+        char * outChar = cast(char*)outData;
+        string outString = cast(string)outChar[0..outData.length];
+        /*
+        import std.stdio;
+        writeln(outString);
+        */
+        return outString;
         /*
         auto dmf = new DefaultMessageFormater;
         return dmf.format(m);

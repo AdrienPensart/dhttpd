@@ -1,24 +1,64 @@
 module dlog.FunctionLog;
 
 import dlog.Logger;
-import std.datetime;
-import core.sync.mutex;
+import core.time;
+
+ulong toTime(TickDuration duration)
+{
+    return duration.nsecs;
+}
 
 class FunctionLog
 {
+    struct FunctionStat
+    {
+        string fullname;
+        ulong timesCalled;
+        TickDuration totalDuration;
+
+        this(string a_fullname)
+        {
+            fullname = a_fullname;
+        }
+
+        auto averageTime()
+        {
+            return totalDuration.nsecs / timesCalled;
+        }
+
+        auto totalTime() nothrow
+        {
+            return totalDuration.nsecs;
+        }
+    }
+
+    static FunctionStat[string] m_stats;
+
     string m_name;
     string m_fullname;
     TickDuration m_duration;
 
-    this(string name, string fullname)
+    this(string a_name, string a_fullname)
     {
-        synchronized(tracerMutex)
+        this.m_duration = TickDuration.currSystemTick();
+
+        m_name = a_name;
+        m_fullname = a_fullname;
+        log.enter(this);
+    }
+
+    void ended()
+    {
+        m_duration =  TickDuration.currSystemTick() - m_duration;
+
+        if(!(m_fullname in m_stats))
         {
-            this.m_duration = TickDuration.currSystemTick();
-            this.m_name = name;
-            this.m_fullname = fullname;
-            log.enter(this);
+            m_stats[m_fullname] = FunctionStat(m_fullname);
         }
+        m_stats[fullname].totalDuration += m_duration;
+        m_stats[fullname].timesCalled += 1;
+        
+        log.leave(this);
     }
 
     @property auto name()
@@ -34,14 +74,5 @@ class FunctionLog
     @property auto duration()
     {
         return m_duration;
-    }
-
-    void ended()
-    {
-        synchronized(tracerMutex)
-        {
-            m_duration =  TickDuration.currSystemTick() - m_duration;
-            log.leave(this);
-        }
     }
 }

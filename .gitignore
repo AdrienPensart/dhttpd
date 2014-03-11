@@ -5,4 +5,5 @@ src/http/protocol/Request.d
 *.dot
 *.png
 dhttpd
+logger
 utils/profile

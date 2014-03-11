@@ -2,7 +2,9 @@ ToDo :
 
 Logging framework : 
 
+- serialization / deserialization : ok
 - zmq client / server logging
+- send / recv buffering / streaming
 
 HTTP Server : 
 

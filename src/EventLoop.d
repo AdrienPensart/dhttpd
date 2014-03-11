@@ -64,7 +64,6 @@ __gshared LibevLoop [UUID] children;
 __gshared ev_signal illegal_instruction_watcher;
 __gshared ev_signal interruption_watcher;
 
-
 __gshared TimedStatistic timedStatistic;
 
 private extern(C)
@@ -95,6 +94,7 @@ private extern(C)
     {
         synchronized(globalLoopMutex)
         {
+            writeln("Received SIGINT");
             foreach(childId, child ; children)
             {
                 log.info("Sending async break to child ", childId, ", loop : ", child.loop, ", watcher = ", &child.stop_watcher);
@@ -114,6 +114,7 @@ private extern(C)
 
 shared static this()
 {
+    /*
     version(assert)
     {
         int evMajor = ev_version_major();
@@ -121,6 +122,7 @@ shared static this()
         string evVersion = format("%s.%s", evMajor, evMinor);
         log.trace("Libev version : ", evVersion);
     }
+    */
 
     globalLoopMutex = new Mutex;
     default_loop = ev_default_loop(EVFLAG_AUTO);

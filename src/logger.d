@@ -2,7 +2,9 @@ import dlog.Logger;
 import dlog.Message;
 import std.getopt;
 import std.socket;
-import czmq;
+import zloop;
+import zctx;
+import zmq;
 import msgpack;
 
 extern(C) int onAcceptHandler(zloop_t * loop, zmq_pollitem_t * item, void * arg)

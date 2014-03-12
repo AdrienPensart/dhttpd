@@ -6,7 +6,7 @@ import std.traits : fullyQualifiedName;
 auto Tracer()
 {
     string __code__;
-    version(profiling)
+    version(autoprofile)
     {
         __code__ ~= 
         q{

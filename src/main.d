@@ -38,13 +38,12 @@ void startThreads(uint nbThreads)
     options[Parameter.FILE_CACHE] = true;
     options[Parameter.HTTP_CACHE] = true;
     options[Parameter.MAX_CONNECTION] = 60;
-    options[Parameter.BACKLOG] = 131072;
+    options[Parameter.BACKLOG] = 2048;
     options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
     
+    options[Parameter.TCP_DEFER] = true;
     options[Parameter.TCP_REUSEPORT] = true;
     options[Parameter.TCP_REUSEADDR] = true;
-    options[Parameter.TCP_NODELAY] = true;
-    options[Parameter.TCP_LINGER] = true;
 
     options[Parameter.MAX_REQUEST] = 1_000_000u;
     options[Parameter.MAX_HEADER] = 100;
@@ -98,55 +97,41 @@ int main(string[] args)
     try
     {
         mixin(Tracer);
-        uint nbProcesses = 0;
         uint nbThreads = 1;
         ushort logPort = 9090;
+        string logIp = "127.0.0.1";
 
         getopt(
             args,
-            "processes|p",  &nbProcesses,
             "threads|t",    &nbThreads,
-            "logport|lp",   &logPort
+            "logport|lp",   &logPort,
+            "logip|li",     &logIp
         );
 
-        log.register(new TcpLogger("127.0.0.1", to!ushort(logPort)));
-        log.info("Threads to create : ", nbThreads);
-
-        if(nbProcesses > 0 && nbProcesses <= (2 * totalCPUs))
+        version(assert)
         {
-            log.info("Entering master process");
-
-            Pid[] processes;
-            foreach(processIndex ; 0..nbProcesses)
-            {
-                //auto processArgs = thisExePath() ~ " --processes 0 --logport" ~ to!string(logPort) ~ " --threads " ~ to!string(nbThreads);
-                auto processArgs = [thisExePath(), "--processes 0", "--logport", to!string(logPort), "--threads", to!string(nbThreads)];
-
-                auto process = spawnProcess(processArgs);
-                processes ~= process;
-                log.info("Process created ", processIndex, " with ID : ", process.processID);
-            }
-            
-            import std.stdio;
-            writeln("Press ENTER to end server...");
-            stdin.readln();
-
-            foreach(process; processes)
-            {
-                log.info("Sending SIGINT to ", process.processID);
-                kill(process, SIGINT);
-                wait(process);
-            }
-        }
-        else if(!nbProcesses)
-        {
-            log.info("Entering child process");
-            startThreads(nbThreads);
+            log.register(new ConsoleLogger);
         }
         else
         {
-            log.error("Invalid process count (1 <= p <= ", totalCPUs, ") ");
+            log.register(new TcpLogger(logIp, to!ushort(logPort)));
         }
+
+        log.info("Threads to create : ", nbThreads);
+
+        if(!nbThreads)
+        {
+            log.error("One thread minimum allowed");
+            return 0;
+        }
+
+        if(nbThreads > totalCPUs)
+        {
+            log.warning("Threads number is not optimal");
+        }
+
+        log.info("Entering child process");
+        startThreads(nbThreads);
     }
     catch(Exception e)
     {

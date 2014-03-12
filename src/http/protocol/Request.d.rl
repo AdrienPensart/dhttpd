@@ -113,7 +113,6 @@ import http.protocol.Header;
 
 class Request : Message
 {
-
     enum Status
     {
         HasError = -1,

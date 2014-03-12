@@ -6,7 +6,7 @@ import core.sync.mutex;
 class ReferenceCounter (T)
 {
 	/*
-	version(dmdprofiling)
+	version(autoprofile)
 	{
 		static Mutex mutex;
 		static this()

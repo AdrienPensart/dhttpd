@@ -42,6 +42,15 @@ class Connection : ReferenceCounter!Connection
             m_address = m_socket.remoteAddress();
             m_config = a_config;
             maxRequest = m_config.options[Parameter.MAX_REQUEST].get!(uint);
+            m_socket.blocking = false;
+            //enum TCP_CORK = 3;
+            //m_socket.setOption(SocketOptionLevel.TCP, cast(SocketOption)TCP_CORK, true);
+            
+            m_socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
+            Linger linger;
+            linger.on = 1;
+            linger.time = 1;
+            m_socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
         }
 
         bool synctreat()
@@ -68,14 +77,6 @@ class Connection : ReferenceCounter!Connection
                 processedRequest++;
                 currentRequest = null;
                 string data = response.get();
-                if(transaction.keepalive)
-                {
-                    log.trace("keep-alive !");
-                }
-                else
-                {
-                    log.trace("do no keep alive !");
-                }
                 return writeChunk(data) && transaction.keepalive;
             }
             else
@@ -163,7 +164,7 @@ class Connection : ReferenceCounter!Connection
                 this.socket.shutdown(SocketShutdown.BOTH);
             }
         }
-        
+
         auto alive()
         {
             return socket.isAlive && socket.handle != -1;
@@ -207,15 +208,22 @@ class Connection : ReferenceCounter!Connection
                 log.trace("Disconnection on ", handle());
                 return [];
             }
-            log.dbg("Read chunk : ", buffer[0..datalength]);
+            log.trace("Read chunk : ", buffer[0..datalength]);
             return buffer[0..datalength];
         }
 
         bool writeChunk(ref string data)
         {
             mixin(Tracer);
-            log.dbg("Chunk to be written : ", data);
+            log.trace("Chunk to be written : ", data);
             auto datalength = socket.send(data);
+            /*
+            import core.sys.posix.sys.uio;
+            auto iov = iovec();
+            iov.iov_base = cast(void*)data.ptr;
+            iov.iov_len = data.length;
+            auto datalength = writev(socket.handle(), &iov, 1);
+            */
             if (datalength == Socket.ERROR)
             {
                 log.warning("Connection error ", m_address, " on ", handle());

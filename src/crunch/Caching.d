@@ -8,6 +8,11 @@ struct Cache (Key, Value)
 	private bool m_enabled;
 	private Store m_store;
 
+	Value get(Key key, lazy Value value)
+	{
+		return m_enabled ? store.get(key, (store[key] = value)) : value;
+	}
+
 	@property auto enabled()
 	{
 		return m_enabled;
@@ -33,13 +38,7 @@ class Cacheable (Key, Value)
 {
 	Value get()
     {
-        if(cache.enabled)
-        {
-        	Key m_key = key();
-        	Value m_value = cache.store.get(m_key, (cache.store[m_key] = value()));
-            return m_value;
-        }
-        return value();
+        return cache.get(key(), value());
     }
 
     static void enable_cache(bool enabled)

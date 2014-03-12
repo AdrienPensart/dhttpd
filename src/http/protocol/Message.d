@@ -8,6 +8,8 @@ import http.protocol.Header;
 import dlog.Logger;
 alias string[string] Headers;
 
+import core.sys.posix.sys.uio;
+
 abstract class Message
 {
     this()
@@ -21,6 +23,7 @@ abstract class Message
     private Headers m_headers;
     private string m_content;
     private Protocol m_protocol;
+    private iovec[] m_vec;
 
     @property bool updated()
     {
@@ -51,6 +54,11 @@ abstract class Message
         return raw;
     }
     
+    @property ref iovec[] vec()
+    {
+        return m_vec;
+    }
+
     @property ref Headers headers()
     {
         return m_headers;

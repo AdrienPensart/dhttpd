@@ -76,14 +76,4 @@ class Directory : Handler
             return new NotFoundResponse(options[Parameter.NOT_FOUND_FILE].toString());
         }
     }
-    
-    private bool headRequest()
-    {
-        return true;
-    }
-
-    private bool getRequest()
-    {
-        return true;
-    }
 }

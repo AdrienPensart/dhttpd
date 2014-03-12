@@ -133,10 +133,6 @@ class TcpLogger : LogBackend
                 client.close();
             }
         }
-        else
-        {
-            .log.logging("TcpLogger : not alive");
-        }
     }
 
     private Address address;

@@ -32,7 +32,7 @@ version(assert)
             "error" : true,
             "warning" : true,
             "statistic" : true,
-            "trace" : false,
+            "trace" : true,
             "test" : false,
             "dbg" : false,
         ];

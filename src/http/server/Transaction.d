@@ -23,8 +23,8 @@ class Transaction : Cacheable!(UUID, Response)
     this(Config a_config, Request a_request)
     {
         m_config = a_config;
-        m_key_request = sha1UUID(a_request.get());
         m_request = a_request;
+        m_key_request = sha1UUID(m_request.get());
         m_response = null;
     }
 
@@ -64,7 +64,7 @@ class Transaction : Cacheable!(UUID, Response)
                 log.trace("Request not finished");
                 break;
             case Request.Status.Finished:
-                log.trace("Request ready : \n\"\n",m_request.get(), "\"");
+                log.trace("Request ready : \n\"\n", m_request.get(), "\"");
                 m_response = m_config.dispatch(m_request);
                 if(m_response is null)
                 {

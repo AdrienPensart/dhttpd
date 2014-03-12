@@ -50,7 +50,7 @@ class Response : Message
 
             auto writer = appender!string();
             string reason = toReason(status);
-            formattedWrite(writer, "%s %d %s\r\n", cast(string)protocol, status, reason);
+            formattedWrite(writer, "%s %d %s\r\n", protocol, status, reason);
             if(content.length)
             {
                 headers[ContentLength] = to!string(content.length);

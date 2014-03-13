@@ -111,8 +111,8 @@ class TcpLogger : LogBackend
         }
         catch(Exception e)
         {
-            //throw new FailedRegistering("Can't register TCP log backend server at " ~ host ~ ":" ~ to!string(port) ~ " cause of " ~ e.msg);
-            .log.error("TcpLogger : Can't register TCP log backend server at ", host, ":", port, " cause of ", e.msg);
+            .log.error("TcpLogger : Can't register TcpLogger to ", host, ":", port, " : ", e.msg);
+            client.close();
         }
     }
 

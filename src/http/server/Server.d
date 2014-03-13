@@ -1,26 +1,16 @@
 module http.server.Server;
 
-import std.socket;
-import std.file;
 import core.thread;
-import core.time;
-import core.memory;
 
 import dlog.Logger;
 
-import http.server.Connection;
-import http.server.VirtualHost;
 import http.server.Config;
 import http.server.Poller;
 
-import http.protocol.Header;
-import http.protocol.Response;
-import http.protocol.Request;
-import http.protocol.Status;
-
 import EventLoop;
+import crunch.Wrap;
 
-class Server
+class ServerImpl
 {
     Config m_config;
     ev_loop_t * m_loop;
@@ -42,7 +32,6 @@ class Server
 
     this(ev_loop_t * loop, Config config)
     {
-        mixin(Tracer);
         this.m_loop = loop;
         this.m_config = config;
         
@@ -53,6 +42,9 @@ class Server
         }
     }
 }
+
+alias ServerImpl Server;
+//alias Wrap!(ServerImpl) Server;
 
 class ServerWorker : Thread
 {

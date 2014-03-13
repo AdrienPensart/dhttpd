@@ -6,7 +6,7 @@ import std.traits : fullyQualifiedName;
 auto Tracer()
 {
     string __code__;
-    version(autoprofile)
+    version(assert)
     {
         __code__ ~= 
         q{
@@ -21,20 +21,12 @@ auto Tracer()
             static if(__traits(compiles,__method__))
             {
                 auto __tracer__ = new FunctionLog(__method__, __method__);
-                /*
-                static if(classdebugs[typeof(this).stringof] == false)
-                {
-                    pragma(msg, "logging disabled for ", typeof(this).stringof);
-                    log.disable();
-                }
-                */
             }
             // we are in a normal function, extract Function name
             else
             {
                 auto __tracer__ = new FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
             }
-            //scope(exit) log.enable();
             scope(exit) __tracer__.ended();
         };
     }

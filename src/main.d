@@ -1,12 +1,7 @@
-import std.getopt;
-import std.socket;
-import std.file;
-import std.conv;
-import std.path : dirName;
-import std.parallelism : totalCPUs;
-import std.process;
+module main;
 
-import dlog.Logger;
+import std.socket;
+import std.conv;
 
 import http.protocol.Status;
 import http.protocol.Mime;
@@ -21,17 +16,13 @@ import http.server.Config;
 import http.server.Options;
 import http.server.Poller;
 
+import dlog.Logger;
 import EventLoop;
-
-auto installDir()
-{
-    return dirName(thisExePath());
-}
+import utils;
 
 void startThreads(uint nbThreads)
 {
     mixin(Tracer);
-
     Options options;
     options[Parameter.MIME_TYPES] = new MimeMap();
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
@@ -40,11 +31,9 @@ void startThreads(uint nbThreads)
     options[Parameter.MAX_CONNECTION] = 60;
     options[Parameter.BACKLOG] = 2048;
     options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
-    
     options[Parameter.TCP_DEFER] = true;
     options[Parameter.TCP_REUSEPORT] = true;
     options[Parameter.TCP_REUSEADDR] = true;
-
     options[Parameter.MAX_REQUEST] = 1_000_000u;
     options[Parameter.MAX_HEADER] = 100;
     options[Parameter.MAX_REQUEST_SIZE] = 1000000;
@@ -52,18 +41,20 @@ void startThreads(uint nbThreads)
     options[Parameter.INSTALL_DIR] = installDir();
     options[Parameter.ROOT_DIR] = installDir();
     options[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
-    options[Parameter.NOT_FOUND_FILE] = installDir() ~ "/public/404.html";
+    options[Parameter.NOT_FOUND_FILE] =   installDir() ~ "/public/404.html";
     options[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
+    
+    auto mainDir    = new Directory("/public", "index.html", options);
+    auto mainRoute  = new Route("^/main", mainDir);
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
+    auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);
     /*
-    foreach(key, value ; options)
-    {
-        log.info(key, " : ", value.toString());
-    }
+    auto zmqLoop = new ZmqLoop();
+    auto workerHandler = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
+    auto proxyHandler = new Proxy();
+    auto workerRoute = new Route("^/worker", workerHandler);
+    auto proxyRoute = new Route("^/proxy", proxyHandler);
     */
-    auto mainDir = new Directory("/public", "index.html", options);
-    auto mainRoute = new Route("^/main", mainDir);
-    auto mainHost = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
-    auto mainConfig = new http.server.Config.Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);
 
     if(nbThreads == 1)
     {
@@ -89,7 +80,6 @@ void startThreads(uint nbThreads)
     {
         log.error("Invalid thread count (1 <= t <= ", totalCPUs, ") ");
     }
-    log.stats();
 }
 
 int main(string[] args)
@@ -101,22 +91,20 @@ int main(string[] args)
         ushort logPort = 9090;
         string logIp = "127.0.0.1";
 
+        import std.getopt;
         getopt(
             args,
             "threads|t",    &nbThreads,
             "logport|lp",   &logPort,
-            "logip|li",     &logIp
+            "logip|li",     &logIp,
+            std.getopt.config.stopOnFirstNonOption
         );
 
         version(assert)
         {
             log.register(new ConsoleLogger);
         }
-        else
-        {
-            log.register(new TcpLogger(logIp, to!ushort(logPort)));
-        }
-
+        log.register(new TcpLogger(logIp, to!ushort(logPort)));
         log.info("Threads to create : ", nbThreads);
 
         if(!nbThreads)
@@ -138,16 +126,11 @@ int main(string[] args)
         log.error(e);
         return -1;
     }
+    log.stats();
     return 0;
 }
 
 /*
-    auto zmqLoop = new ZmqLoop();
-    auto workerHandler = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
-    auto proxyHandler = new Proxy();
-    auto workerRoute = new Route("^/worker", workerHandler);
-    auto proxyRoute = new Route("^/proxy", proxyHandler);
-
     defaultHandlers[Status.BadRequest] = new ErrorHandler();
     defaultHandlers[Status.Unauthorized] = new ErrorHandler();
     defaultHandlers[Status.Payment] = new ErrorHandler();

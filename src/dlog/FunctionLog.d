@@ -3,11 +3,6 @@ module dlog.FunctionLog;
 import dlog.Logger;
 import core.time;
 
-ulong toTime(TickDuration duration)
-{
-    return duration.nsecs;
-}
-
 class FunctionLog
 {
     struct FunctionStat
@@ -40,8 +35,7 @@ class FunctionLog
 
     this(string a_name, string a_fullname)
     {
-        this.m_duration = TickDuration.currSystemTick();
-
+        m_duration = TickDuration.currSystemTick();
         m_name = a_name;
         m_fullname = a_fullname;
         log.enter(this);
@@ -57,7 +51,6 @@ class FunctionLog
         }
         m_stats[fullname].totalDuration += m_duration;
         m_stats[fullname].timesCalled += 1;
-        
         log.leave(this);
     }
 

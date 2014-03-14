@@ -2,9 +2,9 @@ ToDo :
 
 Logging framework : 
 
-- serialization / deserialization : ok
 - zmq client / server logging
 - send / recv buffering / streaming
+- AOP wrapper (future)
 
 HTTP Server : 
 
@@ -30,4 +30,3 @@ DIP - The Dependency Inversion Principle -
 
 ISP - The Interface Segregation Principle -
       Make fine grained interfaces that are client specific.
-

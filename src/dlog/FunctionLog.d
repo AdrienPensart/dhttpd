@@ -3,7 +3,7 @@ module dlog.FunctionLog;
 import dlog.Logger;
 import core.time;
 
-class FunctionLog
+struct FunctionLog
 {
     struct FunctionStat
     {
@@ -41,7 +41,7 @@ class FunctionLog
         log.enter(this);
     }
 
-    void ended()
+    bool ended()
     {
         m_duration =  TickDuration.currSystemTick() - m_duration;
 
@@ -52,6 +52,7 @@ class FunctionLog
         m_stats[fullname].totalDuration += m_duration;
         m_stats[fullname].timesCalled += 1;
         log.leave(this);
+        return true;
     }
 
     @property auto name()

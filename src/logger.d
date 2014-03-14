@@ -1,12 +1,23 @@
 import dlog.Logger;
 import dlog.Message;
+
+import std.string;
 import std.getopt;
 import std.socket;
+import std.conv;
+import std.array;
+
+import zsockopt;
+import zframe;
+import zsocket;
 import zloop;
 import zctx;
+import zmsg;
 import zmq;
+
 import msgpack;
 
+/*
 extern(C) int onAcceptHandler(zloop_t * loop, zmq_pollitem_t * item, void * arg)
 {
     Poller poller = cast(Poller)arg;
@@ -132,6 +143,7 @@ class Poller
         }
     }
 }
+*/
 
 void main(string[] args)
 {
@@ -142,7 +154,55 @@ void main(string[] args)
 
     log.register(new ConsoleLogger);
     log.info("Starting log server on port ", logPort);
-    auto logger = new Poller(logPort);
-    logger.run();
+
+    //auto logger = new Poller(logPort);
+    //logger.run();
+
+    auto zctx = zctx_new();      
+    auto loop = zloop_new();
+    auto sender = zsocket_new (zctx, ZMQ_SUB);
+    auto endpoint = "tcp://127.0.0.1:" ~ to!string(logPort);
+    log.info("endpoint : ", endpoint);
+    zsocket_bind(sender, toStringz(endpoint));
+    zsocket_set_subscribe(sender, "");
+
+    while(true)
+    {
+        try
+        {
+            auto msg = zmsg_recv(sender);
+            if(zctx_interrupted)
+            {
+                break;
+            }
+            if(msg is null)
+            {
+                continue;
+            }
+
+            ubyte[] raw;
+            auto frame = zmsg_first(msg);
+            while(frame !is null)
+            {
+                ubyte * buffer = cast(ubyte*)zframe_data(frame);
+                raw ~= buffer[0..zframe_size(frame)];
+                frame = zmsg_next(msg);
+            }
+            
+            Message message = new Message();
+            message = raw.unpack!Message();
+            log(message.type, message);
+
+            zmsg_destroy(&msg);
+        }
+        catch(Exception e)
+        {
+            log.error("Exception : ", e.msg);
+        }
+    }
+
+    zloop_destroy(&loop);
+    zctx_destroy(&zctx);
+    
     log.info("Stopping logging server");
 }

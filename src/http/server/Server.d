@@ -8,9 +8,8 @@ import http.server.Config;
 import http.server.Poller;
 
 import EventLoop;
-import crunch.Wrap;
 
-class ServerImpl
+class Server
 {
     Config m_config;
     ev_loop_t * m_loop;
@@ -42,9 +41,6 @@ class ServerImpl
         }
     }
 }
-
-alias ServerImpl Server;
-//alias Wrap!(ServerImpl) Server;
 
 class ServerWorker : Thread
 {

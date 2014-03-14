@@ -20,12 +20,12 @@ auto Tracer()
             }
             static if(__traits(compiles,__method__))
             {
-                auto __tracer__ = new FunctionLog(__method__, __method__);
+                auto __tracer__ = FunctionLog(__method__, __method__);
             }
             // we are in a normal function, extract Function name
             else
             {
-                auto __tracer__ = new FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
+                auto __tracer__ = FunctionLog(__context__, fullyQualifiedName!(__traits(parent,__marker__)));
             }
             scope(exit) __tracer__.ended();
         };

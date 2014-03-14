@@ -1,4 +1,4 @@
-module main;
+module dhttpd;
 
 import std.socket;
 import std.conv;
@@ -104,9 +104,10 @@ int main(string[] args)
         {
             log.register(new ConsoleLogger);
         }
-        log.register(new TcpLogger(logIp, to!ushort(logPort)));
+        //log.register(new TcpLogger(logIp, logPort));
+        log.register(new ZmqLogger("tcp://" ~ logIp ~ ":" ~ to!string(logPort)));
         log.info("Threads to create : ", nbThreads);
-
+        
         if(!nbThreads)
         {
             log.error("One thread minimum allowed");

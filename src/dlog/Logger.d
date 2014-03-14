@@ -50,18 +50,17 @@ else
         ];
 }
 
-enum internalLevels = ["logging" : true];
-
 static this()
 {
     log = new ThreadLogger;
-    log.register(new ConsoleLogger, internalLevels);
 }
 
 class ThreadLogger
 {
     private
     {
+        enum internalLevels = ["logging" : true];
+
         // UUID Random generator
         Xorshift192 m_gen;
 
@@ -95,6 +94,7 @@ class ThreadLogger
         UUID loggerUUID = randomUUID(m_gen);
         m_name = loggerUUID.toString();
         m_creation = TickDuration.currSystemTick();
+        register(new ConsoleLogger, internalLevels);
     }
 
     @property auto name()
@@ -108,6 +108,7 @@ class ThreadLogger
         {
             m_backends[level] ~= lb;
         }
+        logging("Registered ", typeid(lb), " on ", levelsFilter);
    	}
 
     auto register(LogBackend lb, string[] levels)

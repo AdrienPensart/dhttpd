@@ -87,15 +87,51 @@ class ConsoleLogger : FileLogger
     }
 }
 
+// PUB / SUB pattern
 class ZmqLogger : LogBackend
 {
-    this(string endpoint)
+    /*
+    int zmqMajor, zmqMinor, zmqPatch;
+    zmq_version(&zmqMajor, &zmqMinor, &zmqPatch);
+    string zmqVersion = format("%s.%s.%s", zmqMajor, zmqMinor, zmqPatch);
+    .log.logging("ZMQ version : ", zmqVersion);
+    */
+    
+    shared static this()
     {
+        zctx  = cast(shared(zctx_t *))zctx_new();
+        assert(zctx);
+    }
+
+    shared static ~this()
+    {
+        zctx_destroy(cast(zctx_t **)&zctx);
+    }
+
+    this(string endpoint, MessageFormater formater = new BinaryMessageFormater)
+    {
+        super(formater);
+        import std.string : toStringz;
+        sender = zsocket_new (cast(zctx_t *)zctx, ZMQ_PUB);
+        assert(sender);
+        auto result = zsocket_connect(sender, toStringz(endpoint));
+        assert(result == 0, to!string(zmq_strerror(zmq_errno())));
     }
         
     override void log(Message m)
     {
+        void[] data = getFormater().format(m);
+        auto msg = zmsg_new();
+        assert(msg);
+        auto push = zmsg_addmem(msg, data.ptr, data.length);
+        assert(push == 0);
+        zmsg_send(&msg, sender);
     }
+
+    private:
+
+        void * sender;
+        shared static zctx_t * zctx;
 }
 
 class TcpLogger : LogBackend

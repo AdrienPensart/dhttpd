@@ -3,7 +3,7 @@
 	url = https://github.com/D-Programming-Deimos/libev.git
 [submodule "src/czmq"]
 	path = src/czmq
-	url = git://github.com/1100110/CZMQ.git
+	url = https://github.com/crunchengine/CZMQ.git
 [submodule "src/msgpack"]
 	path = src/msgpack
-	url = git://github.com/msgpack/msgpack-d.git
+	url = https://github.com/msgpack/msgpack-d.git

@@ -7,12 +7,12 @@ import dlog.Logger;
 import http.server.Config;
 import http.server.Poller;
 
-import EventLoop;
+import EvLoop;
 
 class Server
 {
     Config m_config;
-    ev_loop_t * m_loop;
+    EvLoop m_loop;
     
     @property auto loop()
     {
@@ -29,11 +29,16 @@ class Server
         return m_config.options;
     }
 
-    this(ev_loop_t * loop, Config config)
+    this(EvLoop a_loop, Config a_config)
     {
-        this.m_loop = loop;
-        this.m_config = config;
+        this.m_loop = a_loop;
+        this.m_config = a_config;
         
+        version(assert)
+        {
+            auto timedStatistic = new TimedStatistic(m_loop);
+        }
+
         foreach(address ; config.addresses)
         {
             log.info("Listening on : ", address);
@@ -44,11 +49,13 @@ class Server
 
 class ServerWorker : Thread
 {
-    this(Config config)
+    this(EvLoop parent, Config config)
     {
+        mixin(Tracer);
         super(&run);
-        m_loop = new LibevLoop();
-        m_server = new Server(m_loop.loop(), config);
+        m_loop = new EvLoop();
+        parent.addChild(m_loop);
+        m_server = new Server(m_loop, config);
     }
 
     void run()
@@ -57,6 +64,6 @@ class ServerWorker : Thread
         m_loop.run();
     }
     
-    private LibevLoop m_loop;
+    private EvLoop m_loop;
     private Server m_server;
 }

@@ -7,16 +7,20 @@ ragelfile=src/http/protocol/Request.d.rl
 dmd_flags=""
 if [[ $1 == "release" ]]; then
 	dmd_flags="-O -release -noboundscheck -inline"
+elif [[ $1 == "release_unittest" ]]; then
+	dmd_flags="-O -release -noboundscheck -inline -unittest"
 elif [[ $1 == "release_profile" ]]; then
 	dmd_flags="-O -release -noboundscheck -inline -profile"
 elif [[ $1 == "release_autoprofile" ]]; then
 	dmd_flags="-O -release -noboundscheck -inline -version=autoprofile"
 elif [[ $1 == "debug" ]]; then
+	dmd_flags="-g -debug -gc -gs"
+elif [[ $1 == "debug_unittest" ]]; then
 	dmd_flags="-unittest -g -debug -gc -gs"
 elif [[ $1 == "debug_profile" ]]; then
-	dmd_flags="-unittest -g -debug -gc -gs -profile"
+	dmd_flags="-g -debug -gc -gs -profile"
 elif [[ $1 == "debug_autoprofile" ]]; then
-	dmd_flags="-unittest -g -debug -gc -gs -version=autoprofile"
+	dmd_flags="-g -debug -gc -gs -version=autoprofile"
 elif [[ $1 == "graph" ]]; then
 	echo "Ragel graph generation..."
 	ragel -p -V $ragelfile -o $ragelfile.dot

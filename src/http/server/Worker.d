@@ -1,6 +1,8 @@
 module http.server.Worker;
 
 import http.server.Handler;
+import http.server.ZmqPoller;
+
 import std.string;
 
 import zmq;
@@ -9,6 +11,7 @@ import zsocket;
 
 class Worker : Handler
 {
+	ZmqPoller sender2;
 	zctx_t * zctx;
 	void * sender;
 	void * receiver;

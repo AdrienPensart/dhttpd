@@ -1,5 +1,6 @@
 module dhttpd;
 
+import core.thread;
 import std.socket;
 import std.conv;
 
@@ -17,7 +18,8 @@ import http.server.Options;
 import http.server.Poller;
 
 import dlog.Logger;
-import EventLoop;
+import EvLoop;
+import ZmqLoop;
 import utils;
 
 void startThreads(uint nbThreads)
@@ -44,22 +46,33 @@ void startThreads(uint nbThreads)
     options[Parameter.NOT_FOUND_FILE] =   installDir() ~ "/public/404.html";
     options[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
     
+    auto zmqLoop = new ZmqLoop;
+
+    // handlers
     auto mainDir    = new Directory("/public", "index.html", options);
+    auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
+
+    // routes
     auto mainRoute  = new Route("^/main", mainDir);
-    auto mainHost   = new VirtualHost(["www.dhttpd.fr", "www.dhttpd.com"], [mainRoute]);
+
+    // hosts
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [mainRoute]);
+
+    // config
     auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);
+
     /*
     auto zmqLoop = new ZmqLoop();
-    auto workerHandler = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
     auto proxyHandler = new Proxy();
     auto workerRoute = new Route("^/worker", workerHandler);
     auto proxyRoute = new Route("^/proxy", proxyHandler);
     */
+    auto loop = new DefaultEvLoop();
 
     if(nbThreads == 1)
     {
-        auto mainServer = new Server(LibevLoop.defaultLoop(), mainConfig);
-        LibevLoop.runDefaultLoop();
+        auto mainServer = new Server(loop, mainConfig);
+        loop.run();
     }
     else if(nbThreads <= totalCPUs)
     {
@@ -67,12 +80,12 @@ void startThreads(uint nbThreads)
         foreach(threadIndex ; 0..nbThreads)
         {
             log.trace("New thread ", threadIndex);
-            auto worker = new ServerWorker(mainConfig);
+            auto worker = new ServerWorker(loop, mainConfig);
             worker.start();
             workers.add(worker);
         }
 
-        LibevLoop.runDefaultLoop();
+        loop.run();
         log.info("Waiting for worker thread to join");
         workers.joinAll();
     }
@@ -94,10 +107,10 @@ int main(string[] args)
         import std.getopt;
         getopt(
             args,
+            std.getopt.config.stopOnFirstNonOption,
             "threads|t",    &nbThreads,
             "logport|lp",   &logPort,
-            "logip|li",     &logIp,
-            std.getopt.config.stopOnFirstNonOption
+            "logip|li",     &logIp
         );
 
         version(assert)

@@ -19,40 +19,44 @@ ThreadLogger log;
 
 private:
 
-version(assert)
-{
+version(assert) {
     // DEBUG
     enum userLevels = 
-        [
-            "info" : true, 
-            "fatal" : true,
-            "error" : true,
-            "warning" : true,
-            "statistic" : true,
-            "trace" : true,
-            "test" : false,
-            "dbg" : false,
-        ];
+    [
+        "info" : true, 
+        "fatal" : true,
+        "error" : true,
+        "warning" : true,
+        "statistic" : true,
+        "trace" : true,
+        "test" : false,
+        "dbg" : false,
+    ];
 }
-else
-{
+else {
     // RELEASE
     enum userLevels = 
-        [
-            "info" : true, 
-            "fatal" : true,
-            "error" : true,
-            "warning" : true,
-            "statistic" : true,
-            "trace" : false,
-            "test" : false,
-            "dbg" : false,
-        ];
+    [
+        "info" : true, 
+        "fatal" : true,
+        "error" : true,
+        "warning" : true,
+        "statistic" : true,
+        "trace" : false,
+        "test" : false,
+        "dbg" : false,
+    ];
 }
 
 static this()
 {
     log = new ThreadLogger;
+}
+
+unittest
+{
+    log.register(new ConsoleLogger, "notdefinedlevel");
+    log.notdefinedlevel("test for notdefinedlevel");
 }
 
 class ThreadLogger
@@ -83,6 +87,7 @@ class ThreadLogger
     mixin(logLevelGenerator(userLevels));
     mixin(logLevelGenerator(internalLevels));
 
+    // user defined log level
     void opDispatch(string logLevel, Arguments...)(Arguments args)
     {
         mixin(genCall(logLevel));
@@ -117,6 +122,11 @@ class ThreadLogger
         {
             m_backends[level] ~= lb;
         }
+    }
+
+    auto register(LogBackend lb, string level)
+    {
+        m_backends[level] ~= lb;
     }
 
     auto enter(FunctionLog currentFunction)

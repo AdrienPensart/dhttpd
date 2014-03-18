@@ -5,9 +5,9 @@ import core.sync.mutex;
 // per thread reference counter
 class ReferenceCounter (T)
 {
+	//version(autoprofile)
+	//{
 	/*
-	version(autoprofile)
-	{
 		static Mutex mutex;
 		static this()
 		{
@@ -29,21 +29,22 @@ class ReferenceCounter (T)
 				m_alive -= 1;
 			}
 		}
-	}
-	else
-	{
+	*/
+	//}
+	
+	/*
 		import core.atomic;
 		this()
 		{
-			atomicOp!("+=", ulong, ulong)(m_alive, 1);
+			atomicOp!("+=", ulong, int)(m_alive, 1);
 		}
 
 		~this()
 		{
-			atomicOp!("-=", ulong, ulong)(m_alive, 1);
+			atomicOp!("-=", ulong, int)(m_alive, 1);
 		}
-	}
 	*/
+
 	this()
 	{
 		m_alive++;
@@ -51,18 +52,19 @@ class ReferenceCounter (T)
 
 	~this()
 	{
-		m_alive--;
+		if(m_alive > 0)
+			m_alive--;
 	}
-
-	static ulong m_alive = 0;
-	static ulong m_alive_show = 0;
 
 	static void showReferences()
 	{
 		if(m_alive != m_alive_show)
 	    {
 	        m_alive_show = m_alive;
-	        log.statistic(T.stringof, " alive : ", m_alive_show);
+	        log.statistic(T.stringof, " alive ", m_alive);
 	    }
 	}
+
+	static ulong m_alive = 0;
+	static ulong m_alive_show = 0;
 }

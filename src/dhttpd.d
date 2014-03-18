@@ -22,10 +22,14 @@ import EvLoop;
 import ZmqLoop;
 import utils;
 
-void startThreads(uint nbThreads)
+void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
 {
     mixin(Tracer);
     Options options;
+    options[Parameter.LOGGER_HOST] = logIp;
+    options[Parameter.LOGGER_ZMQ_PORT] = zmqPort;
+    options[Parameter.LOGGER_TCP_PORT] = tcpPort;
+
     options[Parameter.MIME_TYPES] = new MimeMap();
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
     options[Parameter.FILE_CACHE] = true;
@@ -101,24 +105,26 @@ int main(string[] args)
     {
         mixin(Tracer);
         uint nbThreads = 1;
-        ushort logPort = 9090;
-        string logIp = "127.0.0.1";
+        ushort zmqPort = 9090;
+        ushort tcpPort = 9091;
+        string logHost = "127.0.0.1";
 
         import std.getopt;
         getopt(
             args,
             std.getopt.config.stopOnFirstNonOption,
             "threads|t",    &nbThreads,
-            "logport|lp",   &logPort,
-            "logip|li",     &logIp
+            "zmqport|zp",   &zmqPort,
+            "tcpport|tp",   &tcpPort,
+            "loghost|lh",   &logHost
         );
 
         version(assert)
         {
             log.register(new ConsoleLogger);
         }
-        //log.register(new TcpLogger(logIp, logPort));
-        log.register(new ZmqLogger("tcp://" ~ logIp ~ ":" ~ to!string(logPort)));
+        log.register(new TcpLogger(logHost, tcpPort));
+        log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(tcpPort)));
         log.info("Threads to create : ", nbThreads);
         
         if(!nbThreads)
@@ -133,7 +139,7 @@ int main(string[] args)
         }
 
         log.info("Entering child process");
-        startThreads(nbThreads);
+        startThreads(nbThreads, logHost, tcpPort, zmqPort);
     }
     catch(Exception e)
     {

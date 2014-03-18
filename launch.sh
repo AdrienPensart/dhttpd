@@ -10,5 +10,5 @@ killall -q -s SIGINT dhttpd
 set -xe
 
 for i in `seq $1`; do
-    ./dhttpd --threads $2 &
+    ./dhttpd --t=$2 &
 done

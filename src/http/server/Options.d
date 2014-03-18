@@ -4,6 +4,10 @@ import std.variant;
 
 enum Parameter
 {
+	LOGGER_HOST,
+	LOGGER_TCP_PORT,
+	LOGGER_ZMQ_PORT,
+	
 	DEFAULT_MIME,
 	MIME_TYPES,
 

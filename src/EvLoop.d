@@ -9,12 +9,14 @@ import dlog.Logger;
 public import deimos.ev;
 public import core.sync.mutex;
 public import core.stdc.signal;
-public import core.memory;
 
+import http.server.Connection;
 import Loop;
 
 class GarbageCollection
 {
+    import core.memory;
+
     this(EvLoop a_loop)
     {
         m_loop = a_loop;
@@ -25,7 +27,7 @@ class GarbageCollection
     
     ~this()
     {
-        ev_timer_stop(a_loop.loop(), &m_gc_timer);
+        ev_timer_stop(m_loop.loop(), &m_gc_timer);
     }
 
     private
@@ -46,12 +48,12 @@ class LogStatistic
     {
         m_loop = a_loop;
         ev_timer_init(&m_reference_counter_timer, &log_statistic, 0, 1);
-        ev_timer_again (m_loop.loop(), &m_reference_counter_timer);
+        ev_timer_again(m_loop.loop(), &m_reference_counter_timer);
     }
     
     ~this()
     {
-        ev_timer_stop(a_loop.loop(), &m_reference_counter_timer);
+        ev_timer_stop(m_loop.loop(), &m_reference_counter_timer);
     }
 
     private
@@ -62,8 +64,8 @@ class LogStatistic
 
     private extern(C) static void log_statistic (ev_loop_t * loop, ev_timer * w, int revents)
     {
-        import http.server.Connection;
         Connection.showReferences();
+        ev_timer_again(loop, w);
     }
 }
 
@@ -98,6 +100,12 @@ class EvLoop : Loop
         m_children[a_loop.m_id] = a_loop;
     }
 
+    void addEvent(T)(T event)
+    {
+        Variant vevent = event;
+        m_events ~= vevent;
+    }
+
     override void run()
     {
         ev_run(m_loop, 0);
@@ -115,7 +123,7 @@ class EvLoop : Loop
         Xorshift192 m_gen;
         UUID m_id;
         EvLoop [UUID] m_children;
-        Variant[] 
+        Variant[] m_events;
     }
 
     private extern(C) static

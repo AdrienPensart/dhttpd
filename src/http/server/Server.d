@@ -1,9 +1,11 @@
 module http.server.Server;
 
 import core.thread;
+import std.conv;
 
 import dlog.Logger;
 
+import http.server.Options;
 import http.server.Config;
 import http.server.Poller;
 
@@ -36,7 +38,8 @@ class Server
         
         version(assert)
         {
-            auto timedStatistic = new TimedStatistic(m_loop);
+            auto timedStatistic = new LogStatistic(m_loop);
+            m_loop.addEvent(timedStatistic);
         }
 
         foreach(address ; config.addresses)
@@ -49,21 +52,42 @@ class Server
 
 class ServerWorker : Thread
 {
-    this(EvLoop parent, Config config)
+    this(EvLoop a_parent, Config a_config)
     {
         mixin(Tracer);
-        super(&run);
         m_loop = new EvLoop();
-        parent.addChild(m_loop);
-        m_server = new Server(m_loop, config);
+        m_config = a_config;
+        a_parent.addChild(m_loop);
+        super(&run);
     }
 
     void run()
     {
         mixin(Tracer);
-        m_loop.run();
+        try
+        {
+            version(assert)
+            {
+                log.register(new ConsoleLogger);
+            }
+
+            m_server = new Server(m_loop, m_config);
+            auto logHost = m_server.config.options[Parameter.LOGGER_HOST].get!(string);
+            auto zmqPort = m_server.config.options[Parameter.LOGGER_ZMQ_PORT].get!(ushort);
+            auto tcpPort = m_server.config.options[Parameter.LOGGER_TCP_PORT].get!(ushort);
+
+            log.register(new TcpLogger(logHost, tcpPort));
+            log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(zmqPort)));
+
+            m_loop.run();
+        }
+        catch(Exception e)
+        {
+            log.error(e.msg);
+        }
     }
     
     private EvLoop m_loop;
     private Server m_server;
+    private Config m_config;
 }

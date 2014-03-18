@@ -28,7 +28,7 @@ version(assert) {
         "error" : true,
         "warning" : true,
         "statistic" : true,
-        "trace" : true,
+        "trace" : false,
         "test" : false,
         "dbg" : false,
     ];
@@ -109,18 +109,25 @@ class ThreadLogger
 
   	auto register(LogBackend lb, bool[string] levelsFilter=userLevels)
    	{
-        foreach(level, active; levelsFilter)
+        if(lb.init())
         {
-            m_backends[level] ~= lb;
+            foreach(level, active; levelsFilter)
+            {
+                m_backends[level] ~= lb;
+            }
+            logging("Registered ", typeid(lb), " on ", levelsFilter);
         }
-        logging("Registered ", typeid(lb), " on ", levelsFilter);
    	}
 
     auto register(LogBackend lb, string[] levels)
     {
-        foreach(level; levels)
+        if(lb.init())
         {
-            m_backends[level] ~= lb;
+            foreach(level; levels)
+            {
+                
+                m_backends[level] ~= lb;
+            }
         }
     }
 

@@ -22,22 +22,27 @@ abstract class LogBackend
 {
     this()
     {
-        formater = new LineMessageFormater;
+        m_formater = new LineMessageFormater;
     }
 
-    this(MessageFormater formater)
+    this(MessageFormater a_formater)
     {
-        this.formater = formater;
+        m_formater = a_formater;
     }
 
-    auto getFormater()
+    @property auto formater()
     {
-       return formater;
+       return m_formater;
+    }
+
+    bool init()
+    {
+        return true;
     }
 
     void log(Message);
     
-    private MessageFormater formater;
+    private MessageFormater m_formater;
 }
 
 class FileLogger : LogBackend
@@ -61,10 +66,10 @@ class FileLogger : LogBackend
 
 	override void log(Message lm)
     {
-	    file.writeln(cast(string)getFormater.format(lm));
+	    file.writeln(cast(string)formater.format(lm));
     }
 	
-    private	File file;    
+    private	File file;
 }
 
 class ConsoleLogger : FileLogger
@@ -120,7 +125,7 @@ class ZmqLogger : LogBackend
         
     override void log(Message m)
     {
-        void[] data = getFormater().format(m);
+        void[] data = formater.format(m);
         auto msg = zmsg_new();
         assert(msg);
         auto push = zmsg_addmem(msg, data.ptr, data.length);
@@ -139,24 +144,30 @@ class TcpLogger : LogBackend
     this(string host, ushort port, MessageFormater formater = new BinaryMessageFormater)
     {
         super(formater);
+        address = new InternetAddress(host, port);
+    }
+
+    override bool init()
+    {
         try
         {
             client = new TcpSocket;
-            address = new InternetAddress(host, port);
             client.connect(address);
         }
         catch(Exception e)
         {
-            .log.error("TcpLogger : Can't register TcpLogger to ", host, ":", port, " : ", e.msg);
+            .log.error("TcpLogger : Can't register to ", address, " : ", e.msg);
             client.close();
+            return false;
         }
+        return true;
     }
 
     override void log(Message m)
     {
-        if(client.isAlive)
+        if(client !is null && client.isAlive)
         {
-            auto data = getFormater().format(m);
+            auto data = formater.format(m);
             auto datalength = client.send(data);
             if (datalength == Socket.ERROR)
             {
@@ -181,12 +192,17 @@ class UdpLogger : LogBackend
     {
         super(formater);
         address = new InternetAddress(host,port);
+    }
+
+    override bool init()
+    {
         client = new UdpSocket;
+        return true;
     }
 
     override void log(Message m)
     {
-        client.sendTo(getFormater().format(m), address);
+        client.sendTo(formater.format(m), address);
     }
 
     private:

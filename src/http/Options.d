@@ -1,4 +1,4 @@
-module http.server.Options;
+module http.Options;
 
 import std.variant;
 

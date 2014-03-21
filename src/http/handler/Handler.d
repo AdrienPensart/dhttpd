@@ -1,6 +1,6 @@
-module http.server.Handler;
+module http.handler.Handler;
 
-import http.server.Route;
+import http.Route;
 
 public import http.protocol.Request;
 public import http.protocol.Response;

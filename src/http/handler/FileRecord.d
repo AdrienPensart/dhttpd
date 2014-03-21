@@ -1,4 +1,4 @@
-module http.server.FileRecord;
+module http.handler.FileRecord;
 
 import std.file;
 import std.path;

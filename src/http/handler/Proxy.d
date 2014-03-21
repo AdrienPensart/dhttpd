@@ -1,6 +1,6 @@
-module http.server.Proxy;
+module http.handler.Proxy;
 
-import http.server.Handler;
+import http.handler.Handler;
 import dlog.Logger;
 
 class Proxy : Handler

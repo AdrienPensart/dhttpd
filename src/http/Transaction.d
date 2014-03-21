@@ -1,12 +1,13 @@
-module http.server.Transaction;
+module http.Transaction;
 
 import http.protocol.Protocol;
 import http.protocol.Request;
 import http.protocol.Response;
 import http.protocol.Header;
 
-import http.server.VirtualHost;
-import http.server.Config;
+import http.VirtualHost;
+import http.Config;
+import http.Options;
 
 import crunch.Caching;
 import std.uuid;

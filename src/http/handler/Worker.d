@@ -1,7 +1,7 @@
-module http.server.Worker;
+module http.handler.Worker;
 
-import http.server.Handler;
-import http.server.ZmqPoller;
+import http.handler.Handler;
+import http.poller.ZmqPoller;
 
 import std.string;
 

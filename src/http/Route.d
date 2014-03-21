@@ -1,10 +1,10 @@
-module http.server.Route;
+module http.Route;
 
 import std.regex;
 
 import http.protocol.Request;
 import http.protocol.Response;
-import http.server.Handler;
+import http.handler.Handler;
 
 import dlog.Logger;
 

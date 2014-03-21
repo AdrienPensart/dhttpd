@@ -1,4 +1,4 @@
-module Loop;
+module loop.Loop;
 
 interface Loop
 {

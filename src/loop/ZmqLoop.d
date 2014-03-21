@@ -1,7 +1,7 @@
-module ZmqLoop;
+module loop.ZmqLoop;
 
 import dlog.Logger;
-import Loop;
+import loop.Loop;
 import czmq;
 
 class ZmqLoop : Loop

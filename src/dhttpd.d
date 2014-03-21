@@ -8,20 +8,22 @@ import std.uuid;
 import http.protocol.Status;
 import http.protocol.Mime;
 
-import http.server.Server;
-import http.server.Worker;
-import http.server.Directory;
-import http.server.Proxy;
-import http.server.Route;
-import http.server.VirtualHost;
-import http.server.Config;
-import http.server.Options;
-import http.server.Poller;
+import http.Server;
+import http.Route;
+import http.VirtualHost;
+import http.Config;
+import http.Options;
+
+import http.handler.Worker;
+import http.handler.Directory;
+import http.handler.Proxy;
 
 import dlog.Logger;
-import EvLoop;
-import ZmqLoop;
-import utils;
+import crunch.Utils;
+
+import loop.InterruptionEvent;
+import loop.EvLoop;
+import loop.ZmqLoop;
 
 __gshared EvLoop [UUID] children;
 extern(C) static void interruption (ev_loop_t * a_default_loop, ev_signal * a_interruption_watcher, int revents)

@@ -1,4 +1,4 @@
-module http.server.Connection;
+module http.Connection;
 
 import std.socket;
 import std.array;
@@ -12,9 +12,10 @@ import http.protocol.Response;
 import http.protocol.Status;
 import http.protocol.Header;
 
-import http.server.Transaction;
-import http.server.Config;
-import http.server.VirtualHost;
+import http.Transaction;
+import http.Config;
+import http.Options;
+import http.VirtualHost;
 
 import dlog.Logger;
 import crunch.Caching;

@@ -1,4 +1,4 @@
-module http.server.ZmqPoller;
+module http.poller.ZmqPoller;
 
 import deimos.ev;
 import zsockopt;
@@ -15,6 +15,5 @@ struct ZmqPoller
 	{
 		m_socket = a_socket;
 		auto fd = zsocket_fd(m_socket);
-		
 	}
 }

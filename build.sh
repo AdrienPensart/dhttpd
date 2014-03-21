@@ -42,9 +42,9 @@ includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src"
 libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq"
 
 #loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
-#dmd $includes $loggerbin $libraries $dmd_flags $loggersrc
+#dmd $includes $libraries $dmd_flags $loggersrc
 rdmd --build-only -oflogger $includes $libraries $dmd_flags src/logger.d
 
-#dhttpdsrc="src/main.d src/EventLoop.d src/msgpack/src/msgpack.d src/http/server/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d src/czmq/deimos/*.d"
-#dmd $includes $dhttpdbin $libraries $dmd_flags $dhttpdsrc
+#dhttpdsrc="src/dhttpd.d src/core/* src/msgpack/src/msgpack.d src/http/server/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d src/czmq/deimos/*.d"
+#dmd $includes $libraries $dmd_flags $dhttpdsrc
 rdmd --build-only -ofdhttpd $includes $libraries $dmd_flags src/dhttpd.d

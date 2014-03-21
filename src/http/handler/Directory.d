@@ -1,4 +1,7 @@
-module http.server.Directory;
+module http.handler.Directory;
+
+import http.handler.Handler;
+import http.handler.FileRecord;
 
 import std.conv;
 import std.regex;
@@ -6,9 +9,7 @@ import std.file;
 
 import dlog.Logger;
 
-import http.server.Options;
-import http.server.Handler;
-import http.server.FileRecord;
+import http.Options;
 
 import http.protocol.Date;
 import http.protocol.Mime;

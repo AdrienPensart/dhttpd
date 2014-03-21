@@ -1,4 +1,4 @@
-module utils;
+module crunch.Utils;
 
 import std.parallelism : totalCPUs;
 import std.path : dirName;

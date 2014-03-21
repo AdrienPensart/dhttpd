@@ -1,15 +1,16 @@
-module http.server.Server;
+module http.Server;
 
 import core.thread;
 import std.conv;
 
 import dlog.Logger;
 
-import http.server.Options;
-import http.server.Config;
-import http.server.Poller;
+import http.Options;
+import http.Config;
 
-import EvLoop;
+import http.poller.ListenerPoller;
+
+import loop.EvLoop;
 
 class Server
 {

@@ -69,21 +69,63 @@ class LogStatistic
     }
 }
 
+class InterruptionEvent
+{
+    this(EvLoop evloop)
+    {
+        parent = evloop;
+        ev_signal_init (&interruptionWatcher, &interruption, SIGINT);
+        ev_signal_start (parent.loop, &interruptionWatcher);
+        interruptionWatcher.data = &children;
+    }
+
+    ~this()
+    {
+        //ev_signal_stop(parent.loop, &interruptionWatcher);
+    }
+
+    void addChild(EvLoop evLoop)
+    {
+        children ~= evLoop;
+    }
+
+    private
+    {
+        EvLoop parent;
+        EvLoop [] children;
+        ev_signal interruptionWatcher;
+    }
+
+    private extern(C) static void interruption (ev_loop_t * a_default_loop, ev_signal * a_interruption_watcher, int revents)
+    {
+        mixin(Tracer);
+        log.error("Received SIGINT");
+        auto children = cast(EvLoop [] *)a_interruption_watcher.data;
+        foreach(child ; *children)
+        {
+            log.info("Sending async break to child ", child.id, ", loop : ", child.loop, ", watcher = ", child.stopWatcher);
+            ev_async_send(child.loop, child.stopWatcher);
+        }
+        log.info("Breaking default loop : ", a_default_loop);
+        ev_break(a_default_loop, EVBREAK_ALL);
+    }
+}
+
 class EvLoop : Loop
 {
-    protected this(ev_loop_t * a_loop)
+    this()
+    {
+        auto a_loop = ev_loop_new(EVFLAG_AUTO);
+        this(a_loop);
+    }
+
+    this(ev_loop_t * a_loop)
     {
         assert(a_loop);
         m_loop = a_loop;
 
         m_gen.seed(unpredictableSeed);
         m_id = randomUUID(m_gen);
-    }
-
-    this()
-    {
-        auto a_loop = ev_loop_new(EVFLAG_AUTO);
-        this(a_loop);
 
         ev_async_init(&m_stop_watcher, &endchild);
         ev_async_start(m_loop, &m_stop_watcher);
@@ -93,11 +135,6 @@ class EvLoop : Loop
     {
         ev_async_stop(m_loop, &m_stop_watcher);
         ev_loop_destroy(m_loop);
-    }
-
-    void addChild(EvLoop a_loop)
-    {
-        m_children[a_loop.m_id] = a_loop;
     }
 
     void addEvent(T)(T event)
@@ -111,9 +148,19 @@ class EvLoop : Loop
         ev_run(m_loop, 0);
     }
 
-    auto loop()
+    ev_loop_t * loop()
     {
         return m_loop;
+    }
+
+    UUID id()
+    {
+        return m_id;
+    }
+
+    ev_async * stopWatcher()
+    {
+        return &m_stop_watcher;
     }
 
     private
@@ -122,7 +169,6 @@ class EvLoop : Loop
         ev_async m_stop_watcher;
         Xorshift192 m_gen;
         UUID m_id;
-        EvLoop [UUID] m_children;
         Variant[] m_events;
     }
 
@@ -134,52 +180,4 @@ class EvLoop : Loop
             ev_break(a_loop, EVBREAK_ALL);
         }
     }
-}
-
-class DefaultEvLoop : EvLoop
-{
-    this()
-    {
-        version(assert)
-        {
-            int evMajor = ev_version_major();
-            int evMinor = ev_version_minor();
-            string evVersion = format("%s.%s", evMajor, evMinor);
-            log.info("Libev version : ", evVersion);
-        }
-
-        m_default_loop = ev_default_loop(EVFLAG_AUTO);
-        assert(m_default_loop);
-        
-        m_interruption_watcher.data = &this;
-        ev_signal_init (&m_interruption_watcher, &interruption, SIGINT);
-        ev_signal_start (m_default_loop, &m_interruption_watcher);
-
-        super(m_default_loop);
-        ev_async_stop(m_loop, &m_stop_watcher);
-    }
-
-    ~this()
-    {
-        ev_signal_stop(m_default_loop, &m_interruption_watcher);
-    }
-
-    private extern(C) static
-    {
-        void interruption (ev_loop_t * a_default_loop, ev_signal * a_interruption_watcher, int revents)
-        {
-            log.error("Received SIGINT");
-            auto defaultLoop = cast(DefaultEvLoop *)a_interruption_watcher.data;
-            foreach(childId, child ; defaultLoop.m_children)
-            {
-                log.info("Sending async break to child ", childId, ", loop : ", child.m_loop, ", watcher = ", &child.m_stop_watcher);
-                ev_async_send(child.m_loop, &child.m_stop_watcher);
-            }
-            log.info("Breaking default loop : ", a_default_loop);
-            ev_break(a_default_loop, EVBREAK_ALL);
-        }
-    }
-
-    ev_loop_t* m_default_loop;
-    ev_signal m_interruption_watcher;
 }

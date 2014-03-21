@@ -1,3 +1,3 @@
 #!/bin/bash
 
-ab -n 10000 -c 100 -H "Server: www.dhttpd.fr" http://127.0.0.1:8080/main/0.html
+httperf --hog --server www.dhttpd.fr --port 8080 --uri /main/home.html --num-calls 100000 --num-conns 100

@@ -3,6 +3,7 @@ module dhttpd;
 import core.thread;
 import std.socket;
 import std.conv;
+import std.uuid;
 
 import http.protocol.Status;
 import http.protocol.Mime;
@@ -21,6 +22,20 @@ import dlog.Logger;
 import EvLoop;
 import ZmqLoop;
 import utils;
+
+__gshared EvLoop [UUID] children;
+extern(C) static void interruption (ev_loop_t * a_default_loop, ev_signal * a_interruption_watcher, int revents)
+{
+    mixin(Tracer);
+    log.error("Received SIGINT");
+    foreach(childId, child ; children)
+    {
+        log.info("Sending async break to child ", childId, ", loop : ", child.loop, ", watcher = ", child.stopWatcher);
+        ev_async_send(child.loop, child.stopWatcher);
+    }
+    log.info("Breaking default loop : ", a_default_loop);
+    ev_break(a_default_loop, EVBREAK_ALL);
+}
 
 void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
 {
@@ -49,12 +64,10 @@ void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
     options[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
     options[Parameter.NOT_FOUND_FILE] =   installDir() ~ "/public/404.html";
     options[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
-    
-    auto zmqLoop = new ZmqLoop;
 
     // handlers
     auto mainDir    = new Directory("/public", "index.html", options);
-    auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
+    //auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
 
     // routes
     auto mainRoute  = new Route("^/main", mainDir);
@@ -71,25 +84,36 @@ void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
     auto workerRoute = new Route("^/worker", workerHandler);
     auto proxyRoute = new Route("^/proxy", proxyHandler);
     */
-    auto loop = new DefaultEvLoop();
-
-    if(nbThreads == 1)
+    
+    version(assert)
     {
-        auto mainServer = new Server(loop, mainConfig);
-        loop.run();
+        int evMajor = ev_version_major();
+        int evMinor = ev_version_minor();
+        import std.string : format;
+        string evVersion = format("%s.%s", evMajor, evMinor);
+        log.info("Libev version : ", evVersion);
     }
-    else if(nbThreads <= totalCPUs)
+
+    auto defaultLoop = ev_default_loop(EVFLAG_AUTO);
+    auto evLoop = new EvLoop(defaultLoop);
+    auto interruptionEvent = new InterruptionEvent(evLoop);
+    evLoop.addEvent(interruptionEvent);
+
+    if(nbThreads <= totalCPUs)
     {
         ThreadGroup workers = new ThreadGroup();
         foreach(threadIndex ; 0..nbThreads)
         {
             log.trace("New thread ", threadIndex);
-            auto worker = new ServerWorker(loop, mainConfig);
+            auto child = new EvLoop();
+            log.info("Adding child ", child.id, " to parent ", defaultLoop);
+            interruptionEvent.addChild(child);
+            auto worker = new ServerWorker(child, mainConfig);
             worker.start();
             workers.add(worker);
         }
 
-        loop.run();
+        evLoop.run();
         log.info("Waiting for worker thread to join");
         workers.joinAll();
     }
@@ -119,10 +143,11 @@ int main(string[] args)
             "loghost|lh",   &logHost
         );
 
-        version(assert)
+        //version(assert)
         {
             log.register(new ConsoleLogger);
         }
+
         log.register(new TcpLogger(logHost, tcpPort));
         log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(tcpPort)));
         log.info("Threads to create : ", nbThreads);

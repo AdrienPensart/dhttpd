@@ -35,13 +35,13 @@ class Server
     {
         this.m_loop = a_loop;
         this.m_config = a_config;
-        
+        /*
         version(assert)
         {
             auto timedStatistic = new LogStatistic(m_loop);
             m_loop.addEvent(timedStatistic);
         }
-
+        */
         foreach(address ; config.addresses)
         {
             log.info("Listening on : ", address);
@@ -52,12 +52,11 @@ class Server
 
 class ServerWorker : Thread
 {
-    this(EvLoop a_parent, Config a_config)
+    this(EvLoop a_loop, Config a_config)
     {
         mixin(Tracer);
-        m_loop = new EvLoop();
         m_config = a_config;
-        a_parent.addChild(m_loop);
+        m_loop = a_loop;
         super(&run);
     }
 

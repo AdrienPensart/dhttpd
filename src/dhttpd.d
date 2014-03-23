@@ -101,7 +101,12 @@ void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
     auto interruptionEvent = new InterruptionEvent(evLoop);
     evLoop.addEvent(interruptionEvent);
 
-    if(nbThreads <= totalCPUs)
+    if(nbThreads == 1)
+    {
+        auto server = new Server(evLoop, mainConfig);
+        evLoop.run();
+    }
+    else if(nbThreads <= totalCPUs)
     {
         ThreadGroup workers = new ThreadGroup();
         foreach(threadIndex ; 0..nbThreads)

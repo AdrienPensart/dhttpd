@@ -11,6 +11,8 @@ elif [[ $1 == "release_unittest" ]]; then
 	dmd_flags="-O -release -noboundscheck -inline -unittest"
 elif [[ $1 == "release_profile" ]]; then
 	dmd_flags="-O -release -noboundscheck -inline -profile"
+elif [[ $1 == "release_info" ]]; then
+	dmd_flags="-O -release -noboundscheck -inline -gs -g -gc"
 elif [[ $1 == "release_autoprofile" ]]; then
 	dmd_flags="-O -release -noboundscheck -inline -version=autoprofile"
 elif [[ $1 == "debug" ]]; then

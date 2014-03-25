@@ -1,10 +1,11 @@
 module http.Config;
 
 import std.socket;
+import std.typecons;
 
 import http.protocol.Request;
 import http.protocol.Response;
-
+import http.handler.Handler;
 import http.Options;
 import http.Transaction;
 import http.VirtualHost;
@@ -58,7 +59,7 @@ class Config
     	return m_addresses;
     }
 
-    Response dispatch(Request request)
+    Tuple!(Response, Handler) dispatch(Request request)
     {
         foreach(host ; m_hosts)
         {
@@ -73,6 +74,6 @@ class Config
             log.trace("Host not found => fallback");
             return m_fallback.dispatch(request);
         }
-        return null;
+        return typeof(return)(null, null);
     }
 }

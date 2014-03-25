@@ -21,6 +21,7 @@ import http.handler.Proxy;
 import dlog.Logger;
 import crunch.Utils;
 
+import loop.GarbageCollection;
 import loop.InterruptionEvent;
 import loop.EvLoop;
 import loop.ZmqLoop;
@@ -47,7 +48,7 @@ void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
     options[Parameter.LOGGER_ZMQ_PORT] = zmqPort;
     options[Parameter.LOGGER_TCP_PORT] = tcpPort;
 
-    options[Parameter.MIME_TYPES] = new MimeMap();
+    options[Parameter.MIME_TYPES] = new MimeMap;
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
     options[Parameter.FILE_CACHE] = true;
     options[Parameter.HTTP_CACHE] = true;
@@ -100,6 +101,12 @@ void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
     auto evLoop = new EvLoop(defaultLoop);
     auto interruptionEvent = new InterruptionEvent(evLoop);
     evLoop.addEvent(interruptionEvent);
+
+
+    auto garbageCollectionEvent = new GarbageCollection(evLoop);
+    //garbageCollectionEvent.disableGC();
+
+    evLoop.addEvent(garbageCollectionEvent);
 
     if(nbThreads == 1)
     {
@@ -178,7 +185,11 @@ int main(string[] args)
         log.error(e);
         return -1;
     }
-    log.stats();
+
+    version(assert)
+    {
+        log.stats();
+    }
     return 0;
 }
 

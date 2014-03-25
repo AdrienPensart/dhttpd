@@ -1,5 +1,6 @@
 module http.Connection;
 
+import std.typecons;
 import std.socket;
 import std.array;
 import std.file;
@@ -71,7 +72,7 @@ class Connection : ReferenceCounter!Connection
             log.trace("Feeding request on ", handle());
             currentRequest.feed(buffer);
 
-            Transaction transaction = new Transaction(m_config, currentRequest);
+            auto transaction = scoped!Transaction(m_config, currentRequest);
             Response response = transaction.get();
             if(response !is null)
             {

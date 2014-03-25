@@ -35,8 +35,9 @@ class Response : Message
         assert(status != Status.Invalid, "HTTP Status code invalid");
         if(updateToRFC1123(headers[FieldDate]) || updated)
         {
-            if(status != Status.Continue && status != Status.SwitchProtocol && !isError(status))
+            if(status == Status.Continue || status == Status.SwitchProtocol || isError(status))
             {
+                log.trace("No date field added");
                 headers[FieldDate] = "";
             }
 

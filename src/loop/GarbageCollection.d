@@ -8,7 +8,6 @@ class GarbageCollection
     this(EvLoop a_loop)
     {
         m_loop = a_loop;
-        GC.disable();
         ev_timer_init (&m_gc_timer, &garbace_collection, 0., 0.300);
         ev_timer_again (m_loop.loop(), &m_gc_timer);
     }
@@ -27,5 +26,10 @@ class GarbageCollection
     private extern(C) static void garbace_collection(ev_loop_t * loop, ev_timer * w, int revents)
     {
         GC.collect();
+    }
+
+    void disableGC()
+    {
+        GC.disable();
     }
 }

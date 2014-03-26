@@ -40,14 +40,9 @@ extern(C) static void interruption (ev_loop_t * a_default_loop, ev_signal * a_in
     ev_break(a_default_loop, EVBREAK_ALL);
 }
 
-void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
+void startThreads(Options options)
 {
     mixin(Tracer);
-    Options options;
-    options[Parameter.LOGGER_HOST] = logIp;
-    options[Parameter.LOGGER_ZMQ_PORT] = zmqPort;
-    options[Parameter.LOGGER_TCP_PORT] = tcpPort;
-
     options[Parameter.MIME_TYPES] = new MimeMap;
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
     options[Parameter.FILE_CACHE] = true;
@@ -102,12 +97,15 @@ void startThreads(uint nbThreads, string logIp, ushort tcpPort, ushort zmqPort)
     auto interruptionEvent = new InterruptionEvent(evLoop);
     evLoop.addEvent(interruptionEvent);
 
+    if(options[Parameter.MANUAL_GC].get!(bool))
+    {
+        log.info("Enabling manual garbage collection");
+        auto garbageCollectionEvent = new GarbageCollection(evLoop, options[Parameter.TIMER_GC].get!(double));
+        garbageCollectionEvent.disableGC();
+        evLoop.addEvent(garbageCollectionEvent);
+    }
 
-    auto garbageCollectionEvent = new GarbageCollection(evLoop);
-    //garbageCollectionEvent.disableGC();
-
-    evLoop.addEvent(garbageCollectionEvent);
-
+    auto nbThreads = options[Parameter.NB_THREADS].get!(uint);
     if(nbThreads == 1)
     {
         auto server = new Server(evLoop, mainConfig);
@@ -142,6 +140,8 @@ int main(string[] args)
     try
     {
         mixin(Tracer);
+        double timerGC = 10.0;
+        bool manualGC = false;
         uint nbThreads = 1;
         ushort zmqPort = 9090;
         ushort tcpPort = 9091;
@@ -151,6 +151,8 @@ int main(string[] args)
         getopt(
             args,
             std.getopt.config.stopOnFirstNonOption,
+            "mgc", &manualGC,
+            "tgc", &timerGC,
             "threads|t",    &nbThreads,
             "zmqport|zp",   &zmqPort,
             "tcpport|tp",   &tcpPort,
@@ -178,7 +180,15 @@ int main(string[] args)
         }
 
         log.info("Entering child process");
-        startThreads(nbThreads, logHost, tcpPort, zmqPort);
+        Options options;
+        options[Parameter.NB_THREADS] = nbThreads;
+        options[Parameter.MANUAL_GC] = manualGC;
+        options[Parameter.TIMER_GC] = timerGC;
+        options[Parameter.LOGGER_HOST] = logHost;
+        options[Parameter.LOGGER_ZMQ_PORT] = zmqPort;
+        options[Parameter.LOGGER_TCP_PORT] = tcpPort;
+
+        startThreads(options);
     }
     catch(Exception e)
     {

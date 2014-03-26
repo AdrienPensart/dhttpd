@@ -40,8 +40,8 @@ if [[ ! -f $rageloutput || ! -f $tmpfile || $ragelfile -nt $tmpfile ]]; then
 	touch $tmpfile -r $ragelfile
 fi
 
-includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src"
-libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq"
+includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src -Isrc/xxhash/src"
+libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq -Lsrc/xxhash/libxxhash.a"
 
 #loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $loggersrc

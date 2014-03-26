@@ -122,6 +122,7 @@ class Request : Message
 
     this()
     {
+        mixin(Tracer);
         %% write init;
     }
 
@@ -146,8 +147,9 @@ class Request : Message
         return nread;
     }
 
-    @property auto status()
+    Status status()
     {
+        mixin(Tracer);
         if (hasError())
         {            
             return Status.HasError;

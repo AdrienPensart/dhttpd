@@ -13,31 +13,36 @@ import http.Options;
 import crunch.Caching;
 import dlog.Logger;
 
-class Transaction : Cacheable!(ubyte[4], Response)
+class Transaction : Cacheable!(uint, Response)
 {
 	//UUID m_key_request;
-    ubyte[4] m_key_request;
+    uint m_key_request;
     Handler m_handler;
     Request m_request;
 	Response m_response;
     Config m_config;
+    bool m_keepalive;
 
     this(Config a_config, Request a_request)
     {
         import std.uuid;
         import std.digest.crc;
+        import xxhash;
 
         m_config = a_config;
         m_request = a_request;
         auto m_request_string = m_request.get();
         //m_key_request = sha1UUID(m_request_string);
-        m_key_request = crc32Of(m_request_string);
+        //m_key_request = crc32Of(m_request_string);
+        m_key_request = xxhashOf(cast(ubyte[])m_request_string);
+        
         m_response = null;
+        m_keepalive = true;
     }
 
     @property auto keepalive()
     {
-        return !m_response.hasHeader(FieldConnection, "close");
+        return m_keepalive;
     }
 
     @property auto request()
@@ -50,7 +55,7 @@ class Transaction : Cacheable!(ubyte[4], Response)
         return m_response;
     }
 
-	override ubyte[4] key()
+	override uint key()
     {
         return m_key_request;
     }
@@ -85,6 +90,7 @@ class Transaction : Cacheable!(ubyte[4], Response)
 
                 if(m_request.keepalive())
                 {
+                    m_keepalive = true;
                     if(m_request.protocol == HTTP_1_0)
                     {
                         m_response.headers[FieldConnection] = KeepAlive;
@@ -92,6 +98,7 @@ class Transaction : Cacheable!(ubyte[4], Response)
                 }
                 else
                 {
+                    m_keepalive = false;
                     m_response.headers[FieldConnection] = "close";
                 }
                 

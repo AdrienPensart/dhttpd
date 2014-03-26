@@ -71,6 +71,7 @@ abstract class Message
     }
     bool hasHeader(string key, string value)
     {
+        mixin(Tracer);
         string headerValue = headers.get(key, "");
         return sicmp(value, headerValue) == 0;
     }
@@ -88,6 +89,7 @@ abstract class Message
  
     @property Protocol protocol(ref Protocol a_protocol)
     {
+        mixin(Tracer);
         if(a_protocol == HTTP_1_0 || a_protocol == HTTP_1_1)
         {
             return m_protocol = a_protocol;
@@ -101,6 +103,7 @@ abstract class Message
 
     bool keepalive()
     {
+        mixin(Tracer);
         if(protocol == HTTP_1_0 && hasHeader(FieldConnection, KeepAlive))
         {
             return true;

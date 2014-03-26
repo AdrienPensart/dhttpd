@@ -4,6 +4,11 @@ import std.variant;
 
 enum Parameter
 {
+	NB_THREADS,
+
+	MANUAL_GC,
+	TIMER_GC,
+	
 	LOGGER_HOST,
 	LOGGER_TCP_PORT,
 	LOGGER_ZMQ_PORT,

@@ -144,7 +144,7 @@ int main(string[] args)
         bool consoleLogging = false;
 
         GCMode gcmode = GCMode.automatic;
-        double gctimer = 5.0;
+        double gctimer = 10.0;
 
         import std.getopt;
         getopt(

@@ -16,7 +16,7 @@ class GarbageCollection
         GCMode m_gcm;
     }
 
-    this(EvLoop a_loop, GCMode a_gcm, double rate=0.3)
+    this(EvLoop a_loop, GCMode a_gcm, double rate)
     {
         m_loop = a_loop;
         m_gcm = a_gcm;

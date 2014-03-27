@@ -133,7 +133,7 @@ struct Request
     void feed(string data)
     {
         mixin(Tracer);
-        m_raw ~= data;
+        m_raw = data;
         m_updated = true;
         lengthadded += data.length;
     }

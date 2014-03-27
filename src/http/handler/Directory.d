@@ -54,7 +54,7 @@ class Directory : Handler
                 return new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
             }
 
-            string finalPath = request.getPath();
+            auto finalPath = request.getPath();
             finalPath = replaceFirst(finalPath, regex(hit), directory);
             log.trace("Path asked : ", finalPath);
 

@@ -33,7 +33,7 @@ import http.protocol.Header;
         string value = raw[mark..mark+endValue];
         field = toLower(field);
 
-        log.trace("Adding header : ", field, " : " , value);
+        log.trace("Header : ", field, " : " , value);
         headers[field] = value;
     }
 
@@ -111,8 +111,10 @@ import http.protocol.Header;
     write data;
 }%%
 
-class Request : Message
+struct Request
 {
+    mixin Message;
+
     enum Status
     {
         HasError = -1,
@@ -120,16 +122,25 @@ class Request : Message
         Finished = 1
     }
 
-    this()
+    this(string data)
     {
         mixin(Tracer);
-        %% write init;
+        m_raw = data;
+        m_updated = true;
+        lengthadded += data.length;
     }
 
-    override void feed(char[] data)
+    void feed(string data)
     {
-        super.feed(data);
+        mixin(Tracer);
+        m_raw ~= data;
+        m_updated = true;
         lengthadded += data.length;
+    }
+
+    void init()
+    {
+        %% write init;
     }
 
     size_t parse()
@@ -147,7 +158,7 @@ class Request : Message
         return nread;
     }
 
-    Status status()
+    @property Status status()
     {
         mixin(Tracer);
         if (hasError())

@@ -33,14 +33,14 @@ class InterruptionEvent
     private extern(C) static void interruption (ev_loop_t * a_default_loop, ev_signal * a_interruption_watcher, int revents)
     {
         mixin(Tracer);
-        log.error("Received SIGINT");
+        log.info("Received interruption signal");
         auto children = cast(EvLoop [] *)a_interruption_watcher.data;
         foreach(child ; *children)
         {
-            log.info("Sending async break to child ", child.id, ", loop : ", child.loop, ", watcher = ", child.stopWatcher);
+            log.trace("Sending async break to child ", child.id, ", loop : ", child.loop, ", watcher = ", child.stopWatcher);
             ev_async_send(child.loop, child.stopWatcher);
         }
-        log.info("Breaking default loop : ", a_default_loop);
+        log.trace("Breaking default loop : ", a_default_loop);
         ev_break(a_default_loop, EVBREAK_ALL);
     }
 }

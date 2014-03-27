@@ -63,6 +63,8 @@ void startThreads(Options options)
     options[Parameter.NOT_FOUND_FILE] =   installDir() ~ "/public/404.html";
     options[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
 
+    //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
+
     // handlers
     auto mainDir    = new Directory("/public", "index.html", options);
     //auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
@@ -146,28 +148,29 @@ int main(string[] args)
         ushort zmqPort = 9090;
         ushort tcpPort = 9091;
         string logHost = "127.0.0.1";
+        bool consoleLogging = false;
 
         import std.getopt;
         getopt(
             args,
             std.getopt.config.stopOnFirstNonOption,
-            "mgc", &manualGC,
-            "tgc", &timerGC,
+            "console|c", &consoleLogging,
+            "manualgc|mgc", &manualGC,
+            "timergc|tgc", &timerGC,
             "threads|t",    &nbThreads,
             "zmqport|zp",   &zmqPort,
             "tcpport|tp",   &tcpPort,
             "loghost|lh",   &logHost
         );
 
-        //version(assert)
+        if(consoleLogging)
         {
             log.register(new ConsoleLogger);
         }
-
         log.register(new TcpLogger(logHost, tcpPort));
         log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(tcpPort)));
-        log.info("Threads to create : ", nbThreads);
-        
+
+        log.trace("Threads to create : ", nbThreads);
         if(!nbThreads)
         {
             log.error("One thread minimum allowed");
@@ -179,7 +182,6 @@ int main(string[] args)
             log.warning("Threads number is not optimal");
         }
 
-        log.info("Entering child process");
         Options options;
         options[Parameter.NB_THREADS] = nbThreads;
         options[Parameter.MANUAL_GC] = manualGC;

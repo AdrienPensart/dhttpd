@@ -14,11 +14,13 @@ import http.protocol.Header;
 
 import dlog.Logger;
 
-class Response : Message
+class Response
 {
+    mixin Message;
+
     Status status = Status.Invalid;
-    string[string] cookies;
-    string dateBuffer;
+    // TODO : Cookies handling
+    // string[string] cookies;
 
     this()
     {
@@ -27,8 +29,7 @@ class Response : Message
         headers[FieldDate] = "";
     }
 
-    // TODO : Cookies handling
-    override ref string get()
+    ref string get()
     {
         mixin(Tracer);
 

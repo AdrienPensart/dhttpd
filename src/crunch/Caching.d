@@ -5,12 +5,24 @@ struct Cache (Key, Value)
 {
 	alias Value[Key] Store;
 
-	private bool m_enabled;
+	private bool m_enabled = true;
 	private Store m_store;
 
 	Value get(Key key, lazy Value value)
 	{
-		return m_enabled ? store.get(key, (store[key] = value)) : value;
+		if(m_enabled)
+		{
+			Value toReturn = store.get(key, null);
+			if(toReturn is null)
+			{
+				return store[key] = value;
+			}
+			else
+			{
+				return store[key];
+			}
+		}
+		return value;
 	}
 
 	@property auto enabled()

@@ -40,8 +40,8 @@ class Route
 
     private auto matchRex(Request request)
     {
-        string uri = request.getUri();
-        string path = request.getPath();
+        auto uri = request.getUri();
+        auto path = request.getPath();
         log.trace("ROUTE : ", route, ", URI : ", uri, ", PATH : ", path);
         return match(path, rex);
     }

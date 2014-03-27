@@ -1,21 +1,14 @@
 module http.protocol.Message;
 
-import std.uni;
-
 import http.protocol.Protocol;
 import http.protocol.Header;
 
 import dlog.Logger;
 alias string[string] Headers;
 
-import core.sys.posix.sys.uio;
-
-abstract class Message
+mixin template Message()
 {
-    this()
-    {
-        m_updated = false;
-    }
+    import core.sys.posix.sys.uio;
 
     //private UUID m_id;
     private bool m_updated;
@@ -34,36 +27,38 @@ abstract class Message
         return m_updated = a_updated;
     }
 
-    @property ref string raw()
+    @property ref auto raw()
     {
         return m_raw;
     }
-    @property ref string raw(string a_raw)
+    @property ref auto raw(string a_raw)
     {
         m_raw = a_raw;
         m_updated = true;
         return m_raw;
     }
-    void feed(char[] data)
-    {        
-        m_raw ~= data;
-        m_updated = true;
+
+    @property auto hash()
+    {
+        import xxhash;
+        return xxhashOf(cast(ubyte[])raw);
     }
-    ref string get()
+
+    ref auto get()
     {
         return raw;
     }
     
-    @property ref iovec[] vec()
+    @property ref auto vec()
     {
         return m_vec;
     }
 
-    @property ref Headers headers()
+    @property ref auto headers()
     {
         return m_headers;
     }
-    @property ref Headers headers(Headers a_headers)
+    @property ref auto headers(Headers a_headers)
     {
         m_headers = a_headers;
         m_updated = true;
@@ -72,27 +67,29 @@ abstract class Message
     bool hasHeader(string key, string value)
     {
         mixin(Tracer);
+        import std.uni;
         string headerValue = headers.get(key, "");
         return sicmp(value, headerValue) == 0;
     }
 
-    @property string content(string a_content)
+    @property auto content(string a_content)
     {
         m_content = a_content;
         m_updated = true;
         return m_content;
     }
-    @property string content()
+    @property auto content()
     {
         return m_content;
     }
  
-    @property Protocol protocol(ref Protocol a_protocol)
+    @property Protocol protocol(string a_protocol)
     {
         mixin(Tracer);
         if(a_protocol == HTTP_1_0 || a_protocol == HTTP_1_1)
         {
-            return m_protocol = a_protocol;
+            m_protocol = a_protocol;
+            return m_protocol;
         }
         return m_protocol = HTTP_DEFAULT;
     }

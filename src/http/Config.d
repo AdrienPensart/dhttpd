@@ -7,7 +7,6 @@ import http.protocol.Request;
 import http.protocol.Response;
 import http.handler.Handler;
 import http.Options;
-import http.Transaction;
 import http.VirtualHost;
 
 import dlog.Logger;
@@ -34,10 +33,14 @@ class Config
         m_hosts = a_hosts;
         m_fallback = a_fallback;
 
-        Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
         foreach(host; m_hosts)
         {
             host.addSupportedPorts(m_ports);
+        }
+
+        foreach(host; m_hosts)
+        {
+            log.info("Host : ", host.hosts);
         }
 
         foreach(netInterface ; m_interfaces)
@@ -61,6 +64,8 @@ class Config
 
     Tuple!(Response, Handler) dispatch(Request request)
     {
+        mixin(Tracer);
+
         foreach(host ; m_hosts)
         {
             if(host.matchHostHeader(request))
@@ -71,7 +76,6 @@ class Config
         // not host found, fallback on default host
         if(m_fallback !is null)
         {
-            log.trace("Host not found => fallback");
             return m_fallback.dispatch(request);
         }
         return typeof(return)(null, null);

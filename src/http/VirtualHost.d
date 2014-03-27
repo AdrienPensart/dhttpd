@@ -14,16 +14,16 @@ import dlog.Logger;
 
 class VirtualHost
 {        
-    this(string[] hosts, Route[] routes)
+    this(string[] a_hosts, Route[] a_routes)
     {
-        this.hosts = hosts;
-        this.routes = routes;
+        this.m_hosts = a_hosts;
+        this.m_routes = a_routes;
     }
     
     void addSupportedPorts(ushort[] ports)
     {
-        auto bufferHosts = hosts;
-        foreach(host ; hosts)
+        auto bufferHosts = m_hosts;
+        foreach(host ; m_hosts)
         {
             foreach(port ; ports)
             {
@@ -31,29 +31,34 @@ class VirtualHost
                 {
                     auto newHost = host ~ ":" ~ to!string(port);
                     bufferHosts ~= newHost;
-                    log.info("Added new host + port : ", newHost);
                 }
             }
         }
-        hosts = bufferHosts;
+        m_hosts = bufferHosts;
     }
 
     bool matchHostHeader(Request request)
     {
         mixin(Tracer);
-        foreach(host ; hosts)
+        foreach(host ; m_hosts)
         {
             if(request.hasHeader(FieldHost, host))
             {
                 return true;
             }
         }
+        log.trace("Host not found => fallback");
         return false;
+    }
+
+    @property auto hosts()
+    {
+        return m_hosts;
     }
 
     Tuple!(Response, Handler) dispatch(Request request)
     {
-        foreach(route ; routes)
+        foreach(route ; m_routes)
         {
             return route.dispatch(request);
         }
@@ -62,7 +67,7 @@ class VirtualHost
 
     private
     {
-        string[] hosts;
-        Route[] routes;
+        string[] m_hosts;
+        Route[] m_routes;
     }
 }

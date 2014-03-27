@@ -76,7 +76,7 @@ class EvLoop : Loop
     {
         void endchild (ev_loop_t * a_loop, ev_async * a_stop_watcher, int revents)
         {
-            log.info("Received terminating order : ", a_loop, " cause of async io = ", a_stop_watcher);
+            log.trace("Received terminating order : ", a_loop, " cause of async io = ", a_stop_watcher);
             ev_break(a_loop, EVBREAK_ALL);
         }
     }

@@ -6,8 +6,8 @@ enum Parameter
 {
 	NB_THREADS,
 
-	MANUAL_GC,
-	TIMER_GC,
+	GC_MODE,
+	GC_TIMER,
 	
 	LOGGER_HOST,
 	LOGGER_TCP_PORT,

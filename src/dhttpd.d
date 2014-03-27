@@ -99,13 +99,8 @@ void startThreads(Options options)
     auto interruptionEvent = new InterruptionEvent(evLoop);
     evLoop.addEvent(interruptionEvent);
 
-    if(options[Parameter.MANUAL_GC].get!(bool))
-    {
-        log.info("Enabling manual garbage collection");
-        auto garbageCollectionEvent = new GarbageCollection(evLoop, options[Parameter.TIMER_GC].get!(double));
-        garbageCollectionEvent.disableGC();
-        evLoop.addEvent(garbageCollectionEvent);
-    }
+    auto garbageCollectionEvent = new GarbageCollection(evLoop, options[Parameter.GC_MODE].get!(GCMode), options[Parameter.GC_TIMER].get!(double));
+    evLoop.addEvent(garbageCollectionEvent);
 
     auto nbThreads = options[Parameter.NB_THREADS].get!(uint);
     if(nbThreads == 1)
@@ -142,25 +137,26 @@ int main(string[] args)
     try
     {
         mixin(Tracer);
-        double timerGC = 10.0;
-        bool manualGC = false;
         uint nbThreads = 1;
         ushort zmqPort = 9090;
         ushort tcpPort = 9091;
         string logHost = "127.0.0.1";
         bool consoleLogging = false;
 
+        GCMode gcmode = GCMode.automatic;
+        double gctimer = 5.0;
+
         import std.getopt;
         getopt(
             args,
             std.getopt.config.stopOnFirstNonOption,
-            "console|c", &consoleLogging,
-            "manualgc|mgc", &manualGC,
-            "timergc|tgc", &timerGC,
-            "threads|t",    &nbThreads,
-            "zmqport|zp",   &zmqPort,
-            "tcpport|tp",   &tcpPort,
-            "loghost|lh",   &logHost
+            "console|c",  &consoleLogging,
+            "gcmode",     &gcmode,
+            "gctimer",    &gctimer,
+            "threads|t",  &nbThreads,
+            "zmqport|zp", &zmqPort,
+            "tcpport|tp", &tcpPort,
+            "loghost|lh", &logHost
         );
 
         if(consoleLogging)
@@ -184,8 +180,8 @@ int main(string[] args)
 
         Options options;
         options[Parameter.NB_THREADS] = nbThreads;
-        options[Parameter.MANUAL_GC] = manualGC;
-        options[Parameter.TIMER_GC] = timerGC;
+        options[Parameter.GC_MODE] = gcmode;
+        options[Parameter.GC_TIMER] = gctimer;
         options[Parameter.LOGGER_HOST] = logHost;
         options[Parameter.LOGGER_ZMQ_PORT] = zmqPort;
         options[Parameter.LOGGER_TCP_PORT] = tcpPort;

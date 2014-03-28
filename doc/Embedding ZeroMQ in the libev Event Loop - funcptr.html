@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<!-- saved from url=(0071)http://funcptr.net/2013/04/20/embedding-zeromq-in-the-libev-event-loop/ -->
+<html lang="en"><!-- Copyright (c) 2012 Bert JW Regeer --><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Embedding ZeroMQ in the libev Event Loop - funcptr</title>
+        <link rel="canonical" href="http://funcptr.net/2013/04/20/embedding-zeromq-in-the-libev-event-loop">
+        <link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="http://funcptr.net/feed/index.xml">
+        <link rel="alternate" type="application/atom+xml" title="Atom 1.0" href="http://funcptr.net/feed/atom/index.xml">
+        <link rel="stylesheet" href="http://funcptr.net/css//0x58-blog.css">
+        <link rel="stylesheet" href="http://funcptr.net/css//pygments.css">
+        <link rel="stylesheet" href="http://funcptr.net/css/pygments_murphy.css">
+        <meta charset="utf-8">
+        <link rel="shortcut icon" href="http://funcptr.net/favicon.ico">
+        <!--[if IE]><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+        <!--[if lt IE 9]> <script type="text/javascript" src="http://ie7-js.googlecode.com/svn/version/2.1(beta3)/IE9.js"></script><![endif]-->
+        <script src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/cb=gapi.loaded_1" async=""></script><script id="twitter-wjs" src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/widgets.js"></script><script src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/cb=gapi.loaded_0" async=""></script><script type="text/javascript" async="" src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/ga.js"></script><script type="text/javascript">
+            var _gaq = _gaq || [];
+            _gaq.push(['_setAccount', 'UA-97351-10']);
+            _gaq.push(['_trackPageview']);
+
+            (function() {
+                var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+                ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+                var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+            })();
+        </script><style type="text/css"></style><style type="text/css"></style>
+        <script type="text/javascript" src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/plusone.js" gapi_processed="true">
+            {parsetags: 'explicit'}
+        </script>
+    </head>
+    <body data-twttr-rendered="true">
+        <header>
+        
+    <h1><a href="http://funcptr.net/"><span class="nonname">typedef int (*</span>funcptr<span class="nonname">)();</span></a></h1>
+<h2>An engineers technical notebook</h2>
+
+
+        </header>
+        <div id="Mwrapper">
+            <div id="MainContent">
+                
+
+
+<article>
+    <header>
+        <!-- date published or updated -->
+        <time pubdate="" datetime="2013-04-20T18:22:00-06:00">
+            <span class="time">18:22</span>
+            <span class="daymonth"><a href="http://funcptr.net/2013/04/20/">20</a> <abbr title="April"><a href="http://funcptr.net/2013/04/">Apr</a></abbr></span>
+            <span class="year"><a href="http://funcptr.net/2013/">2013</a></span>
+        </time>
+    </header>
+    <section>
+    <h1><a href="http://funcptr.net/2013/04/20/embedding-zeromq-in-the-libev-event-loop">Embedding ZeroMQ in the libev Event Loop</a></h1>
+    
+  <p>In a <a href="http://funcptr.net/2012/09/10/zeromq---edge-triggered-notification">previous article on ZeroMQ</a> we went over how ZeroMQ is triggered when
+you use the socket that ZeroMQ returns, in that article there was some
+discussion of embedding ZeroMQ into another event loop. Let's do that.</p>
+<p><a href="http://software.schmorp.de/pkg/libev.html">libev</a> is an absolutely fantastic library that helps make it easy to write
+evented programs. Evented programs work by getting notified that an action has
+happened, and acting upon it. Unlike threaded where multiple pieces of work are
+being executed at the same time, in an evented system you move every item that
+could block to an event loop, that then calls back into user code with a
+notification to continue. If one event uses up more than its fair share of CPU
+time because it is busy doing a long calculation, every single other event that
+is waiting will never get notified.</p>
+<p>Now, as previously discussed ZeroMQ is edge triggered, so embedding it into an
+event loop that is level triggered doesn't do us much good, because we will miss
+certain ZeroMQ notifications.</p>
+<p>One way to solve this problem is by looping over ZeroMQ's event system until we
+get back a notification that it no longer has anything else for us to process,
+that would look something like this<sup id="fnref:20130420zeromqedge"><a href="http://funcptr.net/2013/04/20/embedding-zeromq-in-the-libev-event-loop/#fn:20130420zeromqedge" rel="footnote">1</a></sup>:</p>
+<div class="codehilite"><pre><span class="kt">int</span> <span class="n">zevents</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="n">size_t</span> <span class="n">zevents_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">zevents</span><span class="p">);</span>
+<span class="n">zmq_socket</span><span class="p">.</span><span class="n">getsockopt</span><span class="p">(</span><span class="n">ZMQ_EVENTS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents_len</span><span class="p">);</span>
+
+<span class="k">do</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">zevents</span> <span class="o">&amp;</span> <span class="n">ZMQ_POLLIN</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// We can read from the ZeroMQ socket</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Check to see if there is more to read ...</span>
+    <span class="n">zmq_socket</span><span class="p">.</span><span class="n">getsockopt</span><span class="p">(</span><span class="n">ZMQ_EVENTS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents_len</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="n">zevents</span> <span class="o">&amp;</span> <span class="n">ZMQ_POLLIN</span><span class="p">);</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="n">zevents</span> <span class="o">&amp;</span> <span class="n">ZMQ_POLLOUT</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// We can write to the ZeroMQ socket</span>
+<span class="p">}</span>
+
+<span class="c1">// If neither of the above is true, then it was a false positive</span>
+</pre></div>
+
+
+<p>However if we are receiving information from ZeroMQ remote endpoints faster
+than we can process them, we end up being stuck in that <code>do</code> ... <code>while</code> loop
+forever. If we have other events we want to process, that isn't entirely fair
+since they will never ever get called again. Especially in a server application
+where it may be servicing thousands of clients this is simply not acceptable.</p>
+<h2>libev</h2>
+<p>libev provides various different event notifications, to be able to get around
+edge triggered notifications, and still provide fair round-robin for all events
+we are going to have to build on top of multiple different events.</p>
+<p>The events used will be:</p>
+<ul>
+<li><a href="http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_io_code_is_this_file_descrip"><code>ev::io</code></a>: This one is pretty self explanatory, this is for getting notified
+   about input output changes. This is the one we are going to use on the
+   <code>ZMQ_FD</code>.</li>
+<li><a href="http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_prepare_code_and_code_ev_che"><code>ev::prepare</code></a> and <a href="http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_prepare_code_and_code_ev_che"><code>ev::check</code></a>: These two are generally used together, they
+   can be used to change the event loop and or make modifications on the fly to
+   events that have been registered with the event loop.</li>
+<li><a href="http://pod.tst.eu/http://cvs.schmorp.de/libev/ev.pod#code_ev_idle_code_when_you_ve_got_no"><code>ev::idle</code></a>: This is an event that gets fired whenever the event loop has
+   nothing else to do, so no other events fired, this will fire.</li>
+</ul>
+<h2>Plan of attack</h2>
+<p>Since the <code>prepare</code> and <code>check</code> run before and after the loop, we are going to
+be using those to do most of the work. We use an <code>io</code> so that we can turn off
+the <code>idle</code> when we can actually wait for a result from ZeroMQ's file
+descriptor, otherwise we use <code>idle</code> so that we will always get called once
+every loop.</p>
+<p>In the <code>prepare</code> watcher callback we do the following:</p>
+<ol>
+<li>Check to see what events ZeroMQ has for us, and check what events the user
+    has requested.</li>
+<li>If the ZeroMQ has an event for us that we want, and the user has requested
+    that event, we start the idle watcher.</li>
+<li>If ZeroMQ has no events, we start the io watcher.</li>
+</ol>
+<p>In the <code>check</code> watcher callback we do the following:</p>
+<ol>
+<li>Stop both the <code>io</code> and <code>idle</code> watchers, they were only there to make sure
+    that our <code>check</code> watcher was called.</li>
+<li>See what event ZeroMQ has for us, and check that against what the user
+    wants. Depending on the event, call user defined function write() or user
+    defined function read().</li>
+<li>If this was a spurious wake-up on the part of ZeroMQ we simply ignore it
+    and let libev go on to other events.</li>
+</ol>
+<p>We could make all of this work by simply using the <code>prepare</code>, <code>check</code> and
+<code>idle</code> watchers, but that would mean libev would be busy-waiting for something
+to happen on the ZeroMQ socket. The <code>io</code> watcher is required simply so in times
+of nothing happening libev in its library can call into the kernels event
+handling mechanism and go to sleep. We can't use just the <code>io</code> watcher due to
+the edge-triggered notification, because we'd miss all kinds of ZeroMQ
+messages. So all four watchers are required, and play crucial parts in making
+this work.</p>
+<h2>Let's get down to code</h2>
+<p>Below you will find example code, it is not complete. Do note that I am using
+some C++11isms, error checking code may not be complete/correct and in general
+I don't suggest you copy and paste this without reading and understanding what
+it does.</p>
+<p>The <code>zmq_event</code> class is meant to be used as a base class, inherit from it, and
+create the <code>write()</code> and <code>read()</code> functions. These functions will be called
+when you are able to read from the ZeroMQ socket, or when you are able to write
+to the ZeroMQ socket. You are guaranteed to be able to read one whole ZeroMQ
+message, so if it is a multi-part message, do make sure to loop on
+<code>ZMQ_SNDMORE</code> as required.</p>
+<p>Upon instantiation it will automatically start being notified about events, we
+start off with <code>ev::READ</code>. When your sub-class wants to write to ZeroMQ it
+should put the messages to be written into a list somewhere, and set 
+<code>ev::READ | ev::WRITE</code> on <code>watcher_io</code>, by calling 
+<code>watcher_io.set(socket_fd, ev::READ | ev::WRITE)</code>. <code>write()</code> will then be
+called, write a single message to ZeroMQ, and if necessary when finished
+writing, unset <code>ev::WRITE</code> using <code>watcher_io.set(socket_fd, ev::READ)</code>. If you
+are not finished writing, after writing that singular message you may return
+and <code>write()</code> will be called again the next loop iteration. This way if you
+have a lot of data to write you don't starve the other events from receiving
+their notifications.</p>
+<h4><code>zmq_event.h</code></h4>
+<div class="codehilite"><pre><span class="cp">#include &lt;string&gt;</span>
+
+<span class="cp">#include &lt;ev++.h&gt;</span>
+<span class="cp">#include &lt;zmq.hpp&gt;</span>
+
+<span class="k">class</span> <span class="nc">zmq_event</span> <span class="p">{</span>
+    <span class="k">public</span><span class="o">:</span>
+        <span class="n">zmq_event</span><span class="p">(</span><span class="n">zmq</span><span class="o">::</span><span class="n">context_t</span><span class="o">&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="kt">int</span> <span class="n">type</span><span class="p">,</span> <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span> <span class="n">connect</span><span class="p">);</span>
+        <span class="k">virtual</span> <span class="o">~</span><span class="n">zmq_event</span><span class="p">();</span>
+
+    <span class="k">protected</span><span class="o">:</span>
+        <span class="c1">// This gets fired before the event loop, to prepare</span>
+        <span class="kt">void</span> <span class="n">before</span><span class="p">(</span><span class="n">ev</span><span class="o">::</span><span class="n">prepare</span><span class="o">&amp;</span> <span class="n">prep</span><span class="p">,</span> <span class="kt">int</span> <span class="n">revents</span><span class="p">);</span>
+
+        <span class="c1">// This is fired after the event loop, but before any other type of events</span>
+        <span class="kt">void</span> <span class="n">after</span><span class="p">(</span><span class="n">ev</span><span class="o">::</span><span class="n">check</span><span class="o">&amp;</span> <span class="n">check</span><span class="p">,</span> <span class="kt">int</span> <span class="n">revents</span><span class="p">);</span>
+
+        <span class="c1">// We need to have a no-op function available for those events that we</span>
+        <span class="c1">// want to add to the list, but should never fire an actual event</span>
+        <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+            <span class="kr">inline</span> <span class="kt">void</span> <span class="n">noop</span><span class="p">(</span><span class="n">T</span><span class="o">&amp;</span> <span class="n">w</span><span class="p">,</span> <span class="kt">int</span> <span class="n">revents</span><span class="p">)</span> <span class="p">{};</span>
+
+        <span class="c1">// Function we are going to call to write to the ZeroMQ socket</span>
+        <span class="k">virtual</span> <span class="kt">void</span> <span class="n">write</span><span class="p">()</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+        <span class="c1">// Function we are going to call to read from the ZeroMQ socket</span>
+        <span class="k">virtual</span> <span class="kt">void</span> <span class="n">read</span><span class="p">()</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+        <span class="c1">// Some helper function, one to start notifications</span>
+        <span class="kt">void</span> <span class="n">start_notify</span><span class="p">();</span>
+
+        <span class="c1">// And one to stop notifications.</span>
+        <span class="kt">void</span> <span class="n">stop_notify</span><span class="p">();</span>
+
+        <span class="c1">// Our event types</span>
+        <span class="n">ev</span><span class="o">::</span><span class="n">io</span>      <span class="n">watcher_io</span><span class="p">;</span>
+        <span class="n">ev</span><span class="o">::</span><span class="n">prepare</span> <span class="n">watcher_prepare</span><span class="p">;</span>
+        <span class="n">ev</span><span class="o">::</span><span class="n">check</span>   <span class="n">watcher_check</span><span class="p">;</span>
+        <span class="n">ev</span><span class="o">::</span><span class="n">idle</span>    <span class="n">watcher_idle</span><span class="p">;</span>
+
+        <span class="c1">// Our ZeroMQ socket</span>
+        <span class="n">zmq</span><span class="o">::</span><span class="n">socket_t</span> <span class="n">socket</span><span class="p">;</span>
+        <span class="kt">int</span>           <span class="n">socket_fd</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+
+
+<h4><code>zmq_event.cc</code></h4>
+<div class="codehilite"><pre><span class="cp">#include &lt;stdexcept&gt;</span>
+
+<span class="cp">#include "zmq_event.h"</span>
+
+<span class="n">zmq_event</span><span class="o">::</span><span class="n">zmq_event</span><span class="p">(</span><span class="n">zmq</span><span class="o">::</span><span class="n">context_t</span><span class="o">&amp;</span> <span class="n">context</span><span class="p">,</span> <span class="kt">int</span> <span class="n">type</span><span class="p">,</span> <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span> <span class="n">connect</span><span class="p">)</span> <span class="o">:</span> <span class="n">socket</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">type</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Get the file descriptor for the socket</span>
+    <span class="n">size_t</span> <span class="n">fd_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">_socket_fd</span><span class="p">);</span>
+    <span class="n">socket</span><span class="p">.</span><span class="n">getsockopt</span><span class="p">(</span><span class="n">ZMQ_FD</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">socket_fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">fd_len</span><span class="p">);</span>
+
+    <span class="c1">// Actually connect to the ZeroMQ endpoint, could replace this with a bind as well ...</span>
+    <span class="n">socket</span><span class="p">.</span><span class="n">bind</span><span class="p">(</span><span class="n">connect</span><span class="p">.</span><span class="n">c_str</span><span class="p">());</span>
+
+    <span class="c1">// Set up all of our watchers</span>
+
+    <span class="c1">// Have our IO watcher check for READ on the ZeroMQ socket</span>
+    <span class="n">watcher_io</span><span class="p">.</span><span class="n">set</span><span class="p">(</span><span class="n">socket_fd</span><span class="p">,</span> <span class="n">ev</span><span class="o">::</span><span class="n">READ</span><span class="p">);</span>
+
+    <span class="c1">// This watcher has a no-op callback</span>
+    <span class="n">watcher_io</span><span class="p">.</span><span class="n">set</span><span class="o">&lt;</span><span class="n">zmq_event</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zmq_event</span><span class="o">::</span><span class="n">noop</span><span class="o">&gt;</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+
+    <span class="c1">// Set up our prepare watcher to call the before() function</span>
+    <span class="n">watcher_prepare</span><span class="p">.</span><span class="n">set</span><span class="o">&lt;</span><span class="n">zmq_event</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zmq_event</span><span class="o">::</span><span class="n">before</span><span class="o">&gt;</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+
+    <span class="c1">// Set up the check watcher to call the after() function</span>
+    <span class="n">watcher_check</span><span class="p">.</span><span class="n">set</span><span class="o">&lt;</span><span class="n">zmq_event</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zmq_event</span><span class="o">::</span><span class="n">after</span><span class="o">&gt;</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+
+    <span class="c1">// Set up our idle watcher, once again a no-op</span>
+    <span class="n">watcher_idle</span><span class="p">.</span><span class="n">set</span><span class="o">&lt;</span><span class="n">zmq_event</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zmq_event</span><span class="o">::</span><span class="n">noop</span><span class="o">&gt;</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+
+    <span class="c1">// Tell libev to start notifying us!</span>
+    <span class="n">start_notify</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="n">zmq_event</span><span class="o">::~</span><span class="n">zmq_event</span><span class="p">()</span> <span class="p">{}</span>
+
+<span class="n">zmq_event</span><span class="o">::</span><span class="n">before</span><span class="p">(</span><span class="n">ev</span><span class="o">::</span><span class="n">prepare</span><span class="o">&amp;</span><span class="p">,</span> <span class="kt">int</span> <span class="n">revents</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">EV_ERROR</span> <span class="o">&amp;</span> <span class="n">revents</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"libev error"</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Get any events that may be waiting</span>
+    <span class="n">uint32_t</span> <span class="n">zevents</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">size_t</span> <span class="n">zevents_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">zevents</span><span class="p">);</span>
+
+    <span class="c1">// Lucky for us, getting the events available doesn't invalidate the</span>
+    <span class="c1">// events, so that calling this in `before()` and in `after()` will</span>
+    <span class="c1">// give us the same results.</span>
+    <span class="n">socket</span><span class="p">.</span><span class="n">getsockopt</span><span class="p">(</span><span class="n">ZMQ_EVENTS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents_len</span><span class="p">);</span>
+
+    <span class="c1">// Check what events exists, and check it against what event we want. We</span>
+    <span class="c1">// "abuse" our watcher_io.events for this information.</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">zevents</span> <span class="o">&amp;</span> <span class="n">ZMQ_POLLOUT</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">watcher_io</span><span class="p">.</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">ev</span><span class="o">::</span><span class="n">WRITE</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">watcher_idle</span><span class="p">.</span><span class="n">start</span><span class="p">();</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">((</span><span class="n">zevents</span> <span class="o">&amp;</span> <span class="n">ZMQ_POLLIN</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">watcher_io</span><span class="p">.</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">ev</span><span class="o">::</span><span class="n">READ</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">watcher_idle</span><span class="p">.</span><span class="n">start</span><span class="p">();</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// No events ready to be processed, we'll just go watch some io</span>
+    <span class="n">watcher_io</span><span class="p">.</span><span class="n">start</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="n">zmq_event</span><span class="o">::</span><span class="n">after</span><span class="p">(</span><span class="n">ev</span><span class="o">::</span><span class="n">check</span><span class="o">&amp;</span><span class="p">,</span> <span class="kt">int</span> <span class="n">revents</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">EV_ERROR</span> <span class="o">&amp;</span> <span class="n">revents</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">throw</span> <span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"libev error"</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Stop both the idle and the io watcher, no point in calling the no-op callback</span>
+    <span class="c1">// One of them will be reactived by before() on the next loop</span>
+    <span class="n">watcher_idle</span><span class="p">.</span><span class="n">stop</span><span class="p">();</span>
+    <span class="n">watcher_io</span><span class="p">.</span><span class="n">stop</span><span class="p">();</span>
+
+    <span class="c1">// Get the events</span>
+    <span class="n">uint32_t</span> <span class="n">zevents</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">size_t</span> <span class="n">zevents_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">zevents</span><span class="p">);</span>
+    <span class="n">socket</span><span class="p">.</span><span class="n">getsockopt</span><span class="p">(</span><span class="n">ZMQ_EVENTS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">zevents_len</span><span class="p">);</span>
+
+    <span class="c1">// Check the events and call the users read/write function</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">zevents</span> <span class="o">&amp;</span> <span class="n">ZMQ_POLLIN</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">watcher_io</span><span class="p">.</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">ev</span><span class="o">::</span><span class="n">READ</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">this</span><span class="o">-&gt;</span><span class="n">read</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">((</span><span class="n">zevents</span> <span class="o">&amp;</span> <span class="n">ZMQ_POLLOUT</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">watcher_io</span><span class="p">.</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">ev</span><span class="o">::</span><span class="n">WRITE</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">this</span><span class="o">-&gt;</span><span class="n">write</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">zmq_event</span><span class="o">::</span><span class="n">start_notify</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">watcher_check</span><span class="p">.</span><span class="n">start</span><span class="p">();</span>
+    <span class="n">watcher_prepare</span><span class="p">.</span><span class="n">start</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="n">zmq_event</span><span class="o">::</span><span class="n">stop_notify</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">watcher_check</span><span class="p">.</span><span class="n">stop</span><span class="p">();</span>
+    <span class="n">watcher_prepare</span><span class="p">.</span><span class="n">stop</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<h2>Other event loops</h2>
+<p>libev is but just one of many event loops that exist out there, hopefully
+this shows how it is possible to embed ZeroMQ into an event loop, thereby
+making it easier to embed ZeroMQ into any other event loops.</p>
+<div class="footnote">
+<hr>
+<ol>
+<li id="fn:20130420zeromqedge">
+<p>This snippet was from my older article regarding
+<a href="http://funcptr.net/2012/09/10/zeromq---edge-triggered-notification">ZeroMQ edge triggered notifications</a>. I would highly suggest reading that
+article for more information and even more background on what is going on.&nbsp;<a href="http://funcptr.net/2013/04/20/embedding-zeromq-in-the-libev-event-loop/#fnref:20130420zeromqedge" rev="footnote" title="Jump back to footnote 1 in the text">↩</a></p>
+</li>
+</ol>
+</div>
+
+    </section>
+    
+    <ul class="categories">
+        <li><a href="http://funcptr.net/category/zeromq">ZeroMQ</a></li>
+        <li><a href="http://funcptr.net/category/c">C</a></li>
+        <li><a href="http://funcptr.net/category/c++">C++</a></li>
+        <li><a href="http://funcptr.net/category/libev">libev</a></li>
+    </ul>
+
+
+        
+
+</article>
+
+
+
+
+
+
+
+
+<div id="social">
+    <div id="___plusone_0" style="text-indent: 0px; margin: 0px; padding: 0px; background-color: transparent; border-style: none; float: none; line-height: normal; font-size: 1px; vertical-align: baseline; display: inline-block; width: 106px; height: 24px; background-position: initial initial; background-repeat: initial initial;"><iframe frameborder="0" hspace="0" marginheight="0" marginwidth="0" scrolling="no" style="position: static; top: 0px; width: 106px; margin: 0px; border-style: none; left: 0px; visibility: visible; height: 24px;" tabindex="0" vspace="0" width="100%" id="I0_1394833411254" name="I0_1394833411254" src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/fastbutton.html" data-gapiattached="true" title="+1"></iframe></div>
+    <div><iframe id="twitter-widget-0" scrolling="no" frameborder="0" allowtransparency="true" src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/tweet_button.1393899192.html" class="twitter-share-button twitter-tweet-button twitter-count-horizontal" title="Twitter Tweet Button" data-twttr-rendered="true" style="width: 109px; height: 20px;"></iframe></div>
+    <div><a href="http://coderwall.com/bertjwregeer"><img src="http://api.coderwall.com/bertjwregeer/endorsecount.png"></a></div>
+</div>
+
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+<script type="text/javascript">gapi.plusone.go();</script>
+
+
+
+
+
+
+            </div>
+        </div>
+        <aside>
+        <nav>
+        
+    <ul>
+    <li><h1></h1>
+        <ul>
+        <li><a href="http://funcptr.net/">Main</a></li>
+        <li><a href="http://funcptr.net/About/">About</a></li>
+        <li><a href="http://bertjwregeer.com/About_me.html">The Author</a></li>
+        <li><a href="http://bertjwregeer.com/Contact.html">Contact</a></li>
+    </ul>
+    </li>
+    <li><h1>Networking</h1>
+    <ul>
+    
+        <li><a href="http://code.bertjwregeer.com/" title="Bitbucket: xistence">BitBucket</a></li>
+        <li><a href="http://www.flickr.com/photos/xistence/" title="Flickr: xistence">Flickr</a></li>
+        <li><a href="https://github.com/bertjwregeer" title="Github: bertjwregeer">Github</a></li>
+        <li><a href="https://plus.google.com/113979921696834019350" title="Google+: Bert JW Regeer">Google+</a></li>
+        <li><a href="http://news.ycombinator.com/user?id=X-Istence" title="Hacker News: X-Istence">Hacker News</a></li>
+        <li><a href="http://www.linkedin.com/in/bertjwregeer" title="LinkedIn: bertjwregeer">LinkedIn</a></li>
+        <li><a href="http://twitter.com/bertjwregeer" title="Twitter: @bertjwregeer">Twitter</a></li>
+    </ul>
+    </li>
+    <li><h1>―</h1>
+    <ul>
+        <li><a href="http://funcptr.net/feed/index.xml">RSS</a></li>
+        <li><a href="http://funcptr.net/feed/atom/index.xml">Atom</a></li>
+    </ul>
+    </li>
+</ul>
+
+
+        </nav>
+        </aside>
+
+        <footer>
+        
+    
+
+        </footer>
+    
+
+
+
+
+
+
+
+
+
+
+
+
+<iframe name="oauth2relay850672607" id="oauth2relay850672607" src="./Embedding ZeroMQ in the libev Event Loop - funcptr_files/postmessageRelay.html" tabindex="-1" style="width: 1px; height: 1px; position: absolute; top: -100px;"></iframe></body></html>

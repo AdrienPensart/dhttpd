@@ -27,14 +27,14 @@ import http.protocol.Header;
     }
 
     action write_value {
-        string field = raw[field_start..field_start+field_len];
+        auto field = raw[field_start..field_start+field_len];
         
         size_t endValue = fpc - buffer - mark;
-        string value = raw[mark..mark+endValue];
+        auto value = raw[mark..mark+endValue];
         field = toLower(field);
 
         log.trace("Header : ", field, " : " , value);
-        headers[field] = value;
+        headers[field.idup] = value.idup;
     }
 
     action start_value {
@@ -47,13 +47,13 @@ import http.protocol.Header;
     
     action query_string { 
         size_t end = fpc - buffer - query_start;
-        query = raw[query_start..query_start+end];
+        query = raw[query_start..query_start+end].idup;
         log.trace("Query : ", query);
     }
     
     action fragment {
         size_t end = fpc - buffer - mark;
-        fragment = raw[mark..mark+end];
+        fragment = raw[mark..mark+end].idup;
         log.trace("Fragment : ", fragment);
     }
     
@@ -65,20 +65,20 @@ import http.protocol.Header;
     
     action request_uri {
         size_t end = fpc - buffer - mark;
-        uri = raw[mark..mark+end];
+        uri = raw[mark..mark+end].idup;
         log.trace("URI : ", uri);
     }
     
     action http_version {
         size_t end = fpc - buffer - mark;
         // protocol string in validated in grammar
-        protocol = raw[mark..mark+end];
+        protocol = raw[mark..mark+end].idup;
         log.trace("Protocol : ", protocol);
     }
 
     action request_path {
         size_t end = fpc - buffer - mark;
-        path = raw[mark..mark+end];
+        path = raw[mark..mark+end].idup;
         log.trace("Path : ", path);
     }
     
@@ -122,18 +122,10 @@ struct Request
         Finished = 1
     }
 
-    this(string data)
+    void feed(char[] data)
     {
         mixin(Tracer);
-        m_raw = data;
-        m_updated = true;
-        lengthadded += data.length;
-    }
-
-    void feed(string data)
-    {
-        mixin(Tracer);
-        m_raw = data;
+        append(data);
         m_updated = true;
         lengthadded += data.length;
     }
@@ -185,7 +177,7 @@ struct Request
         return cs >= %%{ write first_final; }%%;
     }
 
-    void setMethod(string method)
+    void setMethod(char[] method)
     {
         this.method = cast(Method)method;
     }

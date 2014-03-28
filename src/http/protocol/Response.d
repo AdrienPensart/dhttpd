@@ -17,7 +17,7 @@ import dlog.Logger;
 class Response
 {
     mixin Message;
-
+    string m_response;
     Status status = Status.Invalid;
     // TODO : Cookies handling
     // string[string] cookies;
@@ -29,7 +29,7 @@ class Response
         headers[FieldDate] = "";
     }
 
-    ref string get()
+    string get()
     {
         mixin(Tracer);
 
@@ -72,10 +72,10 @@ class Response
             {
                 formattedWrite(writer, "%s", content);
             }
-            raw = writer.data;
+            m_response = writer.data;
             updated = false;
         }
-        return raw;
+        return m_response;
     }
 }
 
@@ -84,7 +84,7 @@ class BadRequestResponse : Response
     this(string file)
     {
         status = Status.BadRequest;            
-        content = readText(file);
+        content = readText!(char[])(file);
         headers[ContentType] = "text/html";
     }
 }
@@ -94,7 +94,7 @@ class NotFoundResponse : Response
     this(string file)
     {
         status = Status.NotFound;
-        content = readText(file);
+        content = readText!(char[])(file);
         headers[ContentType] = "text/html";
     }
 }
@@ -104,7 +104,7 @@ class NotAllowedResponse : Response
     this(string file)
     {
         status = Status.NotAllowed;         
-        content = readText(file);
+        content = readText!(char[])(file);
         headers[ContentType] = "text/html";
     }
 }

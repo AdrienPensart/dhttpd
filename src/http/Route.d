@@ -32,7 +32,7 @@ class Route
     		log.trace("Matched route : ", route);
             log.trace("Hit : ", m.hit);
 
-            auto response = handler.execute(request, m.hit);
+            auto response = handler.execute(request, m.hit.idup);
     		return typeof(return)(response, handler);
     	}
     	return typeof(return)(null, null);

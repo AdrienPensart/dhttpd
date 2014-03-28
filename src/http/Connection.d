@@ -69,7 +69,6 @@ class Connection : ReferenceCounter!Connection
                 case Request.Status.Finished:
                     log.trace("Request ready : \n\"\n", m_request.get(), "\"");
                     
-
                     auto m_tuple = m_config.dispatch(m_request);
                     m_response = m_tuple[0];
                     //m_handler = m_tuple[1];
@@ -103,6 +102,7 @@ class Connection : ReferenceCounter!Connection
                     m_response = new BadRequestResponse(m_config.options[Parameter.BAD_REQUEST_FILE].toString());
                     m_response.headers[FieldConnection] = "close";
                     m_response.protocol = m_request.protocol;
+                    break;
             }
             return m_response;
         }
@@ -117,12 +117,13 @@ class Connection : ReferenceCounter!Connection
                 return false;
             }
             
+            log.trace("Feeding data size : ", buffer.length);
             m_request.feed(buffer);
             Response m_response = m_cache.get(m_request.hash, computeResponse());
             if(m_response !is null)
             {
                 processedRequest++;
-                m_request = Request(buffer);
+                m_request = Request();
                 m_request.init();
                 auto data = m_response.get();
                 return writeChunk(data) && m_keepalive;
@@ -240,7 +241,7 @@ class Connection : ReferenceCounter!Connection
 
     private
     {
-        string readChunk()
+        char[] readChunk()
         {
             mixin(Tracer);
             static char[1024] buffer;

@@ -2,5 +2,6 @@
 
 set -e
 
-valgrind --tool=callgrind --dump-instr=yes --simulate-cache=yes --collect-jumps=yes ./dhttpd
-
+valgrind --callgrind-out-file=dhttpd.callgrind.out --tool=callgrind --dump-instr=yes --simulate-cache=yes --collect-jumps=yes --collect-systime=yes ./dhttpd
+ddemangle dhttpd.callgrind.out > dhttpd.callgrind.demangled.out
+rm dhttpd.callgrind.out

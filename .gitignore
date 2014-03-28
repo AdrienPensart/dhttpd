@@ -1,6 +1,6 @@
 src/http/protocol/Request.d
 *.o
-*.out.*
+*.out
 *.log
 *.def
 *.dot

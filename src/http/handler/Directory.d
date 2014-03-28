@@ -1,16 +1,15 @@
 module http.handler.Directory;
 
-import http.handler.Handler;
-import http.handler.FileRecord;
-
 import std.conv;
 import std.regex;
 import std.file;
+import std.path;
 
 import dlog.Logger;
+import crunch.Caching;
 
 import http.Options;
-
+import http.handler.Handler;
 import http.protocol.Date;
 import http.protocol.Mime;
 import http.protocol.Header;
@@ -23,6 +22,7 @@ class Directory : Handler
 {
     private
     {
+        static Cache!(string, char[]) m_cache;
         MimeMap mimes;
         Options options;
         string directory;
@@ -37,11 +37,22 @@ class Directory : Handler
         this.directory = options[Parameter.ROOT_DIR].toString() ~ directory;
         this.indexFilename = indexFilename;
         this.defaultMime = defaultMime;
-        FileRecord.enable_cache(options[Parameter.FILE_CACHE].get!(bool));
+
         this.mimes = options[Parameter.MIME_TYPES].get!(MimeMap);
         this.defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
     
+    char[] loadFile(string finalPath, string indexFilename)
+    {
+        auto mde = DirEntry(finalPath);        
+        if(mde.isDir)
+        {
+            // load index file
+            return readText!(char[])(buildPath(mde.name(), indexFilename));
+        }
+        return readText!(char[])(mde.name());
+    }
+
     Response execute(Request request, string hit)
     {
         mixin(Tracer);
@@ -66,8 +77,7 @@ class Directory : Handler
 
             if(method == Method.GET)
             {
-                scope auto file = new FileRecord(finalPath, indexFilename);
-                response.content = file.get();
+                response.content = m_cache.get(finalPath, loadFile(finalPath, indexFilename));
             }
             return response;
         }

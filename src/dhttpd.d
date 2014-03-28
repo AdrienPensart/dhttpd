@@ -108,7 +108,7 @@ void startThreads(Options options)
         auto server = new Server(evLoop, mainConfig);
         evLoop.run();
     }
-    else if(nbThreads <= totalCPUs)
+    else if(nbThreads <= totalCPUs * 2)
     {
         ThreadGroup workers = new ThreadGroup();
         foreach(threadIndex ; 0..nbThreads)
@@ -128,7 +128,7 @@ void startThreads(Options options)
     }
     else
     {
-        log.error("Invalid thread count (1 <= t <= ", totalCPUs, ") ");
+        log.error("Invalid thread count (1 <= t <= ", totalCPUs*2, ") ");
     }
 }
 

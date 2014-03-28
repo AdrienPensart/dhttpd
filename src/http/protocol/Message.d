@@ -12,10 +12,13 @@ mixin template Message()
 
     //private UUID m_id;
     private bool m_updated;
-    private string m_raw;
+
+    private size_t m_size;
+    private char[2048] m_raw;
+
     private Headers m_headers;
-    private string m_content;
-    private Protocol m_protocol;
+    private char[] m_content;
+    private string m_protocol;
     private iovec[] m_vec;
 
     @property bool updated()
@@ -27,15 +30,15 @@ mixin template Message()
         return m_updated = a_updated;
     }
 
-    @property ref auto raw()
+    @property auto raw()
     {
-        return m_raw;
+        return m_raw[0..m_size];
     }
-    @property ref auto raw(string a_raw)
+    void append(char[] a_raw)
     {
-        m_raw = a_raw;
+        m_raw[m_size..m_size+a_raw.length] = a_raw;
+        m_size += a_raw.length;
         m_updated = true;
-        return m_raw;
     }
 
     @property auto hash()
@@ -72,7 +75,7 @@ mixin template Message()
         return sicmp(value, headerValue) == 0;
     }
 
-    @property auto content(string a_content)
+    @property auto content(char[] a_content)
     {
         m_content = a_content;
         m_updated = true;
@@ -83,7 +86,7 @@ mixin template Message()
         return m_content;
     }
  
-    @property Protocol protocol(string a_protocol)
+    @property string protocol(string a_protocol)
     {
         mixin(Tracer);
         if(a_protocol == HTTP_1_0 || a_protocol == HTTP_1_1)
@@ -93,7 +96,7 @@ mixin template Message()
         }
         return m_protocol = HTTP_DEFAULT;
     }
-    @property ref Protocol protocol()
+    @property string protocol()
     {
         return m_protocol;
     }

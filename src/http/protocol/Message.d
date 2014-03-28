@@ -13,8 +13,9 @@ mixin template Message()
     //private UUID m_id;
     private bool m_updated;
 
+    //private char[4096] m_raw;
+    private size_t m_size;
     private char[] m_raw;
-
     private Headers m_headers;
     private char[] m_content;
     private string m_protocol;
@@ -31,15 +32,15 @@ mixin template Message()
 
     @property auto raw()
     {
+        // stack version
         //return m_raw[0..m_size];
         return m_raw;
     }
     void append(char[] a_raw)
     {
-        /*
-        m_raw[m_size..m_size+a_raw.length] = a_raw;
-        m_size += a_raw.length;
-        */
+        // stack version
+        //m_raw[m_size..m_size+a_raw.length] = a_raw;
+        //m_size += a_raw.length;
         m_raw ~= a_raw;
         m_updated = true;
     }

@@ -75,6 +75,10 @@ class Directory : Handler
             response.headers[ContentType] = mimes.match(finalPath, defaultMime);
             response.headers[LastModified] = convertToRFC1123(timeLastModified(finalPath));
 
+            import std.digest.ripemd;
+            string etag = ripemd160Of(response.headers[LastModified]).toHexString.idup;
+            response.headers[ETag] = etag;
+
             if(method == Method.GET)
             {
                 response.content = m_cache.get(finalPath, loadFile(finalPath, indexFilename));

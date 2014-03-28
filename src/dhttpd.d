@@ -66,7 +66,7 @@ void startThreads(Options options)
     //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
 
     // handlers
-    auto mainDir    = new Directory("/../public", "index.html", options);
+    auto mainDir    = new Directory("/public", "index.html", options);
     //auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
 
     // routes

@@ -29,7 +29,6 @@ class Connection : ReferenceCounter!Connection
         Socket m_socket;
         Config m_config;
         Request m_request;
-        bool m_keepalive = true;
 
         uint maxRequest;
         uint processedRequest;
@@ -79,20 +78,12 @@ class Connection : ReferenceCounter!Connection
                         m_response = new NotFoundResponse(m_config.options[Parameter.NOT_FOUND_FILE].toString());
                     }
 
-                    if(m_request.keepalive())
+                    if(m_request.keepalive && m_request.protocol == HTTP_1_0)
                     {
-                        m_keepalive = true;
-                        if(m_request.protocol == HTTP_1_0)
-                        {
-                            m_response.headers[FieldConnection] = KeepAlive;
-                        }
-                    }
-                    else
-                    {
-                        m_keepalive = false;
-                        m_response.headers[FieldConnection] = "close";
+                        m_response.headers[FieldConnection] = KeepAlive;
                     }
                     
+                    m_response.keepalive = m_request.keepalive;
                     m_response.protocol = m_request.protocol;
                     m_response.headers[FieldServer] = m_config.options[Parameter.SERVER_STRING].toString();                
                     break;
@@ -110,25 +101,23 @@ class Connection : ReferenceCounter!Connection
         bool synctreat()
         {
             mixin(Tracer);
-
             auto buffer = readChunk();
-            if(!buffer.length)
+            if(buffer.length)
             {
-                return false;
+                log.trace("Feeding data size : ", buffer.length);
+                m_request.feed(buffer);
+                Response m_response = m_cache.get(m_request.hash, computeResponse());
+                if(m_response !is null)
+                {
+                    processedRequest++;
+                    m_request = Request();
+                    m_request.init();
+                    auto data = m_response.get();
+                    return writeChunk(data) && m_response.keepalive;
+                }
             }
-            
-            log.trace("Feeding data size : ", buffer.length);
-            m_request.feed(buffer);
-            Response m_response = m_cache.get(m_request.hash, computeResponse());
-            if(m_response !is null)
-            {
-                processedRequest++;
-                m_request = Request();
-                m_request.init();
-                auto data = m_response.get();
-                return writeChunk(data) && m_keepalive;
-            }
-            return m_keepalive;
+            log.trace("No response");
+            return false;
         }
 
         /*

@@ -53,7 +53,7 @@ struct ConnectionPoller
         mixin(Tracer);
         log.trace("Shuting down : ", connection.handle());
 
-        //connection.shutdown();
+        connection.shutdown();
         connection.close();
 
         ev_io_stop(server.loop.loop(), &io);

@@ -17,8 +17,9 @@ import dlog.Logger;
 class Response
 {
     mixin Message;
-    string m_response;
-    Status status = Status.Invalid;
+    private string m_response;
+    private Status m_status;
+    private bool m_keepalive;
     // TODO : Cookies handling
     // string[string] cookies;
 
@@ -27,6 +28,27 @@ class Response
         mixin(Tracer);
         updated = true;
         headers[FieldDate] = "";
+        m_status = Status.Invalid;
+    }
+
+    @property auto status()
+    {
+        return m_status;
+    }
+
+    @property auto status(Status a_status)
+    {
+        return m_status = a_status;
+    }
+    
+    @property auto keepalive()
+    {
+        return m_keepalive;
+    }
+
+    @property auto keepalive(bool a_keepalive)
+    {
+        return m_keepalive = a_keepalive;
     }
 
     string get()
@@ -42,14 +64,6 @@ class Response
                 headers[FieldDate] = "";
             }
 
-            // HTTP 1.0 does not keep connection alive by default
-            /*
-            if(protocol == HTTP_1_0 && !hasHeader(Header.Connection, "Keep-Alive"))
-            {
-                headers[Header.Connection] = "close";
-            }
-            */
-
             auto writer = appender!string();
             string reason = toReason(status);
             formattedWrite(writer, "%s %d %s\r\n", protocol, status, reason);
@@ -62,6 +76,7 @@ class Response
             {
                 if(value.length)
                 {
+                    log.trace("Added header ", index, " <=> ", value);
                     formattedWrite(writer, "%s: %s\r\n", index, value);
                 }
             }

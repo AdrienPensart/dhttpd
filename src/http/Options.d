@@ -5,6 +5,7 @@ import std.variant;
 enum Parameter
 {
 	NB_THREADS,
+	CONSOLE_LOGGING,
 
 	GC_MODE,
 	GC_TIMER,

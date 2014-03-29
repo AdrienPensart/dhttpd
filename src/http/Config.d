@@ -1,11 +1,10 @@
 module http.Config;
 
 import std.socket;
-import std.typecons;
 
 import http.protocol.Request;
-import http.protocol.Response;
-import http.handler.Handler;
+
+import http.Transaction;
 import http.Options;
 import http.VirtualHost;
 
@@ -62,7 +61,7 @@ class Config
     	return m_addresses;
     }
 
-    Tuple!(Response, Handler) dispatch(Request request)
+    Transaction dispatch(Request request)
     {
         mixin(Tracer);
 
@@ -78,6 +77,6 @@ class Config
         {
             return m_fallback.dispatch(request);
         }
-        return typeof(return)(null, null);
+        return null;
     }
 }

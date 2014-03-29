@@ -1,11 +1,10 @@
 module http.Route;
 
 import std.regex;
-import std.typecons;
 
-import http.protocol.Request;
-import http.protocol.Response;
 import http.handler.Handler;
+import http.protocol.Request;
+import http.Transaction;
 
 import dlog.Logger;
 
@@ -23,7 +22,7 @@ class Route
         return handler;
     }
 
-    Tuple!(Response, Handler) dispatch(Request request)
+    Transaction dispatch(Request request)
     {
         mixin(Tracer);
         auto m = matchRex(request);
@@ -32,10 +31,13 @@ class Route
     		log.trace("Matched route : ", route);
             log.trace("Hit : ", m.hit);
 
-            auto response = handler.execute(request, m.hit.idup);
-    		return typeof(return)(response, handler);
+            auto transaction = new Transaction;
+            transaction.hit = m.hit.idup;
+            transaction.request = request;
+            transaction.handler = handler;
+    		return transaction;
     	}
-    	return typeof(return)(null, null);
+    	return null;
     }
 
     private auto matchRex(Request request)

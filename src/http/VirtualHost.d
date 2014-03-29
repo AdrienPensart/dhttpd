@@ -1,13 +1,11 @@
 module http.VirtualHost;
 
-import std.typecons;
 import std.string;
 import std.conv;
 
 import http.Route;
-import http.handler.Handler;
+import http.Transaction;
 import http.protocol.Request;
-import http.protocol.Response;
 import http.protocol.Header;
 
 import dlog.Logger;
@@ -56,13 +54,13 @@ class VirtualHost
         return m_hosts;
     }
 
-    Tuple!(Response, Handler) dispatch(Request request)
+    Transaction dispatch(Request request)
     {
         foreach(route ; m_routes)
         {
             return route.dispatch(request);
         }
-        return typeof(return)(null, null);
+        return null;
     }
 
     private

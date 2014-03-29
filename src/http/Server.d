@@ -7,6 +7,7 @@ import dlog.Logger;
 
 import http.Options;
 import http.Config;
+import http.Transaction;
 
 import http.poller.ListenerPoller;
 
@@ -36,16 +37,11 @@ class Server
     {
         this.m_loop = a_loop;
         this.m_config = a_config;
-        /*
-        version(assert)
-        {
-            auto timedStatistic = new LogStatistic(m_loop);
-            m_loop.addEvent(timedStatistic);
-        }
-        */
+        Transaction.loop = m_loop;
         foreach(address ; config.addresses)
         {
             log.info("Listening on : ", address);
+            log.info("Loop manager : ", Transaction.loop.loop());
             auto listenerPoller = new ListenerPoller(this, address);
         }
     }
@@ -66,7 +62,7 @@ class ServerWorker : Thread
         mixin(Tracer);
         try
         {
-            version(assert)
+            if(m_config.options[Parameter.CONSOLE_LOGGING].get!(bool))
             {
                 log.register(new ConsoleLogger);
             }

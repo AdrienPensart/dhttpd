@@ -163,6 +163,7 @@ int main(string[] args)
         {
             log.register(new ConsoleLogger);
         }
+
         log.register(new TcpLogger(logHost, tcpPort));
         log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(tcpPort)));
 
@@ -185,7 +186,7 @@ int main(string[] args)
         options[Parameter.LOGGER_HOST] = logHost;
         options[Parameter.LOGGER_ZMQ_PORT] = zmqPort;
         options[Parameter.LOGGER_TCP_PORT] = tcpPort;
-
+        options[Parameter.CONSOLE_LOGGING] = consoleLogging;
         startThreads(options);
     }
     catch(Exception e)

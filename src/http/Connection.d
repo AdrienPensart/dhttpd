@@ -1,6 +1,5 @@
 module http.Connection;
 
-import std.typecons;
 import std.socket;
 import std.array;
 import std.file;
@@ -12,6 +11,7 @@ import http.protocol.Response;
 import http.protocol.Status;
 import http.protocol.Header;
 
+import http.Transaction;
 import http.Config;
 import http.Options;
 import http.VirtualHost;
@@ -20,18 +20,17 @@ import http.handler.Handler;
 import dlog.Logger;
 import crunch.Caching;
 
-class Connection : ReferenceCounter!Connection
+class Connection
 {
     private
     {
-        static Cache!(uint, Response) m_cache;
         Address m_address;
         Socket m_socket;
         Config m_config;
         Request m_request;
-
         uint maxRequest;
         uint processedRequest;
+        static Cache!(uint, Transaction) m_cache;
     }
 
     public
@@ -56,9 +55,9 @@ class Connection : ReferenceCounter!Connection
             m_request.init();
         }
 
-        Response computeResponse()
+        Transaction computeTransaction()
         {
-            Response m_response = null;
+            Transaction transaction = null;
             m_request.parse();
             final switch(m_request.status())
             {
@@ -68,9 +67,8 @@ class Connection : ReferenceCounter!Connection
                 case Request.Status.Finished:
                     log.trace("Request ready : \n\"\n", m_request.get(), "\"");
                     
-                    auto m_tuple = m_config.dispatch(m_request);
-                    m_response = m_tuple[0];
-                    //m_handler = m_tuple[1];
+                    transaction = m_config.dispatch(m_request);
+                    auto m_response = transaction.execute();
 
                     if(m_response is null)
                     {
@@ -90,12 +88,13 @@ class Connection : ReferenceCounter!Connection
                 case Request.Status.HasError:
                     // don't cache malformed request
                     log.trace("Malformed request => Bad Request");
-                    m_response = new BadRequestResponse(m_config.options[Parameter.BAD_REQUEST_FILE].toString());
-                    m_response.headers[FieldConnection] = "close";
-                    m_response.protocol = m_request.protocol;
+                    transaction = new Transaction;
+                    transaction.response = new BadRequestResponse(m_config.options[Parameter.BAD_REQUEST_FILE].toString());
+                    transaction.response.headers[FieldConnection] = "close";
+                    transaction.response.protocol = m_request.protocol;
                     break;
             }
-            return m_response;
+            return transaction;
         }
 
         bool synctreat()
@@ -106,14 +105,14 @@ class Connection : ReferenceCounter!Connection
             {
                 log.trace("Feeding data size : ", buffer.length);
                 m_request.feed(buffer);
-                Response m_response = m_cache.get(m_request.hash, computeResponse());
-                if(m_response !is null)
+                Transaction transaction = m_cache.get(m_request.hash, computeTransaction());
+                if(transaction !is null)
                 {
                     processedRequest++;
                     m_request = Request();
                     m_request.init();
-                    auto data = m_response.get();
-                    return writeChunk(data) && m_response.keepalive;
+                    auto data = transaction.response.get();
+                    return writeChunk(data) && transaction.response.keepalive;
                 }
             }
             log.trace("No response");

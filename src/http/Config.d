@@ -61,7 +61,7 @@ class Config
     	return m_addresses;
     }
 
-    Transaction dispatch(Request request)
+    Transaction dispatch(ref Request request)
     {
         mixin(Tracer);
 

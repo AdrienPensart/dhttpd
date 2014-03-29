@@ -35,7 +35,7 @@ class VirtualHost
         m_hosts = bufferHosts;
     }
 
-    bool matchHostHeader(Request request)
+    bool matchHostHeader(ref Request request)
     {
         mixin(Tracer);
         foreach(host ; m_hosts)
@@ -54,7 +54,7 @@ class VirtualHost
         return m_hosts;
     }
 
-    Transaction dispatch(Request request)
+    Transaction dispatch(ref Request request)
     {
         foreach(route ; m_routes)
         {

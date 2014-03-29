@@ -104,18 +104,4 @@ mixin template Message()
     {
         return m_protocol;
     }
-
-    bool keepalive()
-    {
-        mixin(Tracer);
-        if(protocol == HTTP_1_0 && hasHeader(FieldConnection, KeepAlive))
-        {
-            return true;
-        }
-        else if(protocol == HTTP_1_1 && !hasHeader(FieldConnection, Close))
-        {
-            return true;
-        }
-        return false;
-    }
 }

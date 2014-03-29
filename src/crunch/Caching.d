@@ -8,21 +8,40 @@ struct Cache (Key, Value)
 	private bool m_enabled = true;
 	private Store m_store;
 
-	Value get(Key key, lazy Value value)
+	Value get(Key key, Value delegate() value)
 	{
 		if(m_enabled)
 		{
 			Value toReturn = store.get(key, null);
+			// Value toReturn = key in store;
 			if(toReturn is null)
 			{
-				return store[key] = value;
+				Value computed = value();
+				if(computed !is null)
+				{
+					log.trace("Cached : ", key);
+					return store[key] = computed;
+				}
+				else
+					return null;
 			}
 			else
 			{
+				log.trace("Cached hit : ", key);
 				return store[key];
 			}
 		}
-		return value;
+		return value();
+	}
+
+	void set(Key key, Value value)
+	{
+		store[key] = value;
+	}
+
+	void invalidate(Key key)
+	{
+		store.remove(key);
 	}
 
 	@property auto enabled()

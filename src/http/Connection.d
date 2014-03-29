@@ -18,7 +18,6 @@ import http.VirtualHost;
 import http.handler.Handler;
 
 import dlog.Logger;
-import crunch.Caching;
 
 class Connection
 {
@@ -30,7 +29,6 @@ class Connection
         Request m_request;
         uint maxRequest;
         uint processedRequest;
-        static Cache!(uint, Transaction) m_cache;
     }
 
     public
@@ -55,48 +53,6 @@ class Connection
             m_request.init();
         }
 
-        Transaction computeTransaction()
-        {
-            Transaction transaction = null;
-            m_request.parse();
-            final switch(m_request.status())
-            {
-                case Request.Status.NotFinished:
-                    log.trace("Request not finished");
-                    break;
-                case Request.Status.Finished:
-                    log.trace("Request ready : \n\"\n", m_request.get(), "\"");
-                    
-                    transaction = m_config.dispatch(m_request);
-                    auto m_response = transaction.execute();
-
-                    if(m_response is null)
-                    {
-                        log.trace("Host not found and no fallback => Not Found");
-                        m_response = new NotFoundResponse(m_config.options[Parameter.NOT_FOUND_FILE].toString());
-                    }
-
-                    if(m_request.keepalive && m_request.protocol == HTTP_1_0)
-                    {
-                        m_response.headers[FieldConnection] = KeepAlive;
-                    }
-                    
-                    m_response.keepalive = m_request.keepalive;
-                    m_response.protocol = m_request.protocol;
-                    m_response.headers[FieldServer] = m_config.options[Parameter.SERVER_STRING].toString();                
-                    break;
-                case Request.Status.HasError:
-                    // don't cache malformed request
-                    log.trace("Malformed request => Bad Request");
-                    transaction = new Transaction;
-                    transaction.response = new BadRequestResponse(m_config.options[Parameter.BAD_REQUEST_FILE].toString());
-                    transaction.response.headers[FieldConnection] = "close";
-                    transaction.response.protocol = m_request.protocol;
-                    break;
-            }
-            return transaction;
-        }
-
         bool synctreat()
         {
             mixin(Tracer);
@@ -105,17 +61,35 @@ class Connection
             {
                 log.trace("Feeding data size : ", buffer.length);
                 m_request.feed(buffer);
-                Transaction transaction = m_cache.get(m_request.hash, computeTransaction());
+                auto transaction = Transaction.get(m_request, m_config);
                 if(transaction !is null)
                 {
                     processedRequest++;
                     m_request = Request();
                     m_request.init();
                     auto data = transaction.response.get();
-                    return writeChunk(data) && transaction.response.keepalive;
+                    if(writeChunk(data))
+                    {
+                        if(transaction.keepalive)
+                        {
+                            log.trace("Keep alive !");
+                            return true;
+                        }
+                        else
+                        {
+                            log.trace("DONT keep alive !");
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        log.trace("Write failed");
+                        return false;
+                    }
                 }
+                log.trace("No response ready");
+                return m_request.status == Request.Status.NotFinished;
             }
-            log.trace("No response");
             return false;
         }
 

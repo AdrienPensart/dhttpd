@@ -47,8 +47,7 @@ class Worker : Handler
 		*/
 	}
 
-	Response execute(Request request, string hit)
+	void execute(Transaction transaction)
 	{
-		return null;
 	}
 }

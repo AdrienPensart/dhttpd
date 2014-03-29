@@ -2,9 +2,10 @@ module http.handler.Directory;
 
 import std.conv;
 import std.regex;
-import std.file;
 import std.path;
+import std.file;
 
+import http.poller.FilePoller;
 import dlog.Logger;
 import crunch.Caching;
 
@@ -22,7 +23,7 @@ class Directory : Handler
 {
     private
     {
-        static Cache!(string, char[]) m_cache;
+        static Cache!(string, FilePoller *) m_cache;
         MimeMap mimes;
         Options options;
         string directory;
@@ -42,34 +43,47 @@ class Directory : Handler
         this.defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
     
-    char[] loadFile(string finalPath, string indexFilename)
+    FilePoller* loadFile(string finalPath, string indexFilename)
     {
         auto mde = DirEntry(finalPath);        
         if(mde.isDir)
         {
             // load index file
-            return readText!(char[])(buildPath(mde.name(), indexFilename));
+            finalPath = buildPath(mde.name(), indexFilename);
         }
-        return readText!(char[])(mde.name());
+        else
+        {
+            finalPath = mde.name();
+        }
+        auto filePoller = new FilePoller(finalPath, Transaction.loop);
+        return filePoller;
     }
 
-    Response execute(Request request, string hit)
+    static void invalidateFile(string finalPath)
+    {
+        log.info("Invalidating file ", finalPath);
+        m_cache.invalidate(finalPath);
+    }
+
+    void execute(Transaction transaction)
     {
         mixin(Tracer);
         try
-        {            
+        {
+            auto request = transaction.request;
             Method method = request.getMethod();
             if(method != Method.GET && method != Method.HEAD)
             {
                 log.trace("Bad method ", method, " => Not Allowed");
-                return new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
+                transaction.response = new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
+                return;
             }
 
             auto finalPath = request.getPath();
-            finalPath = replaceFirst(finalPath, regex(hit), directory);
+            finalPath = replaceFirst(finalPath, regex(transaction.hit), directory);
             log.trace("Path asked : ", finalPath);
 
-            Response response = new Response();
+            Response response = new Response;
             response.status = Status.Ok;
             response.headers[FieldServer] = options[Parameter.SERVER_STRING].get!(string);
             response.headers[ContentType] = mimes.match(finalPath, defaultMime);
@@ -81,14 +95,16 @@ class Directory : Handler
 
             if(method == Method.GET)
             {
-                response.content = m_cache.get(finalPath, loadFile(finalPath, indexFilename));
+                auto filePoller = m_cache.get(finalPath, { return loadFile(finalPath, indexFilename); } );
+                transaction.poller = filePoller;
+                response.content = filePoller.content;
             }
-            return response;
+            transaction.response = response;
         }
         catch(FileException fe)
         {
             log.trace(fe);
-            return new NotFoundResponse(options[Parameter.NOT_FOUND_FILE].toString());
+            transaction.response = new NotFoundResponse(options[Parameter.NOT_FOUND_FILE].toString());
         }
     }
 }

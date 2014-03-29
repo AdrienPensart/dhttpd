@@ -13,7 +13,7 @@ import http.Server;
 import http.Connection;
 
 struct ConnectionPoller
-{    
+{
     ev_io io;
     ev_timer timer_io;
     Connection connection;

@@ -76,7 +76,7 @@ class Response
             {
                 if(value.length)
                 {
-                    log.trace("Added header ", index, " <=> ", value);
+                    //log.trace("Added header ", index, " <=> ", value);
                     formattedWrite(writer, "%s: %s\r\n", index, value);
                 }
             }

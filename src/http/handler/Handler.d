@@ -1,13 +1,10 @@
 module http.handler.Handler;
 
-import http.Route;
-
-public import http.protocol.Request;
-public import http.protocol.Response;
+public import http.Transaction;
 
 interface Handler
 {
-	Response execute(Request request, string hit);
+	void execute(Transaction transaction);
 }
 
 /*

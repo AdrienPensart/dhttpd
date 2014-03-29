@@ -138,7 +138,9 @@ struct Request
     size_t parse()
     {
         mixin(Tracer);
+
         off = raw.length - lengthadded;
+        log.trace("off = ", off);
         char * buffer = cast(char*)raw.ptr;
         char * p = buffer + off;
         char * pe = p + lengthadded;
@@ -147,6 +149,8 @@ struct Request
 
         nread += p - (buffer + off);
         lengthadded = off;
+        log.trace("nread = ", nread);
+        log.trace("lengthadded = ", lengthadded);
         return nread;
     }
 
@@ -195,6 +199,24 @@ struct Request
     auto getUri()
     {
         return uri;
+    }
+
+    @property bool keepalive()
+    {
+        mixin(Tracer);
+        log.trace("Protocol for keep alive analysis : ", protocol);
+        if(protocol == HTTP_1_0 && hasHeader(FieldConnection, KeepAlive))
+        {
+            log.trace("HTTP_1_0 and header keep alive present");
+            return true;
+        }
+        else if(protocol == HTTP_1_1 && !hasHeader(FieldConnection, Close))
+        {
+            log.trace("HTTP_1_1 and header close not present");
+            return true;
+        }
+        log.trace("Connection won't be keep alived");
+        return false;
     }
 
     private:

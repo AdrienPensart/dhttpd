@@ -22,7 +22,7 @@ class Route
         return handler;
     }
 
-    Transaction dispatch(Request request)
+    Transaction dispatch(ref Request request)
     {
         mixin(Tracer);
         auto m = matchRex(request);
@@ -40,7 +40,7 @@ class Route
     	return null;
     }
 
-    private auto matchRex(Request request)
+    private auto matchRex(ref Request request)
     {
         auto uri = request.getUri();
         auto path = request.getPath();

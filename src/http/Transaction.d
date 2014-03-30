@@ -50,7 +50,7 @@ class Transaction
                 log.trace("Request not finished");
                 break;
             case Request.Status.Finished:
-                log.trace("Request ready : \n\"\n", a_request.get(), "\"");
+                log.trace("Request ready : \n\"\n", a_request.raw, "\"");
                 transaction = a_config.dispatch(a_request);
                 log.info("Executing handler for first time");
                 transaction.execute(a_request, a_config);

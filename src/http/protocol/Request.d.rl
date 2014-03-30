@@ -122,12 +122,16 @@ struct Request
         Finished = 1
     }
 
-    void feed(char[] data)
+    bool feed(char[] data)
     {
         mixin(Tracer);
-        append(data);
-        m_updated = true;
-        lengthadded += data.length;
+        bool added = append(data);
+        if(added)
+        {
+            m_updated = true;
+            lengthadded += data.length;
+        }
+        return added;
     }
 
     void init()
@@ -165,10 +169,7 @@ struct Request
         {
             return Status.Finished;
         } 
-        else 
-        {
-            return Status.NotFinished;
-        }
+        return Status.NotFinished;
     }
 
     auto hasError()
@@ -244,7 +245,9 @@ struct Request
 
 unittest
 {
-    scope Request request = new Request();
+    auto request = Request();
+    request.init();
+
     assert(request.status == Request.Status.NotFinished, "Should NOT be finished if nothing parsed.");
     assert(!request.hasError(), "Should not have an error at the beginning.");
     assert(!request.isFinished(), "Should not be finished since never handed anything.");

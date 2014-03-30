@@ -4,18 +4,21 @@ import http.protocol.Protocol;
 import http.protocol.Header;
 
 import dlog.Logger;
+
 alias string[string] Headers;
 
 mixin template Message()
 {
     import core.sys.posix.sys.uio;
-
+    import crunch.Buffer;
+    
     //private UUID m_id;
     private bool m_updated;
 
+    private char[] m_raw;
     //private char[4096] m_raw;
     private size_t m_size;
-    private char[] m_raw;
+    
     private Headers m_headers;
     private char[] m_content;
     private string m_protocol;
@@ -36,24 +39,21 @@ mixin template Message()
         //return m_raw[0..m_size];
         return m_raw;
     }
-    void append(char[] a_raw)
+
+    bool append(char[] a_raw)
     {
         // stack version
         //m_raw[m_size..m_size+a_raw.length] = a_raw;
         //m_size += a_raw.length;
         m_raw ~= a_raw;
         m_updated = true;
+        return true;
     }
 
     @property auto hash()
     {
         import xxhash;
         return xxhashOf(cast(ubyte[])raw);
-    }
-
-    ref auto get()
-    {
-        return raw;
     }
     
     @property ref auto vec()

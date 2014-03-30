@@ -5,8 +5,8 @@ import std.socket;
 import std.conv;
 import std.uuid;
 
-import http.protocol.Status;
-import http.protocol.Mime;
+import dlog.Logger;
+import crunch.Utils;
 
 import http.Server;
 import http.Route;
@@ -18,31 +18,15 @@ import http.handler.Worker;
 import http.handler.Directory;
 import http.handler.Proxy;
 
-import dlog.Logger;
-import crunch.Utils;
-
-import loop.GarbageCollection;
-import loop.InterruptionEvent;
 import loop.EvLoop;
-import loop.ZmqLoop;
-
-__gshared EvLoop [UUID] children;
-extern(C) static void interruption (ev_loop_t * a_default_loop, ev_signal * a_interruption_watcher, int revents)
-{
-    mixin(Tracer);
-    log.error("Received SIGINT");
-    foreach(childId, child ; children)
-    {
-        log.info("Sending async break to child ", childId, ", loop : ", child.loop, ", watcher = ", child.stopWatcher);
-        ev_async_send(child.loop, child.stopWatcher);
-    }
-    log.info("Breaking default loop : ", a_default_loop);
-    ev_break(a_default_loop, EVBREAK_ALL);
-}
+import loop.InterruptionEvent;
+import loop.GCEvent;
 
 void startThreads(Options options)
 {
     mixin(Tracer);
+
+    import http.protocol.Mime;
     options[Parameter.MIME_TYPES] = new MimeMap;
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
     options[Parameter.FILE_CACHE] = true;
@@ -63,6 +47,7 @@ void startThreads(Options options)
     options[Parameter.NOT_FOUND_FILE] =   installDir() ~ "/public/404.html";
     options[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
 
+    //import http.Transaction;
     //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
 
     // handlers
@@ -79,6 +64,7 @@ void startThreads(Options options)
     auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);
 
     /*
+    import loop.ZmqLoop;
     auto zmqLoop = new ZmqLoop();
     auto proxyHandler = new Proxy();
     auto workerRoute = new Route("^/worker", workerHandler);
@@ -96,10 +82,11 @@ void startThreads(Options options)
 
     auto defaultLoop = ev_default_loop(EVFLAG_AUTO);
     auto evLoop = new EvLoop(defaultLoop);
+
     auto interruptionEvent = new InterruptionEvent(evLoop);
     evLoop.addEvent(interruptionEvent);
 
-    auto garbageCollectionEvent = new GarbageCollection(evLoop, options[Parameter.GC_MODE].get!(GCMode), options[Parameter.GC_TIMER].get!(double));
+    auto garbageCollectionEvent = new GCEvent(evLoop, options[Parameter.GC_MODE].get!(GCMode), options[Parameter.GC_TIMER].get!(double));
     evLoop.addEvent(garbageCollectionEvent);
 
     auto nbThreads = options[Parameter.NB_THREADS].get!(uint);
@@ -142,7 +129,6 @@ int main(string[] args)
         ushort tcpPort = 9091;
         string logHost = "127.0.0.1";
         bool consoleLogging = false;
-
         GCMode gcmode = GCMode.automatic;
         double gctimer = 10.0;
 

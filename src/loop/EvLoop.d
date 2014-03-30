@@ -1,11 +1,12 @@
 module loop.EvLoop;
 
-import std.variant;
 import std.string;
 import std.uuid;
 import std.random;
+
 import dlog.Logger;
 import loop.Loop;
+import loop.Event;
 
 public import deimos.ev;
 public import core.sync.mutex;
@@ -37,15 +38,22 @@ class EvLoop : Loop
         ev_loop_destroy(m_loop);
     }
 
-    void addEvent(T)(T event)
+    void addEvent(Event event)
     {
-        Variant vevent = event;
-        m_events ~= vevent;
+        m_events ~= event;
     }
 
     override void run()
     {
+        foreach(event ; m_events)
+        {
+            event.enable();
+        }
         ev_run(m_loop, 0);
+        foreach(event ; m_events)
+        {
+            event.disable();
+        }
     }
 
     ev_loop_t * loop()
@@ -69,7 +77,7 @@ class EvLoop : Loop
         ev_async m_stop_watcher;
         Xorshift192 m_gen;
         UUID m_id;
-        Variant[] m_events;
+        Event[] m_events;
     }
 
     private extern(C) static

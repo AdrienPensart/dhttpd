@@ -1,20 +1,27 @@
 module loop.LogStatistic;
 
-import core.EvLoop;
+import loop.Event;
+import loop.EvLoop;
 import dlog.Logger;
-import http.server.Connection;
+import http.Connection;
 
-class LogStatistic
+class LogStatistic : Event
 {
     this(EvLoop a_loop)
     {
         m_loop = a_loop;
+    }
+    
+    override void enable()
+    {
+        mixin(Tracer);
         ev_timer_init(&m_reference_counter_timer, &log_statistic, 0, 1);
         ev_timer_again(m_loop.loop(), &m_reference_counter_timer);
     }
-    
-    ~this()
+
+    override void disable()
     {
+        mixin(Tracer);
         ev_timer_stop(m_loop.loop(), &m_reference_counter_timer);
     }
 

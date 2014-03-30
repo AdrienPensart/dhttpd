@@ -43,10 +43,10 @@ fi
 includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src -Isrc/xxhash/src"
 libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq -Lsrc/xxhash/libxxhash.a"
 
-#loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
+loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $loggersrc
 rdmd --build-only -ofbin/logger $includes $libraries $dmd_flags src/logger.d
 
-#dhttpdsrc="src/dhttpd.d src/core/* src/msgpack/src/msgpack.d src/http/server/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d src/czmq/deimos/*.d"
+dhttpdsrc="src/dhttpd.d src/loop/* src/msgpack/src/msgpack.d src/http/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $dhttpdsrc
 rdmd --build-only -ofbin/dhttpd $includes $libraries $dmd_flags src/dhttpd.d

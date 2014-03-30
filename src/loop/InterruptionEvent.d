@@ -1,21 +1,28 @@
 module loop.InterruptionEvent;
 
+import loop.Event;
 import loop.EvLoop;
 import dlog.Logger;
 
-class InterruptionEvent
+class InterruptionEvent : Event
 {
     this(EvLoop evloop)
     {
         parent = evloop;
-        ev_signal_init (&interruptionWatcher, &interruption, SIGINT);
-        ev_signal_start (parent.loop, &interruptionWatcher);
         interruptionWatcher.data = &children;
     }
 
-    ~this()
+    override void enable()
     {
-        //ev_signal_stop(parent.loop, &interruptionWatcher);
+        mixin(Tracer);
+        ev_signal_init (&interruptionWatcher, &interruption, SIGINT);
+        ev_signal_start (parent.loop, &interruptionWatcher);
+    }
+
+    override void disable()
+    {
+        mixin(Tracer);
+        ev_signal_stop(parent.loop, &interruptionWatcher);
     }
 
     void addChild(EvLoop evLoop)

@@ -56,11 +56,13 @@ class Connection
         bool synctreat()
         {
             mixin(Tracer);
-            auto buffer = readChunk();
-            if(buffer.length)
+            static char[65535] buffer;
+            auto nread = readChunk(buffer);
+            bool result = false;
+            if(nread)
             {
-                log.trace("Feeding data size : ", buffer.length);
-                m_request.feed(buffer);
+                log.trace("Feeding data size : ", nread);
+                m_request.feed(buffer[0..nread]);
                 auto transaction = Transaction.get(m_request, m_config);
                 if(transaction !is null)
                 {
@@ -73,27 +75,128 @@ class Connection
                         if(transaction.keepalive)
                         {
                             log.trace("Keep alive !");
-                            return true;
+                            result = true;
                         }
                         else
                         {
                             log.trace("DONT keep alive !");
-                            return false;
                         }
-                    }
-                    else
-                    {
-                        log.trace("Write failed");
-                        return false;
                     }
                 }
                 log.trace("No response ready");
                 return m_request.status == Request.Status.NotFinished;
             }
-            return false;
+            return result;
         }
 
-        /*
+        auto handle()
+        {
+            return socket.handle;
+        }
+
+        auto socket()
+        {
+            return m_socket;
+        }
+            
+        auto setMaxRequest(uint a_maxRequest)
+        {
+            maxRequest = a_maxRequest;
+        }
+
+        void close()
+        {
+            mixin(Tracer);
+            log.trace("Closing ", address);
+            m_socket.close();
+        }
+
+        void shutdown()
+        {
+            mixin(Tracer);
+            log.trace("Shutting down ", address, " on ", handle());
+            if(m_socket.isAlive)
+            {
+                this.socket.shutdown(SocketShutdown.BOTH);
+            }
+        }
+
+        auto alive()
+        {
+            return socket.isAlive && socket.handle != -1;
+        }
+
+        auto tooMuchRequests()
+        {
+            //log.trace("Processed requests : ", processedRequest);
+            //log.trace("Max requests : ", maxRequest);
+            //log.trace("Too much request : ", processedRequest > maxRequest);
+            return processedRequest > maxRequest;
+        }
+
+        auto valid()
+        {
+            return !tooMuchRequests() && alive();
+        }
+
+        @property auto address()
+        {
+            return m_address;
+        }
+    }
+
+    private
+    {
+        size_t readChunk(char[] buffer)
+        {
+            mixin(Tracer);
+            auto datalength = socket.receive(buffer);
+            if (datalength == Socket.ERROR)
+            {
+                log.warning("Socket error : ", lastSocketError());
+                return 0;
+            }
+            else if(datalength == 0)
+            {
+                log.trace("Disconnection on ", handle());
+                return 0;
+            }
+            log.trace("Read chunk : ", buffer[0..datalength]);
+            return datalength;
+        }
+
+        bool writeChunk(string data)
+        {
+            mixin(Tracer);
+            log.trace("Chunk to be written : ", data);
+            auto datalength = socket.send(data);
+            /*
+            import core.sys.posix.sys.uio;
+            auto iov = iovec();
+            iov.iov_base = cast(void*)data.ptr;
+            iov.iov_len = data.length;
+            auto datalength = writev(socket.handle(), &iov, 1);
+            */
+            if (datalength == Socket.ERROR)
+            {
+                log.warning("Connection error ", m_address, " on ", handle());
+                return false;
+            }
+            else if(datalength == 0)
+            {
+                log.warning("Connection from ", m_address, " closed on ", handle(), " (", lastSocketError(), ")");
+                return false;
+            }
+            else if(datalength < data.length)
+            {
+                log.warning("Data not sent on ", handle(), " : ", datalength, " < ", data.length, " (", lastSocketError(), ")");
+            }
+            return true;
+        }
+    }
+}
+
+/*
         private Transaction[] queue;
         bool recv()
         {
@@ -142,113 +245,3 @@ class Connection
             return queue.empty();
         }
         */
-
-        auto handle()
-        {
-            return socket.handle;
-        }
-
-        auto socket()
-        {
-            return m_socket;
-        }
-            
-        auto setMaxRequest(uint a_maxRequest)
-        {
-            maxRequest = a_maxRequest;
-        }
-
-        void close()
-        {
-            mixin(Tracer);
-            log.trace("Closing ", address);
-            m_socket.close();
-        }
-
-        void shutdown()
-        {
-            mixin(Tracer);
-            log.trace("Shutting down ", address, " on ", handle());
-            if(m_socket.isAlive)
-            {
-                this.socket.shutdown(SocketShutdown.BOTH);
-            }
-        }
-
-        auto alive()
-        {
-            return socket.isAlive && socket.handle != -1;
-        }
-
-        auto tooMuchRequests()
-        {
-            /*
-            log.trace("Processed requests : ", processedRequest);
-            log.trace("Max requests : ", maxRequest);
-            log.trace("Too much request : ", processedRequest > maxRequest);
-            */
-            return processedRequest > maxRequest;
-        }
-
-        auto valid()
-        {
-            return !tooMuchRequests() && alive();
-        }
-
-        @property auto address()
-        {
-            return m_address;
-        }
-    }
-
-    private
-    {
-        char[] readChunk()
-        {
-            mixin(Tracer);
-            static char[1024] buffer;
-            auto datalength = socket.receive(buffer);
-            if (datalength == Socket.ERROR)
-            {
-                log.warning("Socket error : ", lastSocketError());
-                return [];
-            }
-            else if(datalength == 0)
-            {
-                log.trace("Disconnection on ", handle());
-                return [];
-            }
-            log.trace("Read chunk : ", buffer[0..datalength]);
-            return buffer[0..datalength];
-        }
-
-        bool writeChunk(string data)
-        {
-            mixin(Tracer);
-            log.trace("Chunk to be written : ", data);
-            auto datalength = socket.send(data);
-            /*
-            import core.sys.posix.sys.uio;
-            auto iov = iovec();
-            iov.iov_base = cast(void*)data.ptr;
-            iov.iov_len = data.length;
-            auto datalength = writev(socket.handle(), &iov, 1);
-            */
-            if (datalength == Socket.ERROR)
-            {
-                log.warning("Connection error ", m_address, " on ", handle());
-                return false;
-            }
-            else if(datalength == 0)
-            {
-                log.warning("Connection from ", m_address, " closed on ", handle(), " (", lastSocketError(), ")");
-                return false;
-            }
-            else if(datalength < data.length)
-            {
-                log.warning("Data not sent on ", handle(), " : ", datalength, " < ", data.length, " (", lastSocketError(), ")");
-            }
-            return true;
-        }
-    }
-}

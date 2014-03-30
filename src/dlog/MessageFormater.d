@@ -19,7 +19,8 @@ class DefaultMessageFormater : MessageFormater
 {
     void[] format(const Message m)
     {
-        return cast(void[]).format("%s\n%s\n%s\n%s\n%s\n%s\n", m.type, m.pid, m.tag, m.tick, m.sysdate, m.graph, m.message);
+        //return cast(void[]).format("%s\n%s\n%s\n%s\n%s\n%s\n", m.type, m.pid, m.tag, m.tick, m.sysdate, m.graph, m.message);
+        return cast(void[]).format("%s\n%s\n%s\n%s\n%s\n%s\n", m.type, m.pid, m.tag, m.tick, m.date, m.graph, m.message);
     }
 }
 
@@ -31,7 +32,8 @@ class LineMessageFormater : MessageFormater
         version(assert)
         {
             formattedWrite(writer, "[%s, %s, %s]", m.type, m.pid, m.tag[0..8]);
-            formattedWrite(writer, "(%s/%s/%s %s:%s:%s)", m.sysdate.day(), m.sysdate.month(), m.sysdate.year(), m.sysdate.hour(), m.sysdate.minute(), m.sysdate.second());
+            //formattedWrite(writer, "(%s/%s/%s %s:%s:%s)", m.sysdate.day(), m.sysdate.month(), m.sysdate.year(), m.sysdate.hour(), m.sysdate.minute(), m.sysdate.second());
+            formattedWrite(writer, "(%s)", m.date);
         }
         else
         {

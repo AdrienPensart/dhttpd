@@ -10,3 +10,6 @@
 [submodule "src/xxhash"]
 	path = src/xxhash
 	url = https://github.com/repeatedly/xxhash-d.git
+[submodule "src/zmqd"]
+	path = src/zmqd
+	url = https://github.com/kyllingstad/zmqd.git

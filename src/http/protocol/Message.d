@@ -10,19 +10,23 @@ alias string[string] Headers;
 mixin template Message()
 {
     import core.sys.posix.sys.uio;
+    import std.uuid;
     import crunch.Buffer;
     
-    //private UUID m_id;
+    private UUID m_id;
     private bool m_updated;
-
-    private char[] m_raw;
-    //private char[4096] m_raw;
-    private size_t m_size;
+    alias Buffer!(char, 4096) MessageBuffer;
+    private MessageBuffer m_raw;
     
     private Headers m_headers;
     private char[] m_content;
     private string m_protocol;
     private iovec[] m_vec;
+
+    @property UUID id()
+    {
+        return m_id;
+    }
 
     @property bool updated()
     {
@@ -33,27 +37,25 @@ mixin template Message()
         return m_updated = a_updated;
     }
 
-    @property auto raw()
+    @property ref auto raw()
     {
-        // stack version
-        //return m_raw[0..m_size];
         return m_raw;
+    }
+
+    @property ref auto raw(MessageBuffer a_raw)
+    {
+        return m_raw = a_raw;
     }
 
     bool append(char[] a_raw)
     {
-        // stack version
-        //m_raw[m_size..m_size+a_raw.length] = a_raw;
-        //m_size += a_raw.length;
-        m_raw ~= a_raw;
-        m_updated = true;
-        return true;
+        return m_updated = m_raw.append(a_raw);
     }
 
     @property auto hash()
     {
         import xxhash;
-        return xxhashOf(cast(ubyte[])raw);
+        return xxhashOf(cast(ubyte[])m_raw[]);
     }
     
     @property ref auto vec()

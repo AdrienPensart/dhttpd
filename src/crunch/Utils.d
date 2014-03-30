@@ -11,5 +11,5 @@ auto installDir()
 
 auto availableCores()
 {
-	return totalCPUs;
+    return totalCPUs;
 }

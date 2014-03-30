@@ -1,67 +1,85 @@
 module crunch.Buffer;
 
-import std.traits;
-import std.range;
-import std.container;
-import std.array;
+import dlog.Logger;
 
-struct Buffer (size_t SIZE, size_t LIMIT, T)
+// append only buffer
+struct Buffer (T, size_t SIZE)
 {
-	T[SIZE] m_stack;
-	
-	size_t m_size;
-	T[] m_heap;
+    T[SIZE] m_stack;
+    T[] m_heap;
+    T * m_current;
+    size_t m_limit;
+    size_t m_length;
 
-	bool append(T[] data)
-	{
-		if(m_size > SIZE)
-		{
-			if(m_size + data.length <= LIMIT)
-			{
-				m_heap ~= data;
-			}
-			else
-			{
-				return false;
-			}
-		}
-		else
-		{
-			if(m_size + data.length <= SIZE)
-			{
-				m_stack[m_size..m_size+data.length] = data;
-			}
-			else
-			{
-				return false;
-			}
-		}
-		return true;
-	}
+    //alias m_current this;
+    void init(size_t a_limit)
+    {
+        mixin(Tracer);
+        assert(a_limit > SIZE);
+        m_length = 0;
+        m_limit = a_limit;
+        m_current = m_stack.ptr;
+    }
 
-	@property T[] data()
-	{
-		if(m_size <= SIZE)
-		{
-			return m_stack[0..m_size];
-		}
-		return m_heap[0..m_size];
-	}
+    bool append(T[] data)
+    {
+        mixin(Tracer);
+        if(m_length + data.length <= SIZE)
+        {
+            m_stack[m_length..m_length+data.length] = data;
+        }
+        else if(m_length + data.length <= m_limit)
+        {
+            if(m_current == m_stack.ptr)
+            {
+                m_heap.length = 0;
+                m_heap ~= m_stack[0..m_length];
+            }
+            m_heap ~= data;
+            m_current = m_heap.ptr;
+        }
+        else
+        {
+            return false;
+        }
+        m_length += data.length;
+        return true;
+    }
 
-	@property size_t length()
-	{
-		return m_size;
-	}
+    T[] opCast()()
+    {
+        return m_current[0..m_length];
+    }
+
+    T[] opSlice()
+    {
+        return m_current[0..m_length];
+    }
+
+    T[] opSlice(size_t x, size_t y)
+    {
+        return m_current[x..y];
+    }
+
+    @property T* ptr()
+    {
+        return m_current;
+    }
+
+    @property size_t length()
+    {
+        return m_length;
+    }
 }
 
 unittest
 {
-	Buffer!(3,6,char) buffer1;
-	assert(buffer1.append("12".dup));
+    auto buffer1 = Buffer!(char,3)(4096);
+    assert(buffer1.append("12".dup));
 
-	Buffer!(3,6,char) buffer2;
-	assert(buffer2.append("12345".dup));
+    auto buffer2 = Buffer!(char,3)(4096);
+    assert(buffer2.append("12345".dup));
 
-	Buffer!(3,6,char) buffer3;
-	assert(!buffer3.append("123456789".dup));
+    auto buffer3 = Buffer!(char,3)(6);
+    assert(!buffer3.append("123456789".dup));
 }

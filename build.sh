@@ -33,6 +33,8 @@ else
 	exit 0
 fi
 
+# experiment, use gold linker : -L-fuse-ld=gold -L-L/usr/local/lib
+
 rageloutput=src/http/protocol/Request.d
 tmpfile=/tmp/dhttpd-ragel-request
 if [[ ! -f $rageloutput || ! -f $tmpfile || $ragelfile -nt $tmpfile ]]; then
@@ -45,7 +47,9 @@ libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq -Lsrc/xxhash/libxxhash.a"
 
 loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $loggersrc
+#ldmd2 $includes $libraries $dmd_flags $loggersrc
 rdmd --build-only -ofbin/logger $includes $libraries $dmd_flags src/logger.d
+#gdc -o bin/logger $includes $libraries $loggersrc
 
 dhttpdsrc="src/dhttpd.d src/loop/* src/msgpack/src/msgpack.d src/http/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $dhttpdsrc

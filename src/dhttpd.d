@@ -124,6 +124,7 @@ int main(string[] args)
     try
     {
         mixin(Tracer);
+
         uint nbThreads = 1;
         ushort zmqPort = 9090;
         ushort tcpPort = 9091;

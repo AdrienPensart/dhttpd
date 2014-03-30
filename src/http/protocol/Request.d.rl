@@ -97,7 +97,7 @@ import http.protocol.Header;
             /*
             content_len = fpc - buffer - body_start + 1;
             */
-            content = raw;
+            content = raw[];
         }
         else
         {
@@ -137,6 +137,7 @@ struct Request
     void init()
     {
         %% write init;
+        raw.init(8192);
     }
 
     size_t parse()

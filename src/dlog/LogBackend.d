@@ -116,26 +116,32 @@ class ZmqLogger : LogBackend
     this(string endpoint, MessageFormater formater = new BinaryMessageFormater)
     {
         super(formater);
+        .log.logging("ZMQ Logger endpoint : ", endpoint);
         import std.string : toStringz;
-        sender = zsocket_new (cast(zctx_t *)zctx, ZMQ_PUB);
-        assert(sender);
-        auto result = zsocket_connect(sender, toStringz(endpoint));
+        pub = zsocket_new (cast(zctx_t *)zctx, ZMQ_PUSH);
+        assert(pub);
+        auto result = zsocket_connect(pub, toStringz(endpoint));
         assert(result == 0, to!string(zmq_strerror(zmq_errno())));
     }
-        
+    
     override void log(Message m)
     {
         void[] data = formater.format(m);
+        send(data);
+    }
+
+    private void send(void[] data)
+    {
         auto msg = zmsg_new();
         assert(msg);
         auto push = zmsg_addmem(msg, data.ptr, data.length);
         assert(push == 0);
-        zmsg_send(&msg, sender);
+        zmsg_send(&msg, pub);
     }
 
     private:
 
-        void * sender;
+        void * pub;
         shared static zctx_t * zctx;
 }
 

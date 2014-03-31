@@ -7,6 +7,8 @@ import std.socket;
 import std.conv;
 import std.array;
 
+/*
+import zstr;
 import zsockopt;
 import zframe;
 import zsocket;
@@ -14,12 +16,13 @@ import zloop;
 import zctx;
 import zmsg;
 import zmq;
-
+*/
+import czmq;
 import msgpack;
 
 void main(string[] args)
 {
-    //mixin(Tracer);
+    mixin(Tracer);
 
     ushort logPort = 9090;
     getopt(args, "logport|lp",   &logPort);
@@ -27,24 +30,22 @@ void main(string[] args)
     log.register(new ConsoleLogger);
     log.info("Starting log server on port ", logPort);
 
-    //auto logger = new Poller(logPort);
-    //logger.run();
-
     auto zctx = zctx_new();      
     auto loop = zloop_new();
-    auto sender = zsocket_new (zctx, ZMQ_SUB);
+    auto sub = zsocket_new (zctx, ZMQ_PULL);
     auto endpoint = "tcp://127.0.0.1:" ~ to!string(logPort);
+
     log.info("endpoint : ", endpoint);
-    zsocket_bind(sender, toStringz(endpoint));
-    zsocket_set_subscribe(sender, "");
+    zsocket_bind(sub, toStringz(endpoint));
 
     while(true)
     {
         try
         {
-            auto msg = zmsg_recv(sender);
+            auto msg = zmsg_recv(sub);
             if(zctx_interrupted)
             {
+                log.info("Interrupted");
                 break;
             }
             if(msg is null)
@@ -72,14 +73,15 @@ void main(string[] args)
             log.error("Exception : ", e.msg);
         }
     }
-
     zloop_destroy(&loop);
     zctx_destroy(&zctx);
-    
     log.info("Stopping logging server");
 }
 
 /*
+//auto logger = new Poller(logPort);
+//logger.run();
+
 extern(C) int onAcceptHandler(zloop_t * loop, zmq_pollitem_t * item, void * arg)
 {
     Poller poller = cast(Poller)arg;

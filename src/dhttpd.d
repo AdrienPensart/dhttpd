@@ -152,7 +152,7 @@ int main(string[] args)
         }
 
         log.register(new TcpLogger(logHost, tcpPort));
-        log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(tcpPort)));
+        log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(zmqPort)));
 
         log.trace("Threads to create : ", nbThreads);
         if(!nbThreads)

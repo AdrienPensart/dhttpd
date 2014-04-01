@@ -44,12 +44,15 @@ class Connection
             //enum TCP_CORK = 3;
             //m_socket.setOption(SocketOptionLevel.TCP, cast(SocketOption)TCP_CORK, true);
             
-            m_socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
-            Linger linger;
-            linger.on = 1;
-            linger.time = 1;
-            m_socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
+            m_socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, m_config.options[Parameter.TCP_NODELAY].get!(bool));
 
+            if(m_config.options[Parameter.TCP_LINGER].get!(bool))
+            {
+                Linger linger;
+                linger.on = 1;
+                linger.time = 1;
+                m_socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
+            }
             m_request.init();
         }
 
@@ -61,7 +64,6 @@ class Connection
             bool result = false;
             if(nread)
             {
-                log.trace("Feeding data size : ", nread);
                 m_request.feed(buffer[0..nread]);
                 auto transaction = Transaction.get(m_request, m_config);
                 if(transaction !is null)
@@ -80,11 +82,15 @@ class Connection
                         else
                         {
                             log.trace("DONT keep alive !");
+                            result = false;
                         }
                     }
                 }
-                log.trace("No response ready");
-                return m_request.status == Request.Status.NotFinished;
+                else
+                {
+                    log.trace("No response ready");
+                    result = m_request.status == Request.Status.NotFinished;
+                }
             }
             return result;
         }
@@ -161,7 +167,7 @@ class Connection
                 log.trace("Disconnection on ", handle());
                 return 0;
             }
-            log.trace("Read chunk : ", buffer[0..datalength]);
+            log.trace("Read chunk of size ", datalength, " : ", buffer[0..datalength]);
             return datalength;
         }
 

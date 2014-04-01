@@ -72,6 +72,8 @@ class Directory : Handler
         {
             auto request = transaction.request;
             Method method = request.getMethod();
+            bool includeResource = method == Method.GET;
+
             if(method != Method.GET && method != Method.HEAD)
             {
                 log.trace("Bad method ", method, " => Not Allowed");
@@ -81,23 +83,77 @@ class Directory : Handler
 
             auto finalPath = request.getPath();
             finalPath = replaceFirst(finalPath, regex(transaction.hit), directory);
+
+            auto lastModified = convertToRFC1123(timeLastModified(finalPath));
             log.trace("Path asked : ", finalPath);
+
+            import std.digest.ripemd;
+            auto etag = ripemd160Of(lastModified).toHexString.idup;
+
+            auto isIfMatch = IfMatch in request.headers;
+            if(isIfMatch)
+            {
+                log.trace("if-match request");
+            }
+
+            auto isRangeRequest = Range in request.headers;
+            if(isRangeRequest)
+            {
+                log.trace("range request");
+                auto ifRangeData = IfRange in request.headers;
+                if(ifRangeData)
+                {
+                    log.trace("if-range request");
+                }
+            }
 
             Response response = new Response;
             response.status = Status.Ok;
-            response.headers[FieldServer] = options[Parameter.SERVER_STRING].get!(string);
+            
+            auto isIfNoneMatch = IfNoneMatch in request.headers;
+            if(isIfNoneMatch)
+            {
+                log.trace("if-none-match request");
+                if(*isIfNoneMatch == etag)
+                {
+                    includeResource = false;
+                    response.status = Status.NotModified;
+                }
+            }
+
+            auto modifiedSinceDate = IfModifiedSince in request.headers;
+            if(modifiedSinceDate)
+            {
+                log.trace("Conditional GET : if-modified-since");
+                if(*modifiedSinceDate == lastModified)
+                {
+                    includeResource = false;
+                    response.status = Status.NotModified;
+                }
+            }
+
+            auto unmodifiedSinceDate = IfUnmodifiedSince in request.headers;
+            if(unmodifiedSinceDate)
+            {
+                log.trace("Conditional GET : if-unmodified-since");
+                if(*unmodifiedSinceDate != lastModified)
+                {
+                    transaction.response = new PreConditionFailedResponse;
+                    return;
+                }
+            }
+
+            import std.digest.md;
             response.headers[ContentType] = mimes.match(finalPath, defaultMime);
             response.headers[LastModified] = convertToRFC1123(timeLastModified(finalPath));
-
-            import std.digest.ripemd;
-            string etag = ripemd160Of(response.headers[LastModified]).toHexString.idup;
             response.headers[ETag] = etag;
 
-            if(method == Method.GET)
+            if(includeResource)
             {
                 auto filePoller = m_cache.get(finalPath, { return loadFile(finalPath, indexFilename); } );
                 transaction.poller = filePoller;
                 response.content = filePoller.content;
+                response.headers[ContentMD5] = md5Of(response.content).toHexString.idup;
             }
             transaction.response = response;
         }

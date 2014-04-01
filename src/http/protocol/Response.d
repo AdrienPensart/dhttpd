@@ -94,6 +94,14 @@ class Response
     }
 }
 
+class PreConditionFailedResponse : Response
+{
+    this()
+    {
+        status = Status.PrecondFailed;
+    }
+}
+
 class BadRequestResponse : Response
 {
     this(string file)

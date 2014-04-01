@@ -17,6 +17,8 @@ enum Parameter
     DEFAULT_MIME,
     MIME_TYPES,
 
+    TCP_NODELAY,
+    TCP_LINGER,
     TCP_DEFER,
     TCP_REUSEPORT,
     TCP_REUSEADDR,

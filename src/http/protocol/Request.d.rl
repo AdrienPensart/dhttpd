@@ -124,14 +124,7 @@ struct Request
 
     bool feed(char[] data)
     {
-        mixin(Tracer);
-        bool added = append(data);
-        if(added)
-        {
-            m_updated = true;
-            lengthadded += data.length;
-        }
-        return added;
+        return m_updated = append(data);;
     }
 
     void init()
@@ -144,18 +137,19 @@ struct Request
     {
         mixin(Tracer);
 
-        off = raw.length - lengthadded;
-        log.trace("off = ", off);
-        char * buffer = cast(char*)raw.ptr;
-        char * p = buffer + off;
-        char * pe = p + lengthadded;
+        off = nread;
+        log.trace("pre nread = ", nread);
+        log.trace("pre off = ", off);
+        char * buffer = raw.ptr;
+        char * p = raw.ptr + off;
+        char * pe = raw.ptr + raw.length;
 
+        log.trace("Parsing chunk : ", raw[off..raw.length]);
         %% write exec;
 
         nread += p - (buffer + off);
-        lengthadded = off;
-        log.trace("nread = ", nread);
-        log.trace("lengthadded = ", lengthadded);
+        log.trace("post nread = ", nread);
+        log.trace("post off = ", off);
         return nread;
     }
 
@@ -232,7 +226,7 @@ struct Request
         // parser data
         int cs;
         size_t nread;
-        size_t lengthadded;
+        //size_t lengthadded;
         size_t off;
         long mark;
         long field_start;

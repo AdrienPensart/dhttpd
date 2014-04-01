@@ -31,8 +31,10 @@ void startThreads(Options options)
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
     options[Parameter.FILE_CACHE] = true;
     options[Parameter.HTTP_CACHE] = true;
+    options[Parameter.TCP_NODELAY] = true;
+    options[Parameter.TCP_LINGER] = true;
     options[Parameter.MAX_CONNECTION] = 60;
-    options[Parameter.BACKLOG] = 2048;
+    options[Parameter.BACKLOG] = 16384;
     options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
     options[Parameter.TCP_DEFER] = true;
     options[Parameter.TCP_REUSEPORT] = true;
@@ -100,7 +102,6 @@ void startThreads(Options options)
         ThreadGroup workers = new ThreadGroup();
         foreach(threadIndex ; 0..nbThreads)
         {
-            log.trace("New thread ", threadIndex);
             auto child = new EvLoop();
             log.info("Adding child ", child.id, " to parent ", defaultLoop);
             interruptionEvent.addChild(child);

@@ -1,8 +1,8 @@
 module http.poller.ConnectionPoller;
+import http.poller.Poller;
 
 import deimos.ev;
 import std.socket;
-import core.memory;
 
 import dlog.Logger;
 
@@ -14,7 +14,7 @@ import http.Connection;
 
 struct ConnectionPoller
 {
-    ev_io io;
+    mixin Poller;
     ev_timer timer_io;
     Connection connection;
     Server server;
@@ -24,7 +24,13 @@ struct ConnectionPoller
         mixin(Tracer);
         this.server = server;
         this.connection = connection;
+        configurePoller();
+        acquireMemory();
+    }
 
+    private void configurePoller()
+    {
+        mixin(Tracer);
         ev_io_init(&io, &handleRequest, connection.handle(), EV_READ);
         ev_set_priority(&io, EV_MAXPRI);
         ev_io_start(server.loop.loop(), &io);
@@ -35,12 +41,9 @@ struct ConnectionPoller
         ev_timer_init (&timer_io, &connectionTimeout, 0., cast(double)duration.seconds());
         ev_set_priority (&timer_io, EV_MINPRI);
         ev_timer_again (server.loop.loop(), &timer_io);
-
-        GC.addRoot(cast(void*)&this);
-        GC.setAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
     }
 
-    void updateEvents(int events)
+    private void updateEvents(int events)
     {
         mixin(Tracer);
         ev_io_stop(server.loop.loop(), &io);
@@ -48,19 +51,18 @@ struct ConnectionPoller
         ev_io_start(server.loop.loop(), &io);
     }
 
-    void release()
+    private void release()
     {
         mixin(Tracer);
         log.trace("Shuting down : ", connection.handle());
 
+        ev_io_stop(server.loop.loop(), &io);
+        ev_timer_stop(server.loop.loop(), &timer_io);
+
         connection.shutdown();
         connection.close();
 
-        ev_io_stop(server.loop.loop(), &io);
-        ev_timer_stop(server.loop.loop(), &timer_io);
-        
-        GC.removeRoot(cast(void*)&this);
-        GC.clrAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
+        releaseMemory();
     }
 
     private static extern(C) 

@@ -17,6 +17,8 @@ elif [[ $1 == "release_autoprofile" ]]; then
 	dmd_flags="-O -release -noboundscheck -inline -version=autoprofile"
 elif [[ $1 == "debug" ]]; then
 	dmd_flags="-g -debug -gc -gs"
+elif [[ $1 == "analysis" ]]; then
+	dmd_flags="-g -release -gc -gs"
 elif [[ $1 == "debug_unittest" ]]; then
 	dmd_flags="-unittest -g -debug -gc -gs"
 elif [[ $1 == "debug_profile" ]]; then
@@ -48,9 +50,9 @@ libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq -Lsrc/xxhash/libxxhash.a"
 loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $loggersrc
 #ldmd2 $includes $libraries $dmd_flags $loggersrc
-rdmd --build-only -ofbin/logger $includes $libraries $dmd_flags src/logger.d
+rdmd --force --build-only -ofbin/logger $includes $libraries $dmd_flags src/logger.d
 #gdc -o bin/logger $includes $libraries $loggersrc
 
 dhttpdsrc="src/dhttpd.d src/loop/* src/msgpack/src/msgpack.d src/http/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $dhttpdsrc
-rdmd --build-only -ofbin/dhttpd $includes $libraries $dmd_flags src/dhttpd.d
+rdmd --force --build-only -ofbin/dhttpd $includes $libraries $dmd_flags src/dhttpd.d

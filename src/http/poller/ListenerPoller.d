@@ -1,27 +1,50 @@
 module http.poller.ListenerPoller;
+import http.poller.Poller;
 
 import dlog.Logger;
 import std.socket;
 import http.Server;
 import deimos.ev;
-import core.memory;
+
 import http.Options;
 import http.Connection;
 import http.poller.ConnectionPoller;
 
 struct ListenerPoller
 {
-    ev_io io;
+    mixin Poller;
     Socket socket;
     Server server;
+    InternetAddress address;
 
-    this(Server server, InternetAddress address)
+    this(Server a_server, InternetAddress a_address)
     {
         mixin(Tracer);
-        
-        this.server = server;
-
+        server = a_server;
+        address = a_address;
         socket = new TcpSocket;
+
+        configureSocket();
+        bindListener();
+        
+        ev_io_init(&io, &handleConnection, socket.handle(), EV_READ);
+        ev_set_priority (&io, EV_MINPRI);
+        ev_io_start(server.loop.loop(), &io);
+
+        acquireMemory();
+    }
+
+    void release()
+    {
+        mixin(Tracer);
+        log.trace("ListenerPoller released");
+        ev_io_stop(server.loop.loop(), &io);
+        releaseMemory();
+    }
+
+    private void configureSocket()
+    {
+        mixin(Tracer);
         socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, server.config.options[Parameter.TCP_REUSEADDR].get!(bool));
         enum REUSEPORT = 15;
         socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)REUSEPORT, server.config.options[Parameter.TCP_REUSEPORT].get!(bool));
@@ -33,17 +56,14 @@ struct ListenerPoller
         linger.on = 1;
         linger.time = 1;
         socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
+    }
 
+    private void bindListener()
+    {
+        mixin(Tracer);
         socket.bind(address);
         socket.blocking = false;
         socket.listen(server.config.options[Parameter.BACKLOG].get!(int));
-
-        ev_io_init(&io, &handleConnection, socket.handle(), EV_READ);
-        ev_set_priority (&io, EV_MINPRI);
-        ev_io_start(server.loop.loop(), &io);
-
-        GC.addRoot(cast(void*)&this);
-        GC.setAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
     }
 
     private static extern(C) 

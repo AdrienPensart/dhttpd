@@ -46,10 +46,12 @@ struct Buffer (T, size_t SIZE)
         return true;
     }
 
+    /*
     T[] opCast()()
     {
         return m_current[0..m_length];
     }
+    */
 
     T[] opSlice()
     {

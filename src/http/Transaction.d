@@ -54,6 +54,7 @@ class Transaction
                 transaction = a_config.dispatch(a_request);
                 log.info("Executing handler for first time");
                 transaction.execute(a_request, a_config);
+                transaction.response.headers[FieldServer] = a_config.options[Parameter.SERVER_STRING].get!(string);
                 break;
             case Request.Status.HasError:
                 // don't cache malformed request

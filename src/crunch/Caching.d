@@ -12,23 +12,25 @@ struct Cache (Key, Value)
     {
         if(m_enabled)
         {
-            Value toReturn = store.get(key, null);
-            // Value toReturn = key in store;
-            if(toReturn is null)
+            //Value toReturn = store.get(key, null);
+            auto toReturn = key in store;
+            if(toReturn)
             {
-                Value computed = value();
+                log.trace("Cached hit : ", key);
+                return *toReturn;
+            }
+            else
+            {
+                auto computed = value();
                 if(computed !is null)
                 {
                     log.trace("Cached : ", key);
                     return store[key] = computed;
                 }
                 else
+                {
                     return null;
-            }
-            else
-            {
-                log.trace("Cached hit : ", key);
-                return store[key];
+                }
             }
         }
         return value();

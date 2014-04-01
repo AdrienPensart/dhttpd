@@ -1,10 +1,11 @@
 src/http/protocol/Request.d
+*.data
 *.o
 *.out
 *.log
 *.def
 *.dot
 *.png
-dhttpd
-logger
-utils/profile
+bin/profile
+bin/dhttpd
+bin/logger

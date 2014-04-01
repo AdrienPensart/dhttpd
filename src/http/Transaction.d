@@ -28,13 +28,10 @@ class Transaction
     {
         mixin(Tracer);
         auto transaction = cache.get(a_request.hash, { return compute(a_request, a_config); } );
-        if(transaction !is null)
+        if(transaction && transaction.poller && transaction.poller.reload)
         {
-            if(transaction.poller !is null && transaction.poller.reload)
-            {
-                log.info("Executing handler again");
-                transaction.execute(transaction.request, a_config);
-            }
+            log.info("Executing handler again");
+            transaction.execute(transaction.request, a_config);
         }
         return transaction;
     }

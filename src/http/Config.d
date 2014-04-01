@@ -73,7 +73,7 @@ class Config
             }
         }
         // not host found, fallback on default host
-        if(m_fallback !is null)
+        if(m_fallback)
         {
             return m_fallback.dispatch(request);
         }

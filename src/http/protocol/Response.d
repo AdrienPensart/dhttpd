@@ -17,7 +17,7 @@ import dlog.Logger;
 class Response
 {
     mixin Message;
-    private string m_response;
+    private char[] m_response;
     private Status m_status = Status.Invalid;
     private bool m_keepalive = false;
     // TODO : Cookies handling
@@ -51,7 +51,7 @@ class Response
         return m_keepalive = a_keepalive;
     }
 
-    string get()
+    char[] get()
     {
         mixin(Tracer);
 
@@ -64,7 +64,7 @@ class Response
                 headers[FieldDate] = "";
             }
 
-            auto writer = appender!string();
+            auto writer = appender!(char[])();
             string reason = toReason(status);
             formattedWrite(writer, "%s %d %s\r\n", protocol, status, reason);
             if(content.length)

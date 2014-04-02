@@ -18,36 +18,36 @@ struct FilePoller
 
     this(string a_path, EvLoop a_loop)
     {
-    	mixin(Tracer);
-    	m_loop = a_loop;
-    	m_path = a_path.dup;
+        mixin(Tracer);
+        m_loop = a_loop;
+        m_path = a_path.dup;
 
-    	log.info("Loading and following file ", a_path);
-    	reload = true;
+        log.info("Loading and following file ", a_path);
+        reload = true;
 
-    	ev_stat_init (&m_stat, &handleFilechange, m_path.ptr, 0.);
-   		ev_stat_start (m_loop.loop(), &m_stat);
+        ev_stat_init (&m_stat, &handleFilechange, m_path.ptr, 0.);
+        ev_stat_start (m_loop.loop(), &m_stat);
 
-   		GC.addRoot(cast(void*)&this);
+        GC.addRoot(cast(void*)&this);
         GC.setAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
     }
 
     @property auto content()
     {
-    	if(reload)
-    	{
-    		log.info("(Re)loading file ", m_path);
-    		m_content = cast(char[])read(m_path);
-    		reload = false;
-    	}
-    	return m_content;
+        if(reload)
+        {
+            log.info("(Re)loading file ", m_path);
+            m_content = cast(char[])read(m_path);
+            reload = false;
+        }
+        return m_content;
     }
 
     void release()
     {
-    	mixin(Tracer);
-    	ev_stat_stop(m_loop.loop(), &m_stat);
-    	GC.removeRoot(cast(void*)&this);
+        mixin(Tracer);
+        ev_stat_stop(m_loop.loop(), &m_stat);
+        GC.removeRoot(cast(void*)&this);
         GC.clrAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
     }
 
@@ -55,20 +55,20 @@ struct FilePoller
     {
         void handleFilechange(ev_loop_t *loop, ev_stat * watcher, int revents)
         {
-        	mixin(Tracer);
-        	auto filePoller = cast(FilePoller *)watcher;
+            mixin(Tracer);
+            auto filePoller = cast(FilePoller *)watcher;
 
-        	if (watcher.attr.st_nlink)
-       		{
-       			// invalidate file cache
-       			log.info("File to reload : ", filePoller.m_path);
-       			filePoller.reload = true;
-       		}
-       		else
-       		{
-       			// file deleted
-       			log.info("File deleted ! ");
-       		}
+            if (watcher.attr.st_nlink)
+            {
+                // invalidate file cache
+                log.info("File to reload : ", filePoller.m_path);
+                filePoller.reload = true;
+            }
+            else
+            {
+                // file deleted
+                log.info("File deleted ! ");
+            }
         }
     }
 }

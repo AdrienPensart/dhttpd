@@ -52,7 +52,7 @@ class Connection : ReferenceCounter!(Connection)
         {
             mixin(Tracer);
             static char[65535] buffer;
-            auto nread = readChunk(buffer);
+            auto nread = read(buffer);
             bool result = false;
             if(nread)
             {
@@ -61,7 +61,7 @@ class Connection : ReferenceCounter!(Connection)
                     // can't feed our request (limit size ?)
                     log.trace("Entity feeding too large");
                     auto entityTooLargeResponse = new EntityTooLargeResponse;
-                    writeChunk(entityTooLargeResponse.get());
+                    write(entityTooLargeResponse.get());
                     return false;
                 }
 
@@ -72,7 +72,7 @@ class Connection : ReferenceCounter!(Connection)
                     m_request = Request();
                     m_request.init();
                     auto data = transaction.response.get();
-                    if(writeChunk(data))
+                    if(write(data))
                     {
                         if(transaction.keepalive)
                         {
@@ -140,10 +140,10 @@ class Connection : ReferenceCounter!(Connection)
 
     private
     {
-        size_t readChunk(char[] buffer)
+        size_t read(char[] chunk)
         {
             mixin(Tracer);
-            auto datalength = socket.receive(buffer);
+            auto datalength = socket.receive(chunk);
             if (datalength == Socket.ERROR)
             {
                 log.warning("Socket error : ", lastSocketError());
@@ -158,16 +158,16 @@ class Connection : ReferenceCounter!(Connection)
             return datalength;
         }
 
-        bool writeChunk(string data)
+        bool write(char[] chunk)
         {
             mixin(Tracer);
-            auto datalength = socket.send(data);
-            log.trace("Size of chunk to write : ", data.length, ", size written : ", datalength);
+            auto datalength = socket.send(chunk);
+            log.trace("Size of chunk to write : ", chunk.length, ", size written : ", datalength);
             /*
             import core.sys.posix.sys.uio;
             auto iov = iovec();
-            iov.iov_base = cast(void*)data.ptr;
-            iov.iov_len = data.length;
+            iov.iov_base = cast(void*)chunk.ptr;
+            iov.iov_len = chunk.length;
             auto datalength = writev(socket.handle(), &iov, 1);
             */
             if (datalength == Socket.ERROR)
@@ -180,9 +180,9 @@ class Connection : ReferenceCounter!(Connection)
                 log.warning("Connection from ", m_address, " closed on ", handle(), " (", lastSocketError(), ")");
                 return false;
             }
-            else if(datalength < data.length)
+            else if(datalength < chunk.length)
             {
-                log.warning("Data not sent on ", handle(), " : ", datalength, " < ", data.length, " (", lastSocketError(), ")");
+                log.warning("Data not sent on ", handle(), " : ", datalength, " < ", chunk.length, " (", lastSocketError(), ")");
             }
             return true;
         }

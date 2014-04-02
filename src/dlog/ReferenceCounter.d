@@ -3,7 +3,7 @@ import dlog.Logger;
 import core.sync.mutex;
 
 // per thread reference counter
-class ReferenceCounter (T)
+class ReferenceCounter(T)
 {
 	//version(autoprofile)
 	//{
@@ -52,17 +52,17 @@ class ReferenceCounter (T)
 
 	~this()
 	{
-		if(m_alive > 0)
-			m_alive--;
+		m_alive--;
 	}
 
-	static void showReferences()
+	static bool changed()
 	{
-		if(m_alive != m_alive_show)
-	    {
-	        m_alive_show = m_alive;
-	        log.statistic(T.stringof, " alive ", m_alive);
-	    }
+		return m_alive != m_alive_show;
+	}
+
+	static ulong getAlivedNumber()
+	{
+		return m_alive_show = m_alive;
 	}
 
 	static ulong m_alive = 0;

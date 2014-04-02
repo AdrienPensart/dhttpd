@@ -43,11 +43,6 @@ class Directory : Handler
         this.defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
     
-    FilePoller* loadFile(string finalPath, string indexFilename)
-    {
-        return new FilePoller(finalPath, Transaction.loop);
-    }
-
     static void invalidateFile(string finalPath)
     {
         log.info("Invalidating file ", finalPath);
@@ -152,7 +147,7 @@ class Directory : Handler
 
             if(includeResource)
             {
-                auto filePoller = m_cache.get(finalPath, { return loadFile(finalPath, indexFilename); } );
+                auto filePoller = m_cache.get(finalPath, { return new FilePoller(finalPath, Transaction.loop); } );
                 transaction.poller = filePoller;
                 response.content = filePoller.content;
             }

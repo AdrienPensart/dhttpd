@@ -19,6 +19,7 @@ import http.handler.Directory;
 import http.handler.Proxy;
 
 import loop.EvLoop;
+import loop.LogStatisticEvent;
 import loop.InterruptionEvent;
 import loop.GCEvent;
 
@@ -91,6 +92,9 @@ void startThreads(Options options)
 
     auto garbageCollectionEvent = new GCEvent(evLoop, options[Parameter.GC_MODE].get!(GCMode), options[Parameter.GC_TIMER].get!(double));
     evLoop.addEvent(garbageCollectionEvent);
+
+    auto logStatisticEvent = new LogStatisticEvent(evLoop);
+    evLoop.addEvent(logStatisticEvent);
 
     auto nbThreads = options[Parameter.NB_THREADS].get!(uint);
     if(nbThreads == 1)

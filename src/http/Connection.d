@@ -19,7 +19,7 @@ import http.handler.Handler;
 
 import dlog.Logger;
 
-class Connection
+class Connection : ReferenceCounter!(Connection)
 {
     private
     {
@@ -54,11 +54,6 @@ class Connection
                 m_socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
             }
             m_request.init();
-        }
-
-        ~this()
-        {
-            
         }
 
         bool synctreat()

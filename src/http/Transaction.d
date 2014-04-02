@@ -13,7 +13,7 @@ import http.protocol.Protocol;
 import http.handler.Handler;
 import http.poller.FilePoller;
 
-class Transaction
+class Transaction : ReferenceCounter!(Transaction)
 {
 	static EvLoop loop;
     static Cache!(uint, Transaction) cache;

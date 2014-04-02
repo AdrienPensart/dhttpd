@@ -1,11 +1,15 @@
-module loop.LogStatistic;
+module loop.LogStatisticEvent;
 
+import std.typecons;
+import std.typetuple;
 import loop.Event;
 import loop.EvLoop;
 import dlog.Logger;
+
+import http.Transaction;
 import http.Connection;
 
-class LogStatistic : Event
+class LogStatisticEvent : Event
 {
     this(EvLoop a_loop)
     {
@@ -33,7 +37,14 @@ class LogStatistic : Event
 
     private extern(C) static void log_statistic (ev_loop_t * loop, ev_timer * w, int revents)
     {
-        Connection.showReferences();
+        alias RefCountedTypes = TypeTuple!(Connection, Transaction);
+        foreach(type ; RefCountedTypes)
+        {
+            if(type.changed())
+            {
+                log.statistic(typeid(type), " alive ", type.getAlivedNumber());
+            }
+        }
         ev_timer_again(loop, w);
     }
 }

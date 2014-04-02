@@ -31,6 +31,8 @@ class Connection : ReferenceCounter!(Connection)
         Request m_request;
         uint m_maxRequest;
         uint m_processedRequest;
+        Transaction[] m_queue;
+        bool keepalive = true;
     }
 
     public
@@ -47,13 +49,12 @@ class Connection : ReferenceCounter!(Connection)
             m_socket.setLinger(m_config.options[Parameter.TCP_LINGER].get!(bool));
             m_request.init();
         }
-
-        bool synctreat()
+/*
+        void synctreat()
         {
             mixin(Tracer);
             static char[65535] buffer;
             auto nread = read(buffer);
-            bool result = false;
             if(nread)
             {
                 if(!m_request.feed(buffer[0..nread]))
@@ -62,34 +63,82 @@ class Connection : ReferenceCounter!(Connection)
                     log.trace("Entity feeding too large");
                     auto entityTooLargeResponse = new EntityTooLargeResponse;
                     write(entityTooLargeResponse.get());
-                    return false;
-                }
-
-                auto transaction = Transaction.get(m_request, m_config);
-                if(transaction)
-                {
-                    auto data = transaction.response.get();
-                    if(write(data))
-                    {
-                        log.trace(transaction.keepalive ? "Keep alive !" : "DONT keep alive !");
-                        result = transaction.keepalive;
-                    }
-                    m_processedRequest++;
-                    m_request = Request();
-                    m_request.init();
+                    keepalive = false;
                 }
                 else
                 {
-                    log.trace("No response ready");
-                    result = m_request.status == Request.Status.NotFinished;
+                    auto transaction = Transaction.get(m_request, m_config);
+                    if(transaction)
+                    {
+                        auto data = transaction.response.get();
+                        if(write(data))
+                        {
+                            log.trace(transaction.keepalive ? "Keep alive !" : "DONT keep alive !");
+                            keepalive = transaction.keepalive;
+                        }
+                        m_processedRequest++;
+                        m_request = Request();
+                        m_request.init();
+                    }
+                    else
+                    {
+                        log.trace("No response ready");
+                        keepalive = m_request.status == Request.Status.NotFinished;
+                    }
                 }
             }
-            if(m_processedRequest > m_maxRequest)
+        }
+*/
+        void recv()
+        {
+            mixin(Tracer);
+            static char[65535] buffer;
+            auto nread = read(buffer);
+            if(nread)
             {
-                log.warning("Too much requests occured on connection : ", handle);
-                return false;
+                if(!m_request.feed(buffer[0..nread]))
+                {
+                    // can't feed our request (limit size ?)
+                    log.trace("Entity feeding too large");
+                    auto entityTooLargeResponse = new EntityTooLargeResponse;
+                    write(entityTooLargeResponse.get());
+                    keepalive = false;
+                }
+                else
+                {
+                    auto transaction = Transaction.get(m_request, m_config);
+                    if(transaction)
+                    {
+                        m_queue ~= transaction;
+                        m_processedRequest++;
+                        m_request = Request();
+                        m_request.init();
+                    }
+                    else
+                    {
+                        log.trace("No response ready");
+                        keepalive = m_request.status == Request.Status.NotFinished;
+                    }
+                }
             }
-            return result;
+            else
+            {
+                keepalive = false;
+            }
+        }
+
+        void send()
+        {
+            mixin(Tracer);
+            if(empty)
+            {
+                log.trace("Empty queue on ", handle());
+                return;
+            }
+            auto transaction = m_queue.front();
+            m_queue.popFront();
+            keepalive = write(transaction.response.get()) && transaction.keepalive;
+            log.trace(keepalive ? "Keep alive !" : "DONT keep alive !");
         }
 
         @property auto handle()
@@ -126,12 +175,17 @@ class Connection : ReferenceCounter!(Connection)
 
         @property auto valid()
         {
-            return m_processedRequest < m_maxRequest && socket.isAlive && handle != -1;
+            return keepalive && m_processedRequest < m_maxRequest && socket.isAlive && handle != -1;
         }
 
         @property auto address()
         {
             return m_address;
+        }
+
+        @property auto empty()
+        {
+            return m_queue.empty();
         }
     }
 
@@ -159,6 +213,7 @@ class Connection : ReferenceCounter!(Connection)
         {
             mixin(Tracer);
             auto datalength = socket.send(chunk);
+            log.trace("Chunk written : ", chunk);
             log.trace("Size of chunk to write : ", chunk.length, ", size written : ", datalength);
             /*
             import core.sys.posix.sys.uio;

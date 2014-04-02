@@ -97,16 +97,44 @@ struct ConnectionPoller
                 if(EV_ERROR & revents)
                 {
                     log.error("Connection in error on ", connectionPoller.connection.handle());
+                    connectionPoller.release();
                     return;
                 }
 
+                Connection connection = connectionPoller.connection;
+                /*
                 if(EV_READ & revents)
                 {
-                    ev_timer_again (loop, &connectionPoller.timer_io);
-                    if(!connectionPoller.connection.synctreat())
+                    connection.synctreat();
+                }
+                */
+                if(EV_READ & revents)
+                {
+                    connection.recv();
+                    if(!connection.empty)
                     {
-                        connectionPoller.release();
+                        log.trace("Activating response on ", connection.handle);
+                        connectionPoller.updateEvents(EV_WRITE | EV_READ);
                     }
+                }
+
+                if(EV_WRITE & revents)
+                {
+                    connection.send();
+                    if(connection.empty)
+                    {
+                        log.trace("Empty queue after sending response on ", connection.handle);
+                        connectionPoller.updateEvents(EV_READ);
+                    }
+                }
+                
+                if(connection.valid)
+                {
+                    ev_timer_again (loop, &connectionPoller.timer_io);
+                }
+                else
+                {
+                    connectionPoller.release();
                 }
             }
             catch(Exception e)

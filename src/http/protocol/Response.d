@@ -17,7 +17,7 @@ import dlog.Logger;
 class Response
 {
     mixin Message;
-    private char[] m_response;
+    private char[] m_header;
     private Status m_status = Status.Invalid;
     private bool m_keepalive = false;
     // TODO : Cookies handling
@@ -51,11 +51,14 @@ class Response
         return m_keepalive = a_keepalive;
     }
 
-    char[] get()
+    @property char[] header()
+    in
+    {
+        assert(status != Status.Invalid, "HTTP Status code invalid");
+    }
+    body
     {
         mixin(Tracer);
-
-        assert(status != Status.Invalid, "HTTP Status code invalid");
         if(updateToRFC1123(headers[FieldDate]) || updated)
         {
             if(status == Status.Continue || status == Status.SwitchProtocol || isError(status))
@@ -65,6 +68,9 @@ class Response
             }
 
             auto writer = appender!(char[])();
+            //m_header.length = 0;
+            //auto writer = RefAppender!(char[])(&m_header);
+
             string reason = toReason(status);
             formattedWrite(writer, "%s %d %s\r\n", protocol, status, reason);
             if(content.length)
@@ -80,17 +86,16 @@ class Response
                     formattedWrite(writer, "%s: %s\r\n", index, value);
                 }
             }
-            
             formattedWrite(writer, "\r\n");
-
-            if(content.length)
-            {
-                formattedWrite(writer, "%s", content);
-            }
-            m_response = writer.data;
+            m_header = writer.data;
             updated = false;
         }
-        return m_response;
+        return m_header;
+    }
+    
+    char[] get()
+    {
+        return header ~ content;
     }
 }
 

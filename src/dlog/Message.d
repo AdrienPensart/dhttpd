@@ -22,12 +22,10 @@ class Message
     // date of emission (for log store)
 	string date;
 
-    /*
     @property SysTime sysdate() const
     {
         return SysTime.fromISOString(date);
     }
-    */
     
     this()
     {

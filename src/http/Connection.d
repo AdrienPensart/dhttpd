@@ -18,6 +18,8 @@ import http.VirtualHost;
 import http.handler.Handler;
 
 import dlog.Logger;
+import crunch.Utils;
+
 
 class Connection : ReferenceCounter!(Connection)
 {
@@ -27,8 +29,8 @@ class Connection : ReferenceCounter!(Connection)
         Socket m_socket;
         Config m_config;
         Request m_request;
-        uint maxRequest;
-        uint processedRequest;
+        uint m_maxRequest;
+        uint m_processedRequest;
     }
 
     public
@@ -39,20 +41,10 @@ class Connection : ReferenceCounter!(Connection)
             m_socket = a_socket;
             m_address = m_socket.remoteAddress();
             m_config = a_config;
-            maxRequest = m_config.options[Parameter.MAX_REQUEST].get!(uint);
+            m_maxRequest = m_config.options[Parameter.MAX_REQUEST].get!(uint);
             m_socket.blocking = false;
-            //enum TCP_CORK = 3;
-            //m_socket.setOption(SocketOptionLevel.TCP, cast(SocketOption)TCP_CORK, true);
-            
-            m_socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, m_config.options[Parameter.TCP_NODELAY].get!(bool));
-
-            if(m_config.options[Parameter.TCP_LINGER].get!(bool))
-            {
-                Linger linger;
-                linger.on = 1;
-                linger.time = 1;
-                m_socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
-            }
+            m_socket.setNoDelay(m_config.options[Parameter.TCP_NODELAY].get!(bool));
+            m_socket.setLinger(m_config.options[Parameter.TCP_LINGER].get!(bool));
             m_request.init();
         }
 
@@ -76,7 +68,7 @@ class Connection : ReferenceCounter!(Connection)
                 auto transaction = Transaction.get(m_request, m_config);
                 if(transaction)
                 {
-                    processedRequest++;
+                    m_processedRequest++;
                     m_request = Request();
                     m_request.init();
                     auto data = transaction.response.get();
@@ -112,10 +104,10 @@ class Connection : ReferenceCounter!(Connection)
         {
             return m_socket;
         }
-            
-        auto setMaxRequest(uint a_maxRequest)
+        
+        @property auto maxRequest()
         {
-            maxRequest = a_maxRequest;
+            return m_maxRequest;
         }
 
         void close()
@@ -135,22 +127,9 @@ class Connection : ReferenceCounter!(Connection)
             }
         }
 
-        auto alive()
+        @property auto valid()
         {
-            return socket.isAlive && socket.handle != -1;
-        }
-
-        auto tooMuchRequests()
-        {
-            //log.trace("Processed requests : ", processedRequest);
-            //log.trace("Max requests : ", maxRequest);
-            //log.trace("Too much request : ", processedRequest > maxRequest);
-            return processedRequest > maxRequest;
-        }
-
-        auto valid()
-        {
-            return !tooMuchRequests() && alive();
+            return m_processedRequest < m_maxRequest && socket.isAlive && socket.handle != -1;
         }
 
         @property auto address()

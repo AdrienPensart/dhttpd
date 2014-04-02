@@ -2,6 +2,7 @@ module http.poller.ListenerPoller;
 import http.poller.Poller;
 
 import dlog.Logger;
+import crunch.Utils;
 import std.socket;
 import http.Server;
 import deimos.ev;
@@ -44,20 +45,13 @@ struct ListenerPoller
 
     private void configureSocket()
     {
-        mixin(Tracer);
-        socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, server.config.options[Parameter.TCP_REUSEADDR].get!(bool));
-        enum REUSEPORT = 15;
-        socket.setOption(SocketOptionLevel.SOCKET, cast(SocketOption)REUSEPORT, server.config.options[Parameter.TCP_REUSEPORT].get!(bool));
-        enum TCP_DEFER_ACCEPT = 9;
-        socket.setOption(SocketOptionLevel.TCP, cast(SocketOption)TCP_DEFER_ACCEPT, server.config.options[Parameter.TCP_DEFER].get!(bool));
-
-        socket.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, true);
-        Linger linger;
-        linger.on = 1;
-        linger.time = 1;
-        socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
-
-        log.info("Set up listener fd : ", socket.handle());
+        mixin(Tracer);        
+        socket.enableReuseAddr(server.config.options[Parameter.TCP_REUSEADDR].get!(bool));
+        socket.enableReusePort(server.config.options[Parameter.TCP_REUSEPORT].get!(bool));
+        socket.enableDeferAccept(server.config.options[Parameter.TCP_DEFER].get!(bool));
+        socket.setNoDelay(server.config.options[Parameter.TCP_NODELAY].get!(bool));
+        socket.setLinger(server.config.options[Parameter.TCP_LINGER].get!(bool));
+        log.trace("Set up listener fd : ", socket.handle());
     }
 
     private void bindListener()

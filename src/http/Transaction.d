@@ -67,7 +67,7 @@ class Transaction : ReferenceCounter!(Transaction)
                 transaction.response.headers[FieldServer] = a_config.options[Parameter.SERVER_STRING].get!(string);
                 break;
             case Request.Status.HasError:
-                // don't cache malformed request
+                // cache malformed request in limited manner
                 log.trace("Malformed request => Bad Request");
                 auto response = new BadRequestResponse(a_config.options[Parameter.BAD_REQUEST_FILE].toString());
                 response.headers[FieldConnection] = "close";

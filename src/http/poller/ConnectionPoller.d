@@ -107,41 +107,6 @@ struct ConnectionPoller
                         connectionPoller.release();
                     }
                 }
-                /*
-                if(EV_READ & revents)
-                {
-                    log.trace("Receiving request on ", connectionPoller.connection.handle());
-                    if(connectionPoller.connection.recv())
-                    {
-                        ev_timer_again (loop, &connectionPoller.timer_io);
-                        if(!connectionPoller.connection.empty())
-                        {
-                            log.trace("Activating response on ", connectionPoller.connection.handle());
-                            connectionPoller.updateEvents(EV_WRITE | EV_READ);
-                        }
-                    }
-                }
-
-                if(EV_WRITE & revents)
-                {
-                    log.trace("Sending response on ", connectionPoller.connection.handle());
-                    if(connectionPoller.connection.send())
-                    {
-                        ev_timer_again (loop, &connectionPoller.timer_io);
-                        if(connectionPoller.connection.empty())
-                        {
-                            log.trace("Empty queue after sending response");
-                            connectionPoller.updateEvents(EV_READ);
-                        }
-                    }
-                }
-                
-                if(!connectionPoller.connection.valid())
-                {
-                    log.trace("Connection terminated.");
-                    shutdown(connectionPoller);
-                }
-                */
             }
             catch(Exception e)
             {

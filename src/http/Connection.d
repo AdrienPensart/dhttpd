@@ -68,23 +68,15 @@ class Connection : ReferenceCounter!(Connection)
                 auto transaction = Transaction.get(m_request, m_config);
                 if(transaction)
                 {
-                    m_processedRequest++;
-                    m_request = Request();
-                    m_request.init();
                     auto data = transaction.response.get();
                     if(write(data))
                     {
-                        if(transaction.keepalive)
-                        {
-                            log.trace("Keep alive !");
-                            result = true;
-                        }
-                        else
-                        {
-                            log.trace("DONT keep alive !");
-                            result = false;
-                        }
+                        log.trace(transaction.keepalive ? "Keep alive !" : "DONT keep alive !");
+                        result = transaction.keepalive;
                     }
+                    m_processedRequest++;
+                    m_request = Request();
+                    m_request.init();
                 }
                 else
                 {

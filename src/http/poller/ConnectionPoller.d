@@ -1,11 +1,10 @@
 module http.poller.ConnectionPoller;
-import http.poller.Poller;
 
 import deimos.ev;
 import std.socket;
 
 import dlog.Logger;
-
+import crunch.ManualMemory;
 import http.Connection;
 import http.Config;
 import http.Options;
@@ -14,10 +13,12 @@ import http.Connection;
 
 struct ConnectionPoller
 {
-    mixin Poller;
+    ev_io io;
     ev_timer timer_io;
     Connection connection;
     Server server;
+
+    mixin ManualMemory;
 
     this(Server server, Connection connection)
     {

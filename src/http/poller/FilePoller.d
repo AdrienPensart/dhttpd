@@ -3,7 +3,7 @@ module http.poller.FilePoller;
 import deimos.ev;
 import loop.EvLoop;
 import dlog.Logger;
-import core.memory;
+import crunch.ManualMemory;
 import std.string;
 import std.file;
 import http.handler.Directory;
@@ -15,6 +15,8 @@ struct FilePoller
     char[] m_content;
     bool reload = false;
     EvLoop m_loop;
+
+    mixin ManualMemory;
 
     this(string a_path, EvLoop a_loop)
     {
@@ -28,8 +30,7 @@ struct FilePoller
         ev_stat_init (&m_stat, &handleFilechange, m_path.ptr, 0.);
         ev_stat_start (m_loop.loop(), &m_stat);
 
-        GC.addRoot(cast(void*)&this);
-        GC.setAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
+        acquireMemory();
     }
 
     @property auto content()
@@ -47,8 +48,7 @@ struct FilePoller
     {
         mixin(Tracer);
         ev_stat_stop(m_loop.loop(), &m_stat);
-        GC.removeRoot(cast(void*)&this);
-        GC.clrAttr(cast(void*)&this, GC.BlkAttr.NO_MOVE);
+        releaseMemory();
     }
 
     private static extern(C) 

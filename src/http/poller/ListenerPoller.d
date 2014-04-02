@@ -1,8 +1,8 @@
 module http.poller.ListenerPoller;
-import http.poller.Poller;
 
 import dlog.Logger;
 import crunch.Utils;
+import crunch.ManualMemory;
 import std.socket;
 import http.Server;
 import deimos.ev;
@@ -13,10 +13,12 @@ import http.poller.ConnectionPoller;
 
 struct ListenerPoller
 {
-    mixin Poller;
+    ev_io io;
     Socket socket;
     Server server;
     InternetAddress address;
+
+    mixin ManualMemory;
 
     this(Server a_server, InternetAddress a_address)
     {

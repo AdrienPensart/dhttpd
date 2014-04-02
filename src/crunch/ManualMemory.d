@@ -1,12 +1,8 @@
-module http.poller.Poller;
+module crunch.ManualMemory;
 
-import deimos.ev;
-
-mixin template Poller()
+mixin template ManualMemory()
 {
-	ev_io io;
 	import core.memory;
-
 	private void acquireMemory()
 	{
 		GC.addRoot(cast(void*)&this);

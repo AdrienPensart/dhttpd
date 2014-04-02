@@ -144,7 +144,7 @@ struct Request
         char * p = raw.ptr + off;
         char * pe = raw.ptr + raw.length;
 
-        log.trace("Parsing chunk : ", raw[off..raw.length]);
+        //log.trace("Parsing chunk : ", raw[off..raw.length]);
         %% write exec;
 
         nread += p - (buffer + off);

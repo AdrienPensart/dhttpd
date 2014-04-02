@@ -23,7 +23,7 @@ struct FilePoller
     	m_path = a_path.dup;
 
     	log.info("Loading and following file ", a_path);
-    	m_content = readText!(char[])(m_path);
+    	reload = true;
 
     	ev_stat_init (&m_stat, &handleFilechange, m_path.ptr, 0.);
    		ev_stat_start (m_loop.loop(), &m_stat);
@@ -36,8 +36,8 @@ struct FilePoller
     {
     	if(reload)
     	{
-    		log.info("Reloading file ", m_path);
-    		m_content = readText!(char[])(m_path);
+    		log.info("(Re)loading file ", m_path);
+    		m_content = cast(char[])read(m_path);
     		reload = false;
     	}
     	return m_content;

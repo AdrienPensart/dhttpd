@@ -167,7 +167,7 @@ class Connection
                 log.trace("Disconnection on ", handle());
                 return 0;
             }
-            log.trace("Read chunk of size ", datalength, " : ", buffer[0..datalength]);
+            //log.trace("Read chunk of size ", datalength, " : ", buffer[0..datalength]);
             return datalength;
         }
 

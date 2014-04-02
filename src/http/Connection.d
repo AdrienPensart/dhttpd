@@ -92,15 +92,20 @@ class Connection : ReferenceCounter!(Connection)
                     result = m_request.status == Request.Status.NotFinished;
                 }
             }
+            if(m_processedRequest > m_maxRequest)
+            {
+                log.warning("Too much requests occured on connection : ", handle);
+                return false;
+            }
             return result;
         }
 
-        auto handle()
+        @property auto handle()
         {
             return socket.handle;
         }
 
-        auto socket()
+        @property auto socket()
         {
             return m_socket;
         }
@@ -129,7 +134,7 @@ class Connection : ReferenceCounter!(Connection)
 
         @property auto valid()
         {
-            return m_processedRequest < m_maxRequest && socket.isAlive && socket.handle != -1;
+            return m_processedRequest < m_maxRequest && socket.isAlive && handle != -1;
         }
 
         @property auto address()
@@ -172,17 +177,17 @@ class Connection : ReferenceCounter!(Connection)
             */
             if (datalength == Socket.ERROR)
             {
-                log.warning("Connection error ", m_address, " on ", handle());
+                log.warning("Connection error ", m_address, " on ", handle);
                 return false;
             }
             else if(datalength == 0)
             {
-                log.warning("Connection from ", m_address, " closed on ", handle(), " (", lastSocketError(), ")");
+                log.warning("Connection from ", m_address, " closed on ", handle, " (", lastSocketError(), ")");
                 return false;
             }
             else if(datalength < chunk.length)
             {
-                log.warning("Data not sent on ", handle(), " : ", datalength, " < ", chunk.length, " (", lastSocketError(), ")");
+                log.warning("Data not sent on ", handle, " : ", datalength, " < ", chunk.length, " (", lastSocketError(), ")");
             }
             return true;
         }

@@ -12,3 +12,4 @@ set -xe
 for i in `seq $1`; do
     ./dhttpd --t=$2 &
 done
+

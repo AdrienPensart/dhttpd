@@ -40,7 +40,7 @@ void startThreads(Options options)
     options[Parameter.TCP_REUSEPORT] = true;
     options[Parameter.TCP_REUSEADDR] = true;
 
-    options[Parameter.MAX_REQUEST] = 1_000u; // max request allowed per connection
+    options[Parameter.MAX_REQUEST] = 1_000_000u; // max request allowed per connection
     options[Parameter.MAX_HEADER] = 8192; // max header size allowed
     options[Parameter.MAX_GET_REQUEST] = 16384;
     options[Parameter.MAX_PUT_REQUEST] = 16384;

@@ -30,7 +30,6 @@ class Transaction : ReferenceCounter!(Transaction)
         response = a_response;
     }
 
-
     this(ref Request a_request, Handler a_handler, string a_hit)
     {
         request = a_request;
@@ -54,7 +53,7 @@ class Transaction : ReferenceCounter!(Transaction)
     {
         mixin(Tracer);
         Transaction transaction;
-        a_request.parse();
+        a_request.parse(a_config.options);
         final switch(a_request.status())
         {
             case Request.Status.NotFinished:

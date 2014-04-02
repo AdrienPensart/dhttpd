@@ -58,12 +58,11 @@ class Directory : Handler
         try
         {
             auto request = transaction.request;
-            Method method = request.getMethod();
-            bool includeResource = method == Method.GET;
+            bool includeResource = request.method == Method.GET;
 
-            if(method != Method.GET && method != Method.HEAD)
+            if(request.method != Method.GET && request.method != Method.HEAD)
             {
-                log.trace("Bad method ", method, " => Not Allowed");
+                log.trace("Bad method ", request.method, " => Not Allowed");
                 transaction.response = new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
                 return;
             }

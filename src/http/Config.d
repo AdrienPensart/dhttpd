@@ -51,12 +51,12 @@ class Config
         }
     }
 
-    @property auto options()
+    @property ref Options options()
     {
     	return m_options;
     }
 
-    @property auto addresses()
+    @property ref InternetAddress[] addresses()
     {
     	return m_addresses;
     }

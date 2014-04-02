@@ -5,6 +5,7 @@ import std.uni;
 
 import dlog.Logger;
 
+import http.Options;
 import http.protocol.Message;
 import http.protocol.Protocol;
 import http.protocol.Method;
@@ -59,8 +60,22 @@ import http.protocol.Header;
     
     action request_method {
         size_t end = fpc - buffer - mark;
-        setMethod(raw[mark..mark+end]);
-        log.trace("Method : ", getMethod());
+        m_method = cast(Method)raw[mark..mark+end];
+        switch(m_method)
+        {
+            case Method.GET:
+                raw.limit = options[Parameter.MAX_GET_REQUEST].get!(int);
+                break;
+            case Method.PUT:
+                raw.limit = options[Parameter.MAX_PUT_REQUEST].get!(int);
+                break;
+            case Method.POST:
+                raw.limit = options[Parameter.MAX_POST_REQUEST].get!(int);
+                break;
+            default:
+                break;
+        }
+        log.trace("Method : ", m_method, ", request limit is now : ", raw.limit);
     }
     
     action request_uri {
@@ -133,7 +148,7 @@ struct Request
         raw.init(8192);
     }
 
-    size_t parse()
+    size_t parse(ref Options options)
     {
         mixin(Tracer);
 
@@ -177,14 +192,9 @@ struct Request
         return cs >= %%{ write first_final; }%%;
     }
 
-    void setMethod(char[] method)
+    @property auto method()
     {
-        this.method = cast(Method)method;
-    }
-
-    auto getMethod()
-    {
-        return method;
+        return m_method;
     }
 
     auto getPath()
@@ -221,7 +231,7 @@ struct Request
         string fragment;
         string uri;
         string path;
-        Method method;
+        Method m_method;
 
         // parser data
         int cs;

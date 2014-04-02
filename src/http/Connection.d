@@ -64,7 +64,15 @@ class Connection : ReferenceCounter!(Connection)
             bool result = false;
             if(nread)
             {
-                m_request.feed(buffer[0..nread]);
+                if(!m_request.feed(buffer[0..nread]))
+                {
+                    // can't feed our request (limit size ?)
+                    log.trace("Entity feeding too large");
+                    auto entityTooLargeResponse = new EntityTooLargeResponse;
+                    writeChunk(entityTooLargeResponse.get());
+                    return false;
+                }
+
                 auto transaction = Transaction.get(m_request, m_config);
                 if(transaction)
                 {
@@ -174,7 +182,6 @@ class Connection : ReferenceCounter!(Connection)
         bool writeChunk(string data)
         {
             mixin(Tracer);
-            log.trace("Pre write chunk");
             auto datalength = socket.send(data);
             log.trace("Size of chunk to write : ", data.length, ", size written : ", datalength);
             /*

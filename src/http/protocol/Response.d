@@ -18,8 +18,8 @@ class Response
 {
     mixin Message;
     private string m_response;
-    private Status m_status;
-    private bool m_keepalive;
+    private Status m_status = Status.Invalid;
+    private bool m_keepalive = false;
     // TODO : Cookies handling
     // string[string] cookies;
 
@@ -28,7 +28,7 @@ class Response
         mixin(Tracer);
         updated = true;
         headers[FieldDate] = "";
-        m_status = Status.Invalid;
+        protocol = HTTP_1_1;
     }
 
     @property auto status()
@@ -91,6 +91,14 @@ class Response
             updated = false;
         }
         return m_response;
+    }
+}
+
+class EntityTooLargeResponse : Response
+{
+    this()
+    {
+        status = Status.RequestEntityTooLarge;
     }
 }
 

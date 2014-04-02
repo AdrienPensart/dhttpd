@@ -45,7 +45,6 @@ class VirtualHost
                 return true;
             }
         }
-        log.trace("Host not found => fallback");
         return false;
     }
 

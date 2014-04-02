@@ -3,7 +3,7 @@ module http.Config;
 import std.socket;
 
 import http.protocol.Request;
-
+import http.protocol.Response;
 import http.Transaction;
 import http.Options;
 import http.VirtualHost;
@@ -64,19 +64,28 @@ class Config
     Transaction dispatch(ref Request request)
     {
         mixin(Tracer);
-
         foreach(host ; m_hosts)
         {
             if(host.matchHostHeader(request))
             {
+                log.trace("Host header matched");
                 return host.dispatch(request);
             }
         }
+
+        Transaction transaction = null;
         // not host found, fallback on default host
         if(m_fallback)
         {
-            return m_fallback.dispatch(request);
+            log.trace("Host not found => fallback");
+            transaction = m_fallback.dispatch(request);
         }
-        return null;
+
+        if(!transaction)
+        {
+            log.trace("Host not found and no fallback => Not Found");
+            transaction = new Transaction(request, new NotFoundResponse(m_options[Parameter.NOT_FOUND_FILE].toString()));
+        }
+        return transaction;
     }
 }

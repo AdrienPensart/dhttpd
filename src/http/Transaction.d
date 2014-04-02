@@ -24,6 +24,21 @@ class Transaction
     Response response;
     FilePoller * poller;
 
+    this(ref Request a_request, Response a_response)
+    {
+        request = a_request;
+        response = a_response;
+        handler = null;
+    }
+
+
+    this(ref Request a_request, Handler a_handler, string a_hit)
+    {
+        request = a_request;
+        handler = a_handler;
+        hit = a_hit;
+    }
+
     static Transaction get(ref Request a_request, Config a_config)
     {
         mixin(Tracer);
@@ -56,10 +71,10 @@ class Transaction
             case Request.Status.HasError:
                 // don't cache malformed request
                 log.trace("Malformed request => Bad Request");
-                transaction = new Transaction;
-                transaction.response = new BadRequestResponse(a_config.options[Parameter.BAD_REQUEST_FILE].toString());
-                transaction.response.headers[FieldConnection] = "close";
-                transaction.response.protocol = a_request.protocol;
+                auto response = new BadRequestResponse(a_config.options[Parameter.BAD_REQUEST_FILE].toString());
+                response.headers[FieldConnection] = "close";
+                response.protocol = a_request.protocol;
+                transaction = new Transaction (a_request, response);
                 break;
         }
         return transaction;
@@ -77,10 +92,13 @@ class Transaction
     private void execute(ref Request a_request, Config a_config)
     {
         mixin(Tracer);
-    	handler.execute(this);
+    	if(handler !is null)
+        {
+            handler.execute(this);
+        }
+
         if(response is null)
         {
-            log.trace("Host not found and no fallback => Not Found");
             response = new NotFoundResponse(a_config.options[Parameter.NOT_FOUND_FILE].toString());
         }
 

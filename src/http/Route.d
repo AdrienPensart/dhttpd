@@ -30,12 +30,7 @@ class Route
     	{
     		log.trace("Matched route : ", route);
             log.trace("Hit : ", m.hit);
-
-            auto transaction = new Transaction;
-            transaction.hit = m.hit.idup;
-            transaction.request = request;
-            transaction.handler = handler;
-    		return transaction;
+    		return new Transaction(request, handler, m.hit.idup);
     	}
     	return null;
     }

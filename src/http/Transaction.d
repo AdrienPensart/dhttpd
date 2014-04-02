@@ -28,7 +28,6 @@ class Transaction
     {
         request = a_request;
         response = a_response;
-        handler = null;
     }
 
 
@@ -54,7 +53,7 @@ class Transaction
     private static Transaction compute(ref Request a_request, Config a_config)
     {
         mixin(Tracer);
-        Transaction transaction = null;
+        Transaction transaction;
         a_request.parse();
         final switch(a_request.status())
         {

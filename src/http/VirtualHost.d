@@ -55,11 +55,16 @@ class VirtualHost
 
     Transaction dispatch(ref Request request)
     {
+        Transaction transaction;
         foreach(route ; m_routes)
         {
-            return route.dispatch(request);
+            transaction = route.dispatch(request);
+            if(transaction)
+            {
+                break;
+            }
         }
-        return null;
+        return transaction;
     }
 
     private

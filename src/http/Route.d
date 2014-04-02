@@ -39,7 +39,7 @@ class Route
     {
         auto uri = request.getUri();
         auto path = request.getPath();
-        log.trace("ROUTE : ", route, ", URI : ", uri, ", PATH : ", path);
+        log.trace("Match data : ", route, ", URI : ", uri, ", PATH : ", path);
         return match(path, rex);
     }
 

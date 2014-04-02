@@ -33,7 +33,6 @@ void startThreads(Options options)
     options[Parameter.HTTP_CACHE] = true;
     options[Parameter.TCP_NODELAY] = true;
     options[Parameter.TCP_LINGER] = true;
-    options[Parameter.MAX_CONNECTION] = 60;
     options[Parameter.BACKLOG] = 16384;
     options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
     options[Parameter.TCP_DEFER] = true;
@@ -42,6 +41,7 @@ void startThreads(Options options)
     options[Parameter.MAX_REQUEST] = 1_000_000u;
     options[Parameter.MAX_HEADER] = 100;
     options[Parameter.MAX_REQUEST_SIZE] = 1000000;
+    options[Parameter.MAX_CONNECTION] = 60;
     options[Parameter.SERVER_STRING] = "dhttpd";
     options[Parameter.INSTALL_DIR] = installDir();
     options[Parameter.ROOT_DIR] = installDir();
@@ -51,16 +51,17 @@ void startThreads(Options options)
 
     //import http.Transaction;
     //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
+    auto docDir     = new Directory(options, "/doc");
 
     // handlers
-    auto mainDir    = new Directory("/public", "index.html", options);
+    auto mainDir    = new Directory(options, "/public", "index.html");
     //auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
 
     // routes
     auto mainRoute  = new Route("^/main", mainDir);
-
+    auto mainDoc    = new Route("^/doc",  docDir);
     // hosts
-    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [mainRoute]);
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [mainRoute, mainDoc]);
 
     // config
     auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);

@@ -32,7 +32,7 @@ class Directory : Handler
         string defaultMime;
     }
 
-    this(string directory, string indexFilename, Options options)
+    this(Options options, string directory, string indexFilename="")
     {
         this.options = options;
         this.directory = options[Parameter.ROOT_DIR].toString() ~ directory;
@@ -73,7 +73,7 @@ class Directory : Handler
             auto finalPath = request.getPath();
             finalPath = replaceFirst(finalPath, regex(transaction.hit), directory);
 
-            auto mde = DirEntry(finalPath);        
+            auto mde = DirEntry(finalPath);
             if(mde.isDir)
             {
                 log.trace("Directory asked, serve index file");

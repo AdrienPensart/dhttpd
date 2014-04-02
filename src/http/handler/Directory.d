@@ -45,18 +45,7 @@ class Directory : Handler
     
     FilePoller* loadFile(string finalPath, string indexFilename)
     {
-        auto mde = DirEntry(finalPath);        
-        if(mde.isDir)
-        {
-            // load index file
-            finalPath = buildPath(mde.name(), indexFilename);
-        }
-        else
-        {
-            finalPath = mde.name();
-        }
-        auto filePoller = new FilePoller(finalPath, Transaction.loop);
-        return filePoller;
+        return new FilePoller(finalPath, Transaction.loop);
     }
 
     static void invalidateFile(string finalPath)
@@ -83,6 +72,18 @@ class Directory : Handler
 
             auto finalPath = request.getPath();
             finalPath = replaceFirst(finalPath, regex(transaction.hit), directory);
+
+            auto mde = DirEntry(finalPath);        
+            if(mde.isDir)
+            {
+                log.trace("Directory asked, serve index file");
+                finalPath = buildPath(mde.name(), indexFilename);
+            }
+            else
+            {
+                log.trace("File asked, serve it");
+                finalPath = mde.name();
+            }
 
             auto lastModified = convertToRFC1123(timeLastModified(finalPath));
             log.trace("Path asked : ", finalPath);

@@ -118,9 +118,13 @@ class ZmqLogger : LogBackend
         super(formater);
         .log.logging("ZMQ Logger endpoint : ", endpoint);
         import std.string : toStringz;
-        pub = zsocket_new (cast(zctx_t *)zctx, ZMQ_PUSH);
-        assert(pub);
-        auto result = zsocket_connect(pub, toStringz(endpoint));
+        pusher = zsocket_new (cast(zctx_t *)zctx, ZMQ_PUSH);
+        assert(pusher);
+
+        int sndtimeo = 0;
+        enum ZMQ_SNDTIMEO = 28;
+        zmq_setsockopt(pusher, ZMQ_SNDTIMEO, &sndtimeo, sndtimeo.sizeof);
+        auto result = zsocket_connect(pusher, toStringz(endpoint));
         assert(result == 0, to!string(zmq_strerror(zmq_errno())));
     }
     
@@ -136,12 +140,12 @@ class ZmqLogger : LogBackend
         assert(msg);
         auto push = zmsg_addmem(msg, data.ptr, data.length);
         assert(push == 0);
-        zmsg_send(&msg, pub);
+        zmsg_send(&msg, pusher);
     }
 
     private:
 
-        void * pub;
+        void * pusher;
         shared static zctx_t * zctx;
 }
 

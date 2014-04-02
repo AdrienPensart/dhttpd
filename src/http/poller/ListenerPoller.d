@@ -56,6 +56,8 @@ struct ListenerPoller
         linger.on = 1;
         linger.time = 1;
         socket.setOption(SocketOptionLevel.SOCKET, SocketOption.LINGER, linger);
+
+        log.info("Set up listener fd : ", socket.handle());
     }
 
     private void bindListener()

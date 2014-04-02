@@ -12,7 +12,7 @@ import std.conv;
 public import dlog.LogBackend;
 public import dlog.Tracer;
 public import dlog.FunctionLog;
-public import dlog.ReferenceCounter;
+public import crunch.ReferenceCounter;
 import dlog.Message;
 
 ThreadLogger log;

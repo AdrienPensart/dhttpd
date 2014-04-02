@@ -167,15 +167,16 @@ class Connection : ReferenceCounter!(Connection)
                 log.trace("Disconnection on ", handle());
                 return 0;
             }
-            //log.trace("Read chunk of size ", datalength, " : ", buffer[0..datalength]);
+            log.trace("Size of chunk read ", datalength);
             return datalength;
         }
 
         bool writeChunk(string data)
         {
             mixin(Tracer);
-            log.trace("Chunk to be written : ", data);
+            log.trace("Pre write chunk");
             auto datalength = socket.send(data);
+            log.trace("Size of chunk to write : ", data.length, ", size written : ", datalength);
             /*
             import core.sys.posix.sys.uio;
             auto iov = iovec();

@@ -11,17 +11,42 @@ struct Buffer (T, size_t SIZE)
     size_t m_limit;
     size_t m_length;
 
+    invariant()
+    {
+        assert(m_length <= m_limit);
+        assert(m_current == m_stack.ptr || m_current == m_heap.ptr);
+    }
+
     //alias m_current this;
     void init(size_t a_limit)
     {
         mixin(Tracer);
-        assert(a_limit > SIZE);
+        limit = a_limit;
         m_length = 0;
-        m_limit = a_limit;
         m_current = m_stack.ptr;
     }
 
+    @property size_t limit()
+    {
+        return m_limit;
+    }
+
+    @property size_t limit(size_t a_limit)
+    in
+    {
+        assert(a_limit > SIZE);
+    }
+    body
+    {
+        return a_limit > m_length ? m_limit = a_limit : m_limit;
+    }
+
     bool append(T[] data)
+    in
+    {
+        assert(data);
+    }
+    body
     {
         mixin(Tracer);
         if(m_length + data.length <= SIZE)
@@ -59,6 +84,12 @@ struct Buffer (T, size_t SIZE)
     }
 
     T[] opSlice(size_t x, size_t y)
+    in
+    {
+        assert(x >= 0);
+        assert(y <= m_length);
+    }
+    body
     {
         return m_current[x..y];
     }

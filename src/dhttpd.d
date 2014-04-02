@@ -39,10 +39,14 @@ void startThreads(Options options)
     options[Parameter.TCP_DEFER] = true;
     options[Parameter.TCP_REUSEPORT] = true;
     options[Parameter.TCP_REUSEADDR] = true;
-    options[Parameter.MAX_REQUEST] = 1_000_000u;
-    options[Parameter.MAX_HEADER] = 100;
-    options[Parameter.MAX_REQUEST_SIZE] = 1000000;
-    options[Parameter.MAX_CONNECTION] = 60;
+
+    options[Parameter.MAX_REQUEST] = 1_000u; // max request allowed per connection
+    options[Parameter.MAX_HEADER] = 8192; // max header size allowed
+    options[Parameter.MAX_GET_REQUEST] = 16384; // max request size
+    options[Parameter.MAX_PUT_REQUEST] = 16384;
+    options[Parameter.MAX_POST_REQUEST] = 16384;
+    
+    options[Parameter.MAX_CONNECTION] = 1000; // global maximum connection allowed
     options[Parameter.SERVER_STRING] = "dhttpd";
     options[Parameter.INSTALL_DIR] = installDir();
     options[Parameter.ROOT_DIR] = installDir();
@@ -52,17 +56,22 @@ void startThreads(Options options)
 
     //import http.Transaction;
     //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
-    auto docDir     = new Directory(options, "/doc");
+
+    auto videosDir  = new Directory(options, "/home/crunch/videos");
+
+    auto docDir     = new Directory(options, "doc");
 
     // handlers
-    auto mainDir    = new Directory(options, "/public", "index.html");
+    auto mainDir    = new Directory(options, "public", "index.html");
     //auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
 
     // routes
     auto mainRoute  = new Route("^/main", mainDir);
     auto mainDoc    = new Route("^/doc",  docDir);
+    auto mainVideos = new Route("^/videos", videosDir);
+
     // hosts
-    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [mainRoute, mainDoc]);
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [mainRoute, mainDoc, mainVideos]);
 
     // config
     auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);

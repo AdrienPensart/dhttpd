@@ -32,13 +32,16 @@ class Directory : Handler
         string defaultMime;
     }
 
-    this(Options options, string directory, string indexFilename="")
+    this(Options a_options, string a_directory, string a_indexFilename="")
     {
-        this.options = options;
-        this.directory = options[Parameter.ROOT_DIR].toString() ~ directory;
-        this.indexFilename = indexFilename;
-        this.defaultMime = defaultMime;
-
+        options = a_options;
+        directory = a_directory;
+        indexFilename = a_indexFilename;
+        if(!isAbsolute(directory))
+        {
+            directory = buildPath(options[Parameter.ROOT_DIR].toString(), directory);
+        }
+        
         this.mimes = options[Parameter.MIME_TYPES].get!(MimeMap);
         this.defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
@@ -71,8 +74,17 @@ class Directory : Handler
             auto mde = DirEntry(finalPath);
             if(mde.isDir)
             {
-                log.trace("Directory asked, serve index file");
-                finalPath = buildPath(mde.name(), indexFilename);
+                if(indexFilename.length)
+                {
+                    log.trace("Directory asked, serve index file");
+                    finalPath = buildPath(mde.name(), indexFilename);
+                }
+                else
+                {
+                    log.trace("No index file, we are not allowed to list directory");
+                    transaction.response = new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
+                    return;
+                }
             }
             else
             {

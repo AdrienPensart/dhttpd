@@ -1,5 +1,4 @@
-module dlog.ReferenceCounter;
-import dlog.Logger;
+module crunch.ReferenceCounter;
 import core.sync.mutex;
 
 // per thread reference counter

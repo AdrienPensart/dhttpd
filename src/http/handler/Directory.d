@@ -147,6 +147,7 @@ class Directory : Handler
             import std.digest.md;
             response.headers[ContentType] = mimes.match(finalPath, defaultMime);
             response.headers[LastModified] = convertToRFC1123(timeLastModified(finalPath));
+            response.headers[ContentMD5] = md5Of(response.content).toHexString.idup;
             response.headers[ETag] = etag;
 
             if(includeResource)
@@ -154,7 +155,6 @@ class Directory : Handler
                 auto filePoller = m_cache.get(finalPath, { return loadFile(finalPath, indexFilename); } );
                 transaction.poller = filePoller;
                 response.content = filePoller.content;
-                response.headers[ContentMD5] = md5Of(response.content).toHexString.idup;
             }
             transaction.response = response;
         }

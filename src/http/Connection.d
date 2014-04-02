@@ -56,6 +56,11 @@ class Connection
             m_request.init();
         }
 
+        ~this()
+        {
+            
+        }
+
         bool synctreat()
         {
             mixin(Tracer);

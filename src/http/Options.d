@@ -38,6 +38,9 @@ enum Parameter
 
     HTTP_CACHE,
     FILE_CACHE,
+    FILE_CACHE_MAX,
+    FILE_STREAM_BLOCK,
+    
     INSTALL_DIR,
     ROOT_DIR,
     SERVER_STRING,

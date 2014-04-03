@@ -20,7 +20,6 @@ import http.handler.Handler;
 import dlog.Logger;
 import crunch.Utils;
 
-
 class Connection : ReferenceCounter!(Connection)
 {
     private
@@ -65,7 +64,7 @@ class Connection : ReferenceCounter!(Connection)
                     // can't feed our request (limit size ?)
                     log.trace("Entity feeding too large");
                     auto entityTooLargeResponse = new EntityTooLargeResponse;
-                    write(entityTooLargeResponse.get());
+                    write(entityTooLargeResponse);
                     m_keepalive = false;
                 }
                 else
@@ -184,8 +183,11 @@ class Connection : ReferenceCounter!(Connection)
         bool write(Response response)
         {
             mixin(Tracer);
+            /*
             auto vecs = response.vecs;
             auto datalength = writev(socket.handle(), vecs.ptr, cast(int)vecs.length);
+            */
+            auto datalength = socket.send(response.get());
             if (datalength == Socket.ERROR)
             {
                 log.warning("Connection error ", m_address, " on ", handle);
@@ -199,29 +201,6 @@ class Connection : ReferenceCounter!(Connection)
             else if(datalength < response.length)
             {
                 log.warning("Data not sent on ", handle, " : ", datalength, " < ", response.length, " (", lastSocketError(), ")");
-            }
-            return true;
-        }
-
-        bool write(char[] chunk)
-        {
-            mixin(Tracer);
-            auto datalength = socket.send(chunk);
-            log.trace("Chunk written : ", chunk);
-            log.trace("Size of chunk to write : ", chunk.length, ", size written : ", datalength);
-            if (datalength == Socket.ERROR)
-            {
-                log.warning("Connection error ", m_address, " on ", handle);
-                return false;
-            }
-            else if(datalength == 0)
-            {
-                log.warning("Connection from ", m_address, " closed on ", handle, " (", lastSocketError(), ")");
-                return false;
-            }
-            else if(datalength < chunk.length)
-            {
-                log.warning("Data not sent on ", handle, " : ", datalength, " < ", chunk.length, " (", lastSocketError(), ")");
             }
             return true;
         }

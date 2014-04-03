@@ -30,8 +30,12 @@ void startThreads(Options options)
     import http.protocol.Mime;
     options[Parameter.MIME_TYPES] = new MimeMap;
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
+    
     options[Parameter.FILE_CACHE] = true;
     options[Parameter.HTTP_CACHE] = true;
+    options[Parameter.FILE_STREAM_BLOCK] = 16384;
+    options[Parameter.FILE_CACHE_MAX] = 16384;
+
     options[Parameter.BACKLOG] = 16384;
     options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
 

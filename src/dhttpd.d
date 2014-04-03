@@ -32,14 +32,17 @@ void startThreads(Options options)
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
     options[Parameter.FILE_CACHE] = true;
     options[Parameter.HTTP_CACHE] = true;
-    options[Parameter.TCP_NODELAY] = true;
-    options[Parameter.TCP_LINGER] = true;
     options[Parameter.BACKLOG] = 16384;
     options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
+
+    options[Parameter.TCP_CORK] = false;
+    options[Parameter.TCP_NODELAY] = true;
+    options[Parameter.TCP_LINGER] = true;
     options[Parameter.TCP_DEFER] = true;
     options[Parameter.TCP_REUSEPORT] = true;
     options[Parameter.TCP_REUSEADDR] = true;
 
+    options[Parameter.LIMIT_SYNCTREAT] = 8192u;
     options[Parameter.MAX_REQUEST] = 1_000_000u; // max request allowed per connection
     options[Parameter.MAX_HEADER] = 8192; // max header size allowed
     options[Parameter.MAX_GET_REQUEST] = 16384;

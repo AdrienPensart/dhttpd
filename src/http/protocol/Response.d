@@ -14,12 +14,16 @@ import http.protocol.Header;
 
 import dlog.Logger;
 
+public import core.sys.posix.sys.uio;
+
 class Response
 {
     mixin Message;
     private char[] m_header;
     private Status m_status = Status.Invalid;
     private bool m_keepalive = false;
+    private iovec[2] m_vecs;
+
     // TODO : Cookies handling
     // string[string] cookies;
 
@@ -96,6 +100,21 @@ class Response
     char[] get()
     {
         return header ~ content;
+    }
+
+    @property iovec[] vecs()
+    {
+        m_vecs[0].iov_base = cast(void*)header.ptr;
+        m_vecs[0].iov_len = m_header.length;
+
+        m_vecs[1].iov_base = cast(void*)content.ptr;
+        m_vecs[1].iov_len = content.length;
+        return m_vecs;
+    }
+
+    @property auto length()
+    {
+        return m_header.length + m_content.length;
     }
 }
 

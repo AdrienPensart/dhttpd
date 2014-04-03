@@ -21,7 +21,6 @@ mixin template Message()
     private Headers m_headers;
     private char[] m_content;
     private string m_protocol;
-    private iovec[] m_vec;
 
     @property UUID id()
     {
@@ -56,11 +55,6 @@ mixin template Message()
     {
         import xxhash;
         return xxhashOf(cast(ubyte[])m_raw[]);
-    }
-    
-    @property ref auto vec()
-    {
-        return m_vec;
     }
 
     @property ref auto headers()

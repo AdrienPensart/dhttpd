@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ "$#" != "2" ]; then
     echo "Usage: launch.sh number_of_processes threads_per_process"
     exit 1

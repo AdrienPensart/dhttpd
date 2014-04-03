@@ -15,16 +15,10 @@ auto availableCores()
     return totalCPUs;
 }
 
-void enableCork(Socket a_socket)
+void setCork(Socket a_socket, bool enable)
 {
     enum TCP_CORK = 3;
-    a_socket.setOption(SocketOptionLevel.TCP, cast(SocketOption)TCP_CORK, true);
-}
-
-void disableCork(Socket a_socket)
-{
-    enum TCP_CORK = 3;
-    a_socket.setOption(SocketOptionLevel.TCP, cast(SocketOption)TCP_CORK, false);
+    a_socket.setOption(SocketOptionLevel.TCP, cast(SocketOption)TCP_CORK, enable);
 }
 
 void setLinger(Socket a_socket, bool enable)

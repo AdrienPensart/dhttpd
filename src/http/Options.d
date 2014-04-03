@@ -17,6 +17,7 @@ enum Parameter
     DEFAULT_MIME,
     MIME_TYPES,
 
+    TCP_CORK,
     TCP_NODELAY,
     TCP_LINGER,
     TCP_DEFER,
@@ -28,6 +29,7 @@ enum Parameter
     BACKLOG, 
     KEEP_ALIVE_TIMEOUT, 
 
+    LIMIT_SYNCTREAT,
     MAX_REQUEST, 
     MAX_HEADER,
     MAX_GET_REQUEST,

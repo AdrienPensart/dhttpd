@@ -102,12 +102,6 @@ struct ConnectionPoller
                 }
 
                 Connection connection = connectionPoller.connection;
-                /*
-                if(EV_READ & revents)
-                {
-                    connection.synctreat();
-                }
-                */
                 if(EV_READ & revents)
                 {
                     connection.recv();
@@ -117,7 +111,7 @@ struct ConnectionPoller
                         connectionPoller.updateEvents(EV_WRITE | EV_READ);
                     }
                 }
-
+                
                 if(EV_WRITE & revents)
                 {
                     connection.send();

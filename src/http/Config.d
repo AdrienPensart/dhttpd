@@ -84,7 +84,7 @@ class Config
         if(!transaction)
         {
             log.trace("Host not found and no fallback => Not Found");
-            transaction = new Transaction(request, new NotFoundResponse(m_options[Parameter.NOT_FOUND_FILE].toString()));
+            transaction = new Transaction(request, m_options[Parameter.NOT_FOUND_RESPONSE].get!(Response));
         }
         return transaction;
     }

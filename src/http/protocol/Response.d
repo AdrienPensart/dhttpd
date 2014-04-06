@@ -6,11 +6,13 @@ import std.array;
 import std.format;
 import std.conv;
 
-import http.protocol.Message;
+import http.protocol.MessageHeader;
 import http.protocol.Date;
 import http.protocol.Status;
 import http.protocol.Protocol;
 import http.protocol.Header;
+import http.Transaction;
+import http.poller.FilePoller;
 
 import dlog.Logger;
 
@@ -18,23 +20,45 @@ public import core.sys.posix.sys.uio;
 
 class Response
 {
-    mixin Message;
-    private char[] m_header;
-    private Status m_status = Status.Invalid;
-    private bool m_keepalive = false;
-    private iovec[2] m_vecs;
+    mixin MessageHeader;
+    private
+    {
+        char[] m_header;
+        Status m_status = Status.Invalid;
+        bool m_keepalive = false;
+        iovec[2] m_vecs;
+        FilePoller * m_poller;
+    }
 
-    // TODO : Cookies handling
-    // string[string] cookies;
+    this(Status a_status)
+    {
+        m_status = a_status;
+        this();
+    }
+
+    this(Status a_status, string a_path)
+    {
+        m_poller = fileCache.get(a_path, { return new FilePoller(a_path); } );
+        this(a_status);
+    }
 
     this()
     {
-        mixin(Tracer);
         updated = true;
         headers[FieldDate] = "";
         protocol = HTTP_1_1;
     }
 
+    @property FilePoller * poller()
+    {
+        return m_poller;
+    }
+
+    @property FilePoller * poller(FilePoller * filePoller)
+    {
+        return m_poller = filePoller;
+    }
+    
     @property auto status()
     {
         return m_status;
@@ -55,7 +79,7 @@ class Response
         return m_keepalive = a_keepalive;
     }
 
-    @property char[] header()
+    char[] header()
     in
     {
         assert(status != Status.Invalid, "HTTP Status code invalid");
@@ -77,9 +101,9 @@ class Response
 
             string reason = toReason(status);
             formattedWrite(writer, "%s %d %s\r\n", protocol, status, reason);
-            if(content.length)
+            if(m_poller && m_poller.length)
             {
-                headers[ContentLength] = to!string(content.length);
+                headers[ContentLength] = to!string(m_poller.length);
             }
             
             foreach(index, value ; headers)
@@ -97,11 +121,7 @@ class Response
         return m_header;
     }
     
-    char[] get()
-    {
-        return header ~ content;
-    }
-
+    /*
     @property iovec[] vecs()
     {
         m_vecs[0].iov_base = cast(void*)header.ptr;
@@ -111,55 +131,35 @@ class Response
         m_vecs[1].iov_len = content.length;
         return m_vecs;
     }
+    */
 
-    @property auto length()
+    size_t headerLength()
     {
-        return m_header.length + m_content.length;
+        return header.length;
     }
-}
 
-class EntityTooLargeResponse : Response
-{
-    this()
+    size_t bodyLength()
     {
-        status = Status.RequestEntityTooLarge;
+        return m_poller ? m_poller.length : 0;
     }
-}
 
-class PreConditionFailedResponse : Response
-{
-    this()
+    size_t totalLength()
     {
-        status = Status.PrecondFailed;
+        return header.length + (m_poller ? m_poller.length : 0);
     }
-}
 
-class BadRequestResponse : Response
-{
-    this(string file)
+    char[] get()
     {
-        status = Status.BadRequest;            
-        content = readText!(char[])(file);
-        headers[ContentType] = "text/html";
+        return header ~ (m_poller ? m_poller.content : "");
     }
-}
 
-class NotFoundResponse : Response
-{
-    this(string file)
+    bool reload()
     {
-        status = Status.NotFound;
-        content = readText!(char[])(file);
-        headers[ContentType] = "text/html";
+        return m_poller && m_poller.reload;
     }
-}
 
-class NotAllowedResponse : Response
-{
-    this(string file)
+    bool stream()
     {
-        status = Status.NotAllowed;         
-        content = readText!(char[])(file);
-        headers[ContentType] = "text/html";
+        return m_poller && m_poller.stream;
     }
 }

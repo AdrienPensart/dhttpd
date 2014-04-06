@@ -19,6 +19,7 @@ import http.handler.Directory;
 import http.handler.Proxy;
 
 import loop.EvLoop;
+import loop.PipeEvent;
 import loop.LogStatisticEvent;
 import loop.InterruptionEvent;
 import loop.GCEvent;
@@ -33,8 +34,6 @@ void startThreads(Options options)
     
     options[Parameter.FILE_CACHE] = true;
     options[Parameter.HTTP_CACHE] = true;
-    options[Parameter.FILE_STREAM_BLOCK] = 16384;
-    options[Parameter.FILE_CACHE_MAX] = 16384;
 
     options[Parameter.BACKLOG] = 16384;
     options[Parameter.KEEP_ALIVE_TIMEOUT] = dur!"seconds"(60);
@@ -46,7 +45,6 @@ void startThreads(Options options)
     options[Parameter.TCP_REUSEPORT] = true;
     options[Parameter.TCP_REUSEADDR] = true;
 
-    options[Parameter.LIMIT_SYNCTREAT] = 8192u;
     options[Parameter.MAX_REQUEST] = 1_000_000u; // max request allowed per connection
     options[Parameter.MAX_HEADER] = 8192; // max header size allowed
     options[Parameter.MAX_GET_REQUEST] = 16384;
@@ -57,10 +55,6 @@ void startThreads(Options options)
     options[Parameter.SERVER_STRING] = "dhttpd";
     options[Parameter.INSTALL_DIR] = installDir();
     options[Parameter.ROOT_DIR] = installDir();
-    options[Parameter.BAD_REQUEST_FILE] = installDir() ~ "/public/400.html";
-    options[Parameter.NOT_FOUND_FILE] =   installDir() ~ "/public/404.html";
-    options[Parameter.NOT_ALLOWED_FILE] = installDir() ~ "/public/405.html";
-
     //import http.Transaction;
     //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
 
@@ -102,7 +96,10 @@ void startThreads(Options options)
 
     auto defaultLoop = ev_default_loop(EVFLAG_AUTO);
     auto evLoop = new EvLoop(defaultLoop);
-
+    /*
+    auto pipeEvent = new PipeEvent(evLoop);
+    evLoop.addEvent(pipeEvent);
+    */
     auto interruptionEvent = new InterruptionEvent(evLoop);
     evLoop.addEvent(interruptionEvent);
 
@@ -146,6 +143,9 @@ int main(string[] args)
     try
     {
         mixin(Tracer);
+
+        import core.sys.posix.signal;
+        signal(SIGPIPE, SIG_IGN);
 
         uint nbThreads = 1;
         ushort zmqPort = 9090;
@@ -210,30 +210,3 @@ int main(string[] args)
     }
     return 0;
 }
-
-/*
-    defaultHandlers[Status.BadRequest] = new ErrorHandler();
-    defaultHandlers[Status.Unauthorized] = new ErrorHandler();
-    defaultHandlers[Status.Payment] = new ErrorHandler();
-    defaultHandlers[Status.Forbidden] = new ErrorHandler();
-    defaultHandlers[Status.NotFound] = new ErrorHandler();
-    defaultHandlers[Status.NotAllowed] = new ErrorHandler();
-    defaultHandlers[Status.NotAcceptable] = new ErrorHandler();
-    defaultHandlers[Status.ProxyAutg] = new ErrorHandler();
-    defaultHandlers[Status.TimeOut] = new ErrorHandler();
-    defaultHandlers[Status.Conflict] = new ErrorHandler();
-    defaultHandlers[Status.Gone] = new ErrorHandler();
-    defaultHandlers[Status.LengthRequired] = new ErrorHandler();
-    defaultHandlers[Status.PrecondFailed] = new ErrorHandler();
-    defaultHandlers[Status.RequestEntityTooLarge] = new ErrorHandler();
-    defaultHandlers[Status.RequestUriTooLarge] = new ErrorHandler();
-    defaultHandlers[Status.UnsupportedMediaType] = new ErrorHandler();
-    defaultHandlers[Status.RequestedRangeNotSatisfiable] = new ErrorHandler();
-    defaultHandlers[Status.ExpectationFailed] = new ErrorHandler();
-    defaultHandlers[Status.InternalError] = new ErrorHandler();
-    defaultHandlers[Status.NotImplemented] = new ErrorHandler();
-    defaultHandlers[Status.BadGateway] = new ErrorHandler();
-    defaultHandlers[Status.ServiceUnavailable] = new ErrorHandler();
-    defaultHandlers[Status.GatewayTimeOut] = new ErrorHandler();
-    defaultHandlers[Status.UnsupportedVersion] = new ErrorHandler();
-*/

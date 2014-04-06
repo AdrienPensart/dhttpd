@@ -3,12 +3,15 @@ module http.Server;
 import core.thread;
 import std.conv;
 
+import crunch.Utils;
 import dlog.Logger;
 
 import http.Options;
 import http.Config;
 import http.Transaction;
-
+import http.protocol.Response;
+import http.protocol.Status;
+import http.poller.FilePoller;
 import http.poller.ListenerPoller;
 
 import loop.EvLoop;
@@ -37,11 +40,18 @@ class Server
     {
         this.m_loop = a_loop;
         this.m_config = a_config;
-        Transaction.loop = m_loop;
+        FilePoller.loop = m_loop;
+
+        options[Parameter.ENTITY_TOO_LARGE_RESPONSE] = new Response(Status.RequestEntityTooLarge);
+        options[Parameter.PRECOND_FAILED_RESPONSE] = new Response(Status.PrecondFailed);
+        options[Parameter.BAD_REQUEST_RESPONSE] = new Response(Status.BadRequest);
+        options[Parameter.NOT_FOUND_RESPONSE] =   new Response(Status.NotFound, installDir() ~ "/public/404.html");
+        options[Parameter.NOT_ALLOWED_RESPONSE] = new Response(Status.NotAllowed, installDir() ~ "/public/405.html");
+
         foreach(address ; config.addresses)
         {
             log.info("Listening on : ", address);
-            log.info("Loop manager : ", Transaction.loop.loop());
+            log.info("Loop manager : ", m_loop.loop());
             auto listenerPoller = new ListenerPoller(this, address);
         }
     }

@@ -15,6 +15,15 @@ auto availableCores()
     return totalCPUs;
 }
 
+/*
+void setNoSigpipe(Socket a_socket, bool enable)
+{
+	int set = 1;
+	enum SO_NOSIGPIPE = 
+	a_socket.setOption(SocketOptionLevel.SOCKET, SO_NOSIGPIPE, (void *)&set, sizeof(int));
+}
+*/
+
 void setCork(Socket a_socket, bool enable)
 {
     enum TCP_CORK = 3;

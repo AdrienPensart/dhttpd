@@ -6,7 +6,7 @@ import std.uni;
 import dlog.Logger;
 
 import http.Options;
-import http.protocol.Message;
+import http.protocol.MessageHeader;
 import http.protocol.Protocol;
 import http.protocol.Method;
 import http.protocol.Header;
@@ -128,7 +128,7 @@ import http.protocol.Header;
 
 struct Request
 {
-    mixin Message;
+    mixin MessageHeader;
 
     enum Status
     {
@@ -207,6 +207,17 @@ struct Request
         return uri;
     }
 
+    @property auto content(char[] a_content)
+    {
+        m_content = a_content;
+        m_updated = true;
+        return m_content;
+    }
+    @property auto content()
+    {
+        return m_content;
+    }
+
     @property bool keepalive()
     {
         mixin(Tracer);
@@ -231,6 +242,7 @@ struct Request
         string fragment;
         string uri;
         string path;
+        char[] m_content;
         Method m_method;
 
         // parser data

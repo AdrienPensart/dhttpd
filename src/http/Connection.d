@@ -10,7 +10,7 @@ import http.protocol.Request;
 import http.protocol.Response;
 import http.protocol.Status;
 import http.protocol.Header;
-
+import http.poller.FilePoller;
 import http.Transaction;
 import http.Config;
 import http.Options;
@@ -31,8 +31,9 @@ class Connection : ReferenceCounter!(Connection)
         uint m_maxRequest;
         uint m_processedRequest;
         Transaction[] m_queue;
+        //Transaction m_transaction;
         bool m_keepalive = true;
-        uint m_syncWatermark;
+        FileSender m_fs;
     }
 
     public
@@ -43,11 +44,10 @@ class Connection : ReferenceCounter!(Connection)
             m_socket = a_socket;
             m_address = m_socket.remoteAddress();
             m_config = a_config;
-            m_syncWatermark = m_config.options[Parameter.LIMIT_SYNCTREAT].get!(uint);
             m_maxRequest = m_config.options[Parameter.MAX_REQUEST].get!(uint);
             m_socket.blocking = false;
-            m_socket.setNoDelay(m_config.options[Parameter.TCP_NODELAY].get!(bool));
-            m_socket.setCork(m_config.options[Parameter.TCP_CORK].get!(bool));
+            //m_socket.setNoDelay(m_config.options[Parameter.TCP_NODELAY].get!(bool));
+            //m_socket.setCork(m_config.options[Parameter.TCP_CORK].get!(bool));
             m_socket.setLinger(m_config.options[Parameter.TCP_LINGER].get!(bool));
             m_request.init();
         }
@@ -63,38 +63,14 @@ class Connection : ReferenceCounter!(Connection)
                 {
                     // can't feed our request (limit size ?)
                     log.trace("Entity feeding too large");
-                    auto entityTooLargeResponse = new EntityTooLargeResponse;
-                    write(entityTooLargeResponse);
+                    auto entityTooLargeResponse = m_config.options[Parameter.ENTITY_TOO_LARGE_RESPONSE].get!(Response);
+                    writeAll(entityTooLargeResponse.header);
                     m_keepalive = false;
                 }
                 else
                 {
-                    auto transaction = Transaction.get(m_request, m_config);
-                    if(transaction)
-                    {
-                        if(transaction.response.length <= m_syncWatermark)
-                        {
-                            m_keepalive = write(transaction.response) && transaction.keepalive;
-                        }
-                        else
-                        {
-                            m_queue ~= transaction;
-                        }
-
-                        m_processedRequest++;
-                        m_request = Request();
-                        m_request.init();
-                    }
-                    else
-                    {
-                        log.trace("No response ready");
-                        m_keepalive = m_request.status == Request.Status.NotFinished;
-                    }
+                    buildTransaction();
                 }
-            }
-            else
-            {
-                m_keepalive = false;
             }
         }
 
@@ -104,12 +80,15 @@ class Connection : ReferenceCounter!(Connection)
             if(empty)
             {
                 log.trace("Empty queue on ", handle());
-                return;
             }
+
             auto transaction = m_queue.front();
-            m_queue.popFront();
-            m_keepalive = write(transaction.response) && transaction.keepalive;
-            log.trace(m_keepalive ? "Keep alive !" : "DONT keep alive !");
+            if(m_fs.send(m_socket.handle, transaction.response.poller))
+            {
+                log.trace("File transfer completed, dequeue transaction");
+                //m_socket.setNoDelay(true);
+                m_queue.popFront();
+            }
         }
 
         @property auto handle()
@@ -162,47 +141,98 @@ class Connection : ReferenceCounter!(Connection)
 
     private
     {
+        void buildTransaction()
+        {
+            mixin(Tracer);
+            auto transaction = Transaction.get(m_request, m_config);
+            if(transaction)
+            {
+                // write header directly
+                if(transaction.response.stream())
+                {
+                    log.trace("Response is too BIG to be sent in oneshot, writing header");
+                    writeAll(transaction.response.header());
+                    m_queue ~= transaction;
+                    //m_socket.setNoDelay(false);
+                }
+                else
+                {
+                    log.trace("Response is small enough to be sent in oneshot");
+                    writeAll(transaction.response.get());
+                }
+                prepareNextRequest();
+                m_keepalive = m_keepalive && transaction.keepalive;
+                log.trace(m_keepalive ? "KEEP ALIVE!" : "DONT KEEP ALIVE!");
+            }
+            else
+            {
+                log.trace("No response ready");
+                m_keepalive = m_request.status == Request.Status.NotFinished;
+            }
+        }
+
+        void prepareNextRequest()
+        {
+            mixin(Tracer);
+            m_processedRequest++;
+            m_request = Request();
+            m_request.init();
+        }
+
+        size_t writeAll(char[] chunk)
+        {
+            mixin(Tracer);
+            size_t sent = 0;
+            while(sent < chunk.length)
+            {
+                sent += write(chunk[sent..$]);
+            }
+            return sent;
+        }
+
         size_t read(char[] chunk)
         {
             mixin(Tracer);
             auto datalength = socket.receive(chunk);
             if (datalength == Socket.ERROR)
             {
-                log.warning("Socket error : ", lastSocketError());
-                return 0;
+                log.warning("Read socket error on ", m_address, " with ", handle, " (", lastSocketError(), ")");
+                m_keepalive = false;
+                datalength = 0;
             }
             else if(datalength == 0)
             {
-                log.trace("Disconnection on ", handle);
-                return 0;
+                log.trace("Read disconnection on ", m_address, " with ", handle, " (", lastSocketError(), ")");
+                m_keepalive = false;
             }
             log.trace("Size of chunk read ", datalength);
             return datalength;
         }
 
-        bool write(Response response)
+        size_t write(char[] chunk)
         {
-            mixin(Tracer);
             /*
             auto vecs = response.vecs;
             auto datalength = writev(socket.handle(), vecs.ptr, cast(int)vecs.length);
             */
-            auto datalength = socket.send(response.get());
+            log.trace("Writing chunk size ", chunk.length, " : ", chunk);
+            auto datalength = socket.send(chunk);
             if (datalength == Socket.ERROR)
             {
-                log.warning("Connection error ", m_address, " on ", handle);
-                return false;
+                log.warning("Write socket error on ", m_address, " with ", handle, " (", lastSocketError(), ")");
+                m_keepalive = false;
+                datalength = 0;
             }
             else if(datalength == 0)
             {
-                log.warning("Connection from ", m_address, " closed on ", handle, " (", lastSocketError(), ")");
-                return false;
+                log.warning("Write socket disconnection on ", m_address, " with ", handle, " (", lastSocketError(), ")");
+                m_keepalive = false;
             }
-            else if(datalength < response.length)
+            else if(datalength < chunk.length)
             {
-                log.warning("Data not sent on ", handle, " : ", datalength, " < ", response.length, " (", lastSocketError(), ")");
+                log.warning("All data not sent on ", m_address, " with ", handle, ", ", datalength, " < ", chunk.length, " (", lastSocketError(), ")");
             }
-            return true;
+            return datalength;
         }
     }
 }

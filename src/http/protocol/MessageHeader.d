@@ -1,4 +1,4 @@
-module http.protocol.Message;
+module http.protocol.MessageHeader;
 
 import http.protocol.Protocol;
 import http.protocol.Header;
@@ -7,20 +7,22 @@ import dlog.Logger;
 
 alias string[string] Headers;
 
-mixin template Message()
+mixin template MessageHeader()
 {
     import core.sys.posix.sys.uio;
     import std.uuid;
     import crunch.Buffer;
-    
-    private UUID m_id;
-    private bool m_updated;
     alias Buffer!(char, 4096) MessageBuffer;
-    private MessageBuffer m_raw;
-    
-    private Headers m_headers;
-    private char[] m_content;
-    private string m_protocol;
+
+    private
+    {
+        UUID m_id;
+        bool m_updated;
+        MessageBuffer m_raw;
+        Headers m_headers;
+        string m_protocol;
+        string[string] cookies;
+    }
 
     @property UUID id()
     {
@@ -73,17 +75,6 @@ mixin template Message()
         import std.uni;
         string headerValue = headers.get(key, "");
         return sicmp(value, headerValue) == 0;
-    }
-
-    @property auto content(char[] a_content)
-    {
-        m_content = a_content;
-        m_updated = true;
-        return m_content;
-    }
-    @property auto content()
-    {
-        return m_content;
     }
  
     @property string protocol(string a_protocol)

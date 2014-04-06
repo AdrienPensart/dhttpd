@@ -7,7 +7,6 @@ import std.file;
 
 import http.poller.FilePoller;
 import dlog.Logger;
-import crunch.Caching;
 
 import http.Options;
 import http.handler.Handler;
@@ -23,7 +22,6 @@ class Directory : Handler
 {
     private
     {
-        static Cache!(string, FilePoller *) m_cache;
         MimeMap mimes;
         Options options;
         string directory;
@@ -42,14 +40,14 @@ class Directory : Handler
             directory = buildPath(options[Parameter.ROOT_DIR].toString(), directory);
         }
         
-        this.mimes = options[Parameter.MIME_TYPES].get!(MimeMap);
-        this.defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
+        mimes = options[Parameter.MIME_TYPES].get!(MimeMap);
+        defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
     
     static void invalidateFile(string finalPath)
     {
         log.info("Invalidating file ", finalPath);
-        m_cache.invalidate(finalPath);
+        fileCache.invalidate(finalPath);
     }
 
     void execute(Transaction transaction)
@@ -63,7 +61,7 @@ class Directory : Handler
             if(request.method != Method.GET && request.method != Method.HEAD)
             {
                 log.trace("Bad method ", request.method, " => Not Allowed");
-                transaction.response = new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
+                transaction.response = options[Parameter.NOT_ALLOWED_RESPONSE].get!(Response);
                 return;
             }
 
@@ -81,7 +79,7 @@ class Directory : Handler
                 else
                 {
                     log.trace("No index file, we are not allowed to list directory");
-                    transaction.response = new NotAllowedResponse(options[Parameter.NOT_ALLOWED_FILE].toString());
+                    transaction.response = options[Parameter.NOT_ALLOWED_RESPONSE].get!(Response);
                     return;
                 }
             }
@@ -114,7 +112,7 @@ class Directory : Handler
                 }
             }
 
-            Response response = new Response;
+            auto response = new Response;
             response.status = Status.Ok;
             
             auto isIfNoneMatch = IfNoneMatch in request.headers;
@@ -145,7 +143,7 @@ class Directory : Handler
                 log.trace("Conditional GET : if-unmodified-since");
                 if(*unmodifiedSinceDate != lastModified)
                 {
-                    transaction.response = new PreConditionFailedResponse;
+                    transaction.response = options[Parameter.PRECOND_FAILED_RESPONSE].get!(Response);
                     return;
                 }
             }
@@ -153,21 +151,21 @@ class Directory : Handler
             import std.digest.md;
             response.headers[ContentType] = mimes.match(finalPath, defaultMime);
             response.headers[LastModified] = convertToRFC1123(timeLastModified(finalPath));
-            response.headers[ContentMD5] = md5Of(response.content).toHexString.idup;
+            //response.headers[ContentMD5] = md5Of(response.content).toHexString.idup;
             response.headers[ETag] = etag;
 
             if(includeResource)
             {
-                auto filePoller = m_cache.get(finalPath, { return new FilePoller(finalPath, Transaction.loop); } );
-                transaction.poller = filePoller;
-                response.content = filePoller.content;
+                log.trace("Including resource in response");
+                response.poller = fileCache.get(finalPath, { return new FilePoller(finalPath); } );
             }
             transaction.response = response;
+            
         }
         catch(FileException fe)
         {
             log.trace(fe);
-            transaction.response = new NotFoundResponse(options[Parameter.NOT_FOUND_FILE].toString());
+            transaction.response = options[Parameter.NOT_FOUND_RESPONSE].get!(Response);
         }
     }
 }

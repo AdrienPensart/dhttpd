@@ -11,42 +11,35 @@ import http.protocol.Response;
 import http.protocol.Header;
 import http.protocol.Protocol;
 import http.handler.Handler;
-import http.poller.FilePoller;
+
+Cache!(uint, Transaction) httpCache;
 
 class Transaction : ReferenceCounter!(Transaction)
 {
-	static EvLoop loop;
-    static Cache!(uint, Transaction) cache;
-
-	string hit;
-    Request request;
-    Handler handler;
-    Response response;
-    FilePoller * poller;
+    private
+    {
+    	string m_hit;
+        Request m_request;
+        Handler m_handler;
+        Response m_response;
+    }
 
     this(ref Request a_request, Response a_response)
     {
-        request = a_request;
-        response = a_response;
+        m_request = a_request;
+        m_response = a_response;
     }
 
     this(ref Request a_request, Handler a_handler, string a_hit)
     {
-        request = a_request;
-        handler = a_handler;
-        hit = a_hit;
+        m_request = a_request;
+        m_handler = a_handler;
+        m_hit = a_hit;
     }
 
     static Transaction get(ref Request a_request, Config a_config)
     {
-        mixin(Tracer);
-        auto transaction = cache.get(a_request.hash, { return compute(a_request, a_config); } );
-        if(transaction && transaction.poller && transaction.poller.reload)
-        {
-            log.info("Executing handler again");
-            transaction.execute(transaction.request, a_config);
-        }
-        return transaction;
+        return httpCache.get(a_request.hash, { return compute(a_request, a_config); } );
     }
 
     private static Transaction compute(ref Request a_request, Config a_config)
@@ -68,11 +61,11 @@ class Transaction : ReferenceCounter!(Transaction)
                 break;
             case Request.Status.HasError:
                 // cache malformed request in limited manner
-                log.trace("Malformed request => Bad Request");
-                auto response = new BadRequestResponse(a_config.options[Parameter.BAD_REQUEST_FILE].toString());
-                response.headers[FieldConnection] = "close";
-                response.protocol = a_request.protocol;
-                transaction = new Transaction (a_request, response);
+                log.trace("Malformed request");
+                auto a_response = a_config.options[Parameter.BAD_REQUEST_RESPONSE].get!(Response);
+                a_response.headers[FieldConnection] = "close";
+                a_response.protocol = a_request.protocol;
+                transaction = new Transaction (a_request, a_response);
                 break;
         }
         return transaction;
@@ -82,40 +75,60 @@ class Transaction : ReferenceCounter!(Transaction)
     static void invalidate(Transaction transaction)
     {
         mixin(Tracer);
-        uint invalidTransactionHash = transaction.request.hash;
+        uint invalidTransactionHash = transaction.m_request.hash;
         log.info("Invalidating transaction ", invalidTransactionHash);
-        cache.invalidate(invalidTransactionHash);
+        httpCache.invalidate(invalidTransactionHash);
     }
 
     private void execute(ref Request a_request, Config a_config)
     {
         mixin(Tracer);
-    	if(handler !is null)
+    	if(m_handler !is null)
         {
-            handler.execute(this);
+            m_handler.execute(this);
         }
 
-        if(response is null)
+        if(m_response is null)
         {
-            response = new NotFoundResponse(a_config.options[Parameter.NOT_FOUND_FILE].toString());
+            m_response = a_config.options[Parameter.NOT_FOUND_RESPONSE].get!(Response);
         }
 
-        if(request.protocol == HTTP_1_0 && a_request.keepalive)
+        if(m_request.protocol == HTTP_1_0 && a_request.keepalive)
         {
             log.trace("For HTTP 1.0, add header keep alive");
-            response.headers[FieldConnection] = KeepAlive;
-            response.keepalive = true;
+            m_response.headers[FieldConnection] = KeepAlive;
+            m_response.keepalive = true;
         }
         else
         {
-            response.keepalive = a_request.keepalive;
+            m_response.keepalive = a_request.keepalive;
         }
-        response.protocol = a_request.protocol;
-        response.headers[FieldServer] = a_config.options[Parameter.SERVER_STRING].toString();
+        m_response.protocol = a_request.protocol;
+        m_response.headers[FieldServer] = a_config.options[Parameter.SERVER_STRING].toString();
+    }
+
+    @property string hit()
+    {
+        return m_hit;
     }
 
     @property bool keepalive()
     {
-        return response.keepalive;
+        return m_response.keepalive;
+    }
+
+    @property Request request()
+    {
+        return m_request;
+    }
+    
+    @property Response response()
+    {
+        return m_response;
+    }
+
+    @property Response response(Response a_response)
+    {
+        return m_response = a_response;
     }
 }

@@ -6,6 +6,8 @@ import crunch.Caching;
 
 import http.Config;
 import http.Options;
+import http.Connection;
+
 import http.protocol.Request;
 import http.protocol.Response;
 import http.protocol.Header;
@@ -26,19 +28,28 @@ class Transaction : ReferenceCounter!(Transaction)
 
     this(ref Request a_request, Response a_response)
     {
+        mixin(Tracer);
         m_request = a_request;
         m_response = a_response;
     }
 
     this(ref Request a_request, Handler a_handler, string a_hit)
     {
+        mixin(Tracer);
         m_request = a_request;
         m_handler = a_handler;
         m_hit = a_hit;
     }
 
+    bool commit(Connection connection)
+    {
+        mixin(Tracer);
+        return m_response.send(connection);
+    }
+
     static Transaction get(ref Request a_request, Config a_config)
     {
+        mixin(Tracer);
         return httpCache.get(a_request.hash, { return compute(a_request, a_config); } );
     }
 
@@ -71,6 +82,7 @@ class Transaction : ReferenceCounter!(Transaction)
         return transaction;
     }
 
+    /*
     // invalidate by request hash (timeout ?)
     static void invalidate(Transaction transaction)
     {
@@ -79,7 +91,8 @@ class Transaction : ReferenceCounter!(Transaction)
         log.info("Invalidating transaction ", invalidTransactionHash);
         httpCache.invalidate(invalidTransactionHash);
     }
-
+    */
+    
     private void execute(ref Request a_request, Config a_config)
     {
         mixin(Tracer);

@@ -1,5 +1,6 @@
 module http.poller.FilePoller;
 
+import std.socket;
 import std.string;
 import std.file;
 import std.stdio;
@@ -7,6 +8,8 @@ import std.stdio;
 import deimos.ev;
 import loop.EvLoop;
 import dlog.Logger;
+
+import crunch.Utils;
 import crunch.ManualMemory;
 
 import http.handler.Directory;
@@ -16,20 +19,18 @@ Cache!(string, FilePoller *) fileCache;
 
 enum MAX_BLOCK = 65535u;
 
-extern(C) size_t sendfile(int out_fd, int in_fd, size_t * offset, size_t count);
-
 struct FileSender
 {
     ulong offset;
     ulong sent;
     ulong blockSize;
 
-    bool send(int socketFd, FilePoller * poller)
+    bool send(Socket a_socket, FilePoller * a_poller)
     {
-        blockSize = (poller.length - sent) < MAX_BLOCK ? poller.length : MAX_BLOCK;
-        sent += sendfile(socketFd, poller.fd, &offset, blockSize);
+        blockSize = (a_poller.length - sent) < MAX_BLOCK ? a_poller.length : MAX_BLOCK;
+        sent += a_socket.sendFile(a_poller.fd, &offset, blockSize);
         //log.trace("Sent ", sent, " bytes on ", poller.length, ", offset = ", offset, ", socket = ", socketFd);
-        if(sent >= poller.length)
+        if(sent >= a_poller.length)
         {
             offset = 0;
             sent = 0;
@@ -48,7 +49,7 @@ struct FilePoller
     char[] m_path;
     char[] m_content;
     bool m_reload = true;
-    bool m_stream;
+    bool m_stream = false;
     File m_file;
 
     mixin ManualMemory;
@@ -62,6 +63,7 @@ struct FilePoller
         if(length > MAX_BLOCK)
         {
             m_stream = true;
+            m_reload = false;
         }
 
         ev_stat_init (&m_stat, &handleFilechange, m_path.ptr, 0.);
@@ -70,14 +72,14 @@ struct FilePoller
         acquireMemory();
     }
 
+    @property auto lastModified()
+    {
+        return timeLastModified(m_path);
+    }
+
     @property auto stream()
     {
         return m_stream;
-    }
-
-    @property auto stream(bool a_stream)
-    {
-        return m_stream = a_stream;
     }
 
     @property int fd()
@@ -85,19 +87,14 @@ struct FilePoller
         return m_file.fileno();
     }
 
-    @property bool reload()
-    {
-        return m_reload;
-    }
-
-    @property bool reload(bool a_reload)
-    {
-        return m_reload = a_reload;
-    }
-
     @property auto length()
     {
         return m_file.size();
+    }
+
+    bool reload()
+    {
+        return m_reload;
     }
 
     @property auto content()

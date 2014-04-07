@@ -12,11 +12,102 @@ import http.protocol.Status;
 import http.protocol.Protocol;
 import http.protocol.Header;
 import http.Transaction;
+import http.Connection;
 import http.poller.FilePoller;
 
 import dlog.Logger;
 
 public import core.sys.posix.sys.uio;
+
+interface Entity
+{
+    bool send(char[] header, Connection connection);
+    size_t length();
+    bool updated();
+    string lastModified();
+
+    final string etag()
+    {
+        import std.digest.ripemd;
+        return ripemd160Of(lastModified()).toHexString.idup;
+    }
+}
+
+class FileEntity : Entity
+{
+    FilePoller * m_poller;
+
+    this(FilePoller * a_poller)
+    {
+        m_poller = a_poller;
+    }
+
+    bool send(char[] header, Connection connection)
+    {
+        if(m_poller.stream())
+        {
+            log.trace("Response is too BIG to be sent in oneshot, writing header");
+            return connection.writeAll(header) && connection.writeFile(m_poller);
+        }
+        else
+        {
+            log.trace("Response is small enough to be sent in oneshot");
+            return connection.writeAll(header ~ m_poller.content);
+        }
+    }
+
+    bool updated()
+    {
+        return m_poller.reload();
+    }
+
+    size_t length()
+    {
+        return m_poller.length;
+    }
+
+    string lastModified()
+    {
+        return convertToRFC1123(m_poller.lastModified());
+    }
+}
+
+class StringEntity : Entity
+{
+    char[] m_content;
+    string m_lastModified;
+
+    this()
+    {
+
+    }
+
+    this(char[] a_content)
+    {
+        m_content = a_content;
+        m_lastModified = nowRFC1123();
+    }
+
+    bool send(char[] a_header, Connection a_connection)
+    {
+        return a_connection.writeAll(a_header ~ m_content);
+    }
+
+    size_t length()
+    {
+        return m_content.length;
+    }
+
+    bool updated()
+    {
+        return false;
+    }
+
+    string lastModified()
+    {
+        return m_lastModified;
+    }
+}
 
 class Response
 {
@@ -26,37 +117,49 @@ class Response
         char[] m_header;
         Status m_status = Status.Invalid;
         bool m_keepalive = false;
-        iovec[2] m_vecs;
-        FilePoller * m_poller;
+        Entity m_entity;
+        bool m_include;
+        static Entity m_defaultEntity;
+    }
+
+    static this()
+    {
+        m_defaultEntity = new StringEntity;
     }
 
     this(Status a_status)
     {
+        updated = true;
+        headers[FieldDate] = "";
+        protocol = HTTP_1_1;
+        m_entity = m_defaultEntity;
         m_status = a_status;
-        this();
     }
 
     this(Status a_status, string a_path)
     {
-        m_poller = fileCache.get(a_path, { return new FilePoller(a_path); } );
         this(a_status);
+        m_entity = new FileEntity(fileCache.get(a_path, { return new FilePoller(a_path); } ));
     }
 
-    this()
+    @property bool include()
     {
-        updated = true;
-        headers[FieldDate] = "";
-        protocol = HTTP_1_1;
+        return m_include;
     }
 
-    @property FilePoller * poller()
+    @property bool include(bool a_include)
     {
-        return m_poller;
+        return m_include = a_include;
     }
 
-    @property FilePoller * poller(FilePoller * filePoller)
+    @property Entity entity()
     {
-        return m_poller = filePoller;
+        return m_entity;
+    }
+
+    @property Entity entity(Entity a_entity)
+    {
+        return m_entity = a_entity;
     }
     
     @property auto status()
@@ -87,7 +190,7 @@ class Response
     body
     {
         mixin(Tracer);
-        if(updateToRFC1123(headers[FieldDate]) || updated)
+        if(reload())
         {
             if(status == Status.Continue || status == Status.SwitchProtocol || isError(status))
             {
@@ -101,9 +204,12 @@ class Response
 
             string reason = toReason(status);
             formattedWrite(writer, "%s %d %s\r\n", protocol, status, reason);
-            if(m_poller && m_poller.length)
+
+            if(m_entity.length)
             {
-                headers[ContentLength] = to!string(m_poller.length);
+                headers[ContentLength] = to!string(m_entity.length);
+                headers[LastModified] = m_entity.lastModified;
+                headers[ETag] = m_entity.etag;
             }
             
             foreach(index, value ; headers)
@@ -121,7 +227,29 @@ class Response
         return m_header;
     }
     
-    /*
+    bool send(Connection connection)
+    {
+        mixin(Tracer);
+        if(include)
+        {
+            log.trace("Including entity in response");
+            return m_entity.send(header, connection);
+        }
+        else
+        {
+            log.trace("DONT include entity in response");
+        }
+        return connection.writeAll(header);
+    }
+
+    bool reload()
+    {
+        mixin(Tracer);
+        return updateToRFC1123(headers[FieldDate]) || updated || m_entity.updated();
+    }
+}
+
+/*
     @property iovec[] vecs()
     {
         m_vecs[0].iov_base = cast(void*)header.ptr;
@@ -131,35 +259,4 @@ class Response
         m_vecs[1].iov_len = content.length;
         return m_vecs;
     }
-    */
-
-    size_t headerLength()
-    {
-        return header.length;
-    }
-
-    size_t bodyLength()
-    {
-        return m_poller ? m_poller.length : 0;
-    }
-
-    size_t totalLength()
-    {
-        return header.length + (m_poller ? m_poller.length : 0);
-    }
-
-    char[] get()
-    {
-        return header ~ (m_poller ? m_poller.content : "");
-    }
-
-    bool reload()
-    {
-        return m_poller && m_poller.reload;
-    }
-
-    bool stream()
-    {
-        return m_poller && m_poller.stream;
-    }
-}
+*/

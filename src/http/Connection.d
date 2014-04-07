@@ -31,7 +31,6 @@ class Connection : ReferenceCounter!(Connection)
         uint m_maxRequest;
         uint m_processedRequest;
         Transaction[] m_queue;
-        //Transaction m_transaction;
         bool m_keepalive = true;
         FileSender m_fs;
     }
@@ -46,7 +45,7 @@ class Connection : ReferenceCounter!(Connection)
             m_config = a_config;
             m_maxRequest = m_config.options[Parameter.MAX_REQUEST].get!(uint);
             m_socket.blocking = false;
-            //m_socket.setNoDelay(m_config.options[Parameter.TCP_NODELAY].get!(bool));
+            m_socket.setNoDelay(m_config.options[Parameter.TCP_NODELAY].get!(bool));
             //m_socket.setCork(m_config.options[Parameter.TCP_CORK].get!(bool));
             m_socket.setLinger(m_config.options[Parameter.TCP_LINGER].get!(bool));
             m_request.init();
@@ -83,12 +82,32 @@ class Connection : ReferenceCounter!(Connection)
             }
 
             auto transaction = m_queue.front();
-            if(m_fs.send(m_socket.handle, transaction.response.poller))
+            if(transaction.response.send(this))
             {
                 log.trace("File transfer completed, dequeue transaction");
-                //m_socket.setNoDelay(true);
                 m_queue.popFront();
             }
+        }
+
+        bool writeAll(char[] chunk)
+        {
+            mixin(Tracer);
+            size_t sent = 0;
+            while(sent < chunk.length)
+            {
+                auto datalength = write(chunk[sent..$]);
+                if(!datalength)
+                {
+                    return false;
+                }
+                sent += datalength;
+            }
+            return true;
+        }
+
+        bool writeFile(FilePoller * a_poller)
+        {
+            return m_fs.send(m_socket, a_poller);
         }
 
         @property auto handle()
@@ -147,18 +166,9 @@ class Connection : ReferenceCounter!(Connection)
             auto transaction = Transaction.get(m_request, m_config);
             if(transaction)
             {
-                // write header directly
-                if(transaction.response.stream())
+                if(!transaction.commit(this))
                 {
-                    log.trace("Response is too BIG to be sent in oneshot, writing header");
-                    writeAll(transaction.response.header());
                     m_queue ~= transaction;
-                    //m_socket.setNoDelay(false);
-                }
-                else
-                {
-                    log.trace("Response is small enough to be sent in oneshot");
-                    writeAll(transaction.response.get());
                 }
                 prepareNextRequest();
                 m_keepalive = m_keepalive && transaction.keepalive;
@@ -177,17 +187,6 @@ class Connection : ReferenceCounter!(Connection)
             m_processedRequest++;
             m_request = Request();
             m_request.init();
-        }
-
-        size_t writeAll(char[] chunk)
-        {
-            mixin(Tracer);
-            size_t sent = 0;
-            while(sent < chunk.length)
-            {
-                sent += write(chunk[sent..$]);
-            }
-            return sent;
         }
 
         size_t read(char[] chunk)

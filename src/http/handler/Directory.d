@@ -56,8 +56,6 @@ class Directory : Handler
         try
         {
             auto request = transaction.request;
-            bool includeResource = request.method == Method.GET;
-
             if(request.method != Method.GET && request.method != Method.HEAD)
             {
                 log.trace("Bad method ", request.method, " => Not Allowed");
@@ -88,12 +86,11 @@ class Directory : Handler
                 log.trace("File asked, serve it");
                 finalPath = mde.name();
             }
-
-            auto lastModified = convertToRFC1123(timeLastModified(finalPath));
             log.trace("Path asked : ", finalPath);
 
-            import std.digest.ripemd;
-            auto etag = ripemd160Of(lastModified).toHexString.idup;
+            transaction.response = new Response(Status.Ok, finalPath);
+            transaction.response.include = (request.method == Method.GET);
+            transaction.response.headers[ContentType] = mimes.match(finalPath, defaultMime);
 
             auto isIfMatch = IfMatch in request.headers;
             if(isIfMatch)
@@ -112,17 +109,14 @@ class Directory : Handler
                 }
             }
 
-            auto response = new Response;
-            response.status = Status.Ok;
-            
             auto isIfNoneMatch = IfNoneMatch in request.headers;
             if(isIfNoneMatch)
             {
                 log.trace("if-none-match request");
-                if(*isIfNoneMatch == etag)
+                if(*isIfNoneMatch == transaction.response.entity.etag)
                 {
-                    includeResource = false;
-                    response.status = Status.NotModified;
+                    transaction.response.include = false;
+                    transaction.response.status = Status.NotModified;
                 }
             }
 
@@ -130,10 +124,10 @@ class Directory : Handler
             if(modifiedSinceDate)
             {
                 log.trace("Conditional GET : if-modified-since");
-                if(*modifiedSinceDate == lastModified)
+                if(*modifiedSinceDate == transaction.response.entity.lastModified)
                 {
-                    includeResource = false;
-                    response.status = Status.NotModified;
+                    transaction.response.include = false;
+                    transaction.response.status = Status.NotModified;
                 }
             }
 
@@ -141,26 +135,11 @@ class Directory : Handler
             if(unmodifiedSinceDate)
             {
                 log.trace("Conditional GET : if-unmodified-since");
-                if(*unmodifiedSinceDate != lastModified)
+                if(*unmodifiedSinceDate != transaction.response.entity.lastModified)
                 {
                     transaction.response = options[Parameter.PRECOND_FAILED_RESPONSE].get!(Response);
-                    return;
                 }
             }
-
-            import std.digest.md;
-            response.headers[ContentType] = mimes.match(finalPath, defaultMime);
-            response.headers[LastModified] = convertToRFC1123(timeLastModified(finalPath));
-            //response.headers[ContentMD5] = md5Of(response.content).toHexString.idup;
-            response.headers[ETag] = etag;
-
-            if(includeResource)
-            {
-                log.trace("Including resource in response");
-                response.poller = fileCache.get(finalPath, { return new FilePoller(finalPath); } );
-            }
-            transaction.response = response;
-            
         }
         catch(FileException fe)
         {

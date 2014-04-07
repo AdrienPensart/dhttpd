@@ -17,6 +17,7 @@ import http.Options;
 import http.handler.Worker;
 import http.handler.Directory;
 import http.handler.Proxy;
+import http.handler.Redirect;
 
 import loop.EvLoop;
 import loop.PipeEvent;
@@ -58,17 +59,20 @@ void startThreads(Options options)
     //import http.Transaction;
     //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
 
-    auto videosDir  = new Directory(options, "/home/crunch/videos");
-
-    auto docDir     = new Directory(options, "doc");
-
-    // handlers
-    auto mainDir    = new Directory(options, "public", "index.html");
     //auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
 
     // routes
-    auto mainRoute  = new Route("^/main", mainDir);
+    auto publicDir  = new Directory(options, "public", "index.html");
+    //auto rootRoute  = new Route("^/", publicDir);
+    auto mainRoute  = new Route("^/main", publicDir);
+
+    //auto redirectHandler = new Redirect("http://www.google.fr/");
+    //auto redirectRoute = new Route("^/redirect", redirectHandler);
+
+    auto docDir     = new Directory(options, "doc");
     auto mainDoc    = new Route("^/doc",  docDir);
+
+    auto videosDir  = new Directory(options, "/home/crunch/videos");
     auto mainVideos = new Route("^/videos", videosDir);
 
     // hosts
@@ -160,8 +164,8 @@ int main(string[] args)
             args,
             std.getopt.config.stopOnFirstNonOption,
             "console|c",  &consoleLogging,
-            "gcmode",     &gcmode,
-            "gctimer",    &gctimer,
+            "gcmode|gcm",     &gcmode,
+            "gctimer|gct",    &gctimer,
             "threads|t",  &nbThreads,
             "zmqport|zp", &zmqPort,
             "tcpport|tp", &tcpPort,
@@ -206,7 +210,7 @@ int main(string[] args)
 
     version(assert)
     {
-        log.stats();
+        //log.stats();
     }
     return 0;
 }

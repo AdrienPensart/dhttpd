@@ -1,7 +1,12 @@
 module http.handler.Redirect;
 
+import http.protocol.Method;
 import http.protocol.Response;
 import http.protocol.Status;
+import http.protocol.Entity;
+import http.protocol.Header;
+
+import http.Transaction;
 import http.handler.Handler;
 import dlog.Logger;
 
@@ -20,16 +25,14 @@ class Redirect : Handler
 	void execute(Transaction transaction)
     {
         mixin(Tracer);
-        /*
-        auto request = transaction.request;
-        auto response = new Response;
-        response.status = Status.MovedPerm;
-        
-        if(request.method == Method.HEAD)
+        log.trace("Redirecting");
+        auto entity = new StringEntity;
+        transaction.response = new Response(Status.MovedPerm, entity);
+        transaction.response.headers[Location] = m_location;
+
+        if(transaction.request.method == Method.GET)
         {
-            response.content = "";
-            return;
+            entity.content="<a href=\""~m_location~"\">"~m_location~"</a>";
         }
-        */
     }
 }

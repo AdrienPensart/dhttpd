@@ -11,103 +11,13 @@ import http.protocol.Date;
 import http.protocol.Status;
 import http.protocol.Protocol;
 import http.protocol.Header;
-import http.Transaction;
+import http.protocol.Entity;
+
 import http.Connection;
-import http.poller.FilePoller;
 
 import dlog.Logger;
 
 public import core.sys.posix.sys.uio;
-
-interface Entity
-{
-    bool send(char[] header, Connection connection);
-    size_t length();
-    bool updated();
-    string lastModified();
-
-    final string etag()
-    {
-        import std.digest.ripemd;
-        return ripemd160Of(lastModified()).toHexString.idup;
-    }
-}
-
-class FileEntity : Entity
-{
-    FilePoller * m_poller;
-
-    this(FilePoller * a_poller)
-    {
-        m_poller = a_poller;
-    }
-
-    bool send(char[] header, Connection connection)
-    {
-        if(m_poller.stream())
-        {
-            log.trace("Response is too BIG to be sent in oneshot, writing header");
-            return connection.writeAll(header) && connection.writeFile(m_poller);
-        }
-        else
-        {
-            log.trace("Response is small enough to be sent in oneshot");
-            return connection.writeAll(header ~ m_poller.content);
-        }
-    }
-
-    bool updated()
-    {
-        return m_poller.reload();
-    }
-
-    size_t length()
-    {
-        return m_poller.length;
-    }
-
-    string lastModified()
-    {
-        return convertToRFC1123(m_poller.lastModified());
-    }
-}
-
-class StringEntity : Entity
-{
-    char[] m_content;
-    string m_lastModified;
-
-    this()
-    {
-
-    }
-
-    this(char[] a_content)
-    {
-        m_content = a_content;
-        m_lastModified = nowRFC1123();
-    }
-
-    bool send(char[] a_header, Connection a_connection)
-    {
-        return a_connection.writeAll(a_header ~ m_content);
-    }
-
-    size_t length()
-    {
-        return m_content.length;
-    }
-
-    bool updated()
-    {
-        return false;
-    }
-
-    string lastModified()
-    {
-        return m_lastModified;
-    }
-}
 
 class Response
 {
@@ -127,19 +37,13 @@ class Response
         m_defaultEntity = new StringEntity;
     }
 
-    this(Status a_status)
+    this(Status a_status, Entity a_entity=m_defaultEntity)
     {
+        m_status = a_status;
+        m_entity = a_entity;
         updated = true;
         headers[FieldDate] = "";
         protocol = HTTP_1_1;
-        m_entity = m_defaultEntity;
-        m_status = a_status;
-    }
-
-    this(Status a_status, string a_path)
-    {
-        this(a_status);
-        m_entity = new FileEntity(fileCache.get(a_path, { return new FilePoller(a_path); } ));
     }
 
     @property bool include()

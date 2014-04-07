@@ -63,11 +63,11 @@ void startThreads(Options options)
 
     // routes
     auto publicDir  = new Directory(options, "public", "index.html");
-    //auto rootRoute  = new Route("^/", publicDir);
+    auto rootRoute  = new Route("^/", publicDir);
     auto mainRoute  = new Route("^/main", publicDir);
 
-    //auto redirectHandler = new Redirect("http://www.google.fr/");
-    //auto redirectRoute = new Route("^/redirect", redirectHandler);
+    auto redirectHandler = new Redirect("http://www.google.fr/");
+    auto redirectRoute = new Route("^/redirect", redirectHandler);
 
     auto docDir     = new Directory(options, "doc");
     auto mainDoc    = new Route("^/doc",  docDir);
@@ -76,7 +76,7 @@ void startThreads(Options options)
     auto mainVideos = new Route("^/videos", videosDir);
 
     // hosts
-    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [mainRoute, mainDoc, mainVideos]);
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [redirectRoute, mainRoute, mainDoc, mainVideos, rootRoute]);
 
     // config
     auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);

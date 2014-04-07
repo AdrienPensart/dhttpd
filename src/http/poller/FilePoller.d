@@ -112,6 +112,7 @@ struct FilePoller
     {
         mixin(Tracer);
         ev_stat_stop(loop.loop(), &m_stat);
+        fileCache.invalidate(m_path.idup);
         releaseMemory();
     }
 
@@ -131,7 +132,8 @@ struct FilePoller
             else
             {
                 // file deleted
-                log.info("File deleted ! ");
+                log.info("File ", filePoller.m_path, " deleted, destroying poller and invalidating cache.");
+                //filePoller.release();
             }
         }
     }

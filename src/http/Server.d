@@ -9,8 +9,11 @@ import dlog.Logger;
 import http.Options;
 import http.Config;
 import http.Transaction;
+
+import http.protocol.Entity;
 import http.protocol.Response;
 import http.protocol.Status;
+
 import http.poller.FilePoller;
 import http.poller.ListenerPoller;
 
@@ -45,8 +48,8 @@ class Server
         options[Parameter.ENTITY_TOO_LARGE_RESPONSE] = new Response(Status.RequestEntityTooLarge);
         options[Parameter.PRECOND_FAILED_RESPONSE] = new Response(Status.PrecondFailed);
         options[Parameter.BAD_REQUEST_RESPONSE] = new Response(Status.BadRequest);
-        options[Parameter.NOT_FOUND_RESPONSE] =   new Response(Status.NotFound, installDir() ~ "/public/404.html");
-        options[Parameter.NOT_ALLOWED_RESPONSE] = new Response(Status.NotAllowed, installDir() ~ "/public/405.html");
+        options[Parameter.NOT_FOUND_RESPONSE] =   new Response(Status.NotFound, new FileEntity(installDir() ~ "/public/404.html"));
+        options[Parameter.NOT_ALLOWED_RESPONSE] = new Response(Status.NotAllowed, new FileEntity(installDir() ~ "/public/405.html"));
 
         foreach(address ; config.addresses)
         {

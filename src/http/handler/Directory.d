@@ -10,6 +10,8 @@ import dlog.Logger;
 
 import http.Options;
 import http.handler.Handler;
+
+import http.protocol.Entity;
 import http.protocol.Date;
 import http.protocol.Mime;
 import http.protocol.Header;
@@ -32,6 +34,7 @@ class Directory : Handler
 
     this(Options a_options, string a_directory, string a_indexFilename="")
     {
+        mixin(Tracer);
         options = a_options;
         directory = a_directory;
         indexFilename = a_indexFilename;
@@ -44,12 +47,6 @@ class Directory : Handler
         defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
     
-    static void invalidateFile(string finalPath)
-    {
-        log.info("Invalidating file ", finalPath);
-        fileCache.invalidate(finalPath);
-    }
-
     void execute(Transaction transaction)
     {
         mixin(Tracer);
@@ -88,7 +85,7 @@ class Directory : Handler
             }
             log.trace("Path asked : ", finalPath);
 
-            transaction.response = new Response(Status.Ok, finalPath);
+            transaction.response = new Response(Status.Ok, new FileEntity(finalPath));
             transaction.response.include = (request.method == Method.GET);
             transaction.response.headers[ContentType] = mimes.match(finalPath, defaultMime);
 

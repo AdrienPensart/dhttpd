@@ -1,14 +1,11 @@
 module http.poller.ListenerPoller;
 
 import dlog.Logger;
+import deimos.ev;
 import crunch.Utils;
 import crunch.ManualMemory;
 import std.socket;
-import http.Server;
-import deimos.ev;
-
-import http.Options;
-import http.Connection;
+import http.server.Server;
 import http.poller.ConnectionPoller;
 
 struct ListenerPoller

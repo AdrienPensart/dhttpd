@@ -1,4 +1,4 @@
-module http.Connection;
+module http.server.Connection;
 
 import std.socket;
 import std.array;
@@ -7,10 +7,11 @@ import core.time;
 
 import http.protocol.Protocol;
 import http.poller.FilePoller;
-import http.Transaction;
-import http.Config;
-import http.Options;
-import http.VirtualHost;
+
+import http.server.Transaction;
+import http.server.Config;
+import http.server.Options;
+import http.server.VirtualHost;
 import http.handler.Handler;
 
 import dlog.Logger;

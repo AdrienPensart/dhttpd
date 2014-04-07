@@ -5,7 +5,7 @@ import std.uni;
 
 import dlog.Logger;
 
-import http.Options;
+import http.server.Options;
 import http.protocol.MessageHeader;
 import http.protocol.Protocol;
 import http.protocol.Method;

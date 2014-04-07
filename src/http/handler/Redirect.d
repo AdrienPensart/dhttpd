@@ -6,7 +6,7 @@ import http.protocol.Status;
 import http.protocol.Entity;
 import http.protocol.Header;
 
-import http.Transaction;
+import http.server.Transaction;
 import http.handler.Handler;
 import dlog.Logger;
 

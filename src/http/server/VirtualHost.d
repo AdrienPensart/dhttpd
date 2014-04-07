@@ -1,10 +1,10 @@
-module http.VirtualHost;
+module http.server.VirtualHost;
 
 import std.string;
 import std.conv;
 
-import http.Route;
-import http.Transaction;
+import http.server.Route;
+import http.server.Transaction;
 import http.protocol.Request;
 import http.protocol.Header;
 

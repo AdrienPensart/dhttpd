@@ -8,17 +8,10 @@ import std.file;
 import http.poller.FilePoller;
 import dlog.Logger;
 
-import http.Options;
+import http.server.Options;
 import http.handler.Handler;
 
-import http.protocol.Entity;
-import http.protocol.Date;
-import http.protocol.Mime;
-import http.protocol.Header;
-import http.protocol.Request;
-import http.protocol.Response;
-import http.protocol.Method;
-import http.protocol.Status;
+import http.protocol.Protocol;
 
 class Directory : Handler
 {

@@ -6,8 +6,8 @@ import loop.Event;
 import loop.EvLoop;
 import dlog.Logger;
 
-import http.Transaction;
-import http.Connection;
+import http.server.Transaction;
+import http.server.Connection;
 
 class LogStatisticEvent : Event
 {

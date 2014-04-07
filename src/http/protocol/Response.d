@@ -13,7 +13,7 @@ import http.protocol.Protocol;
 import http.protocol.Header;
 import http.protocol.Entity;
 
-import http.Connection;
+import http.server.Connection;
 
 import dlog.Logger;
 

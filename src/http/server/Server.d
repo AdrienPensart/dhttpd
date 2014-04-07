@@ -1,4 +1,4 @@
-module http.Server;
+module http.server.Server;
 
 import core.thread;
 import std.conv;
@@ -6,11 +6,15 @@ import std.conv;
 import crunch.Utils;
 import dlog.Logger;
 
-import http.Options;
-import http.Config;
-import http.Transaction;
+public import http.server.Options;
+public import http.server.Transaction;
+public import http.server.Route;
+public import http.server.VirtualHost;
+public import http.server.Config;
+public import http.server.Connection;
 
 import http.protocol.Protocol;
+
 import http.poller.FilePoller;
 import http.poller.ListenerPoller;
 

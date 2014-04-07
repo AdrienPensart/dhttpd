@@ -1,12 +1,11 @@
-module http.Transaction;
+module http.server.Transaction;
 
 import loop.EvLoop;
 import dlog.Logger;
 import crunch.Caching;
 
-import http.Config;
-import http.Options;
-import http.Connection;
+import http.server.Config;
+import http.server.Connection;
 
 import http.protocol.Protocol;
 import http.handler.Handler;

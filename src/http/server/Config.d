@@ -1,14 +1,15 @@
-module http.Config;
+module http.server.Config;
 
 import std.socket;
 
 import http.protocol.Request;
 import http.protocol.Response;
-import http.Transaction;
-import http.Options;
-import http.VirtualHost;
 
+import http.server.Transaction;
+import http.server.VirtualHost;
 import dlog.Logger;
+
+public import http.server.Options;
 
 class Config
 {

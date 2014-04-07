@@ -2,7 +2,7 @@ module http.protocol.Entity;
 
 import http.protocol.Date;
 import http.poller.FilePoller;
-import http.Connection;
+import http.server.Connection;
 import dlog.Logger;
 
 interface Entity

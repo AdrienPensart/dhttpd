@@ -1,6 +1,6 @@
 module http.handler.Handler;
 
-public import http.Transaction;
+public import http.server.Transaction;
 
 interface Handler
 {

@@ -5,11 +5,7 @@ import std.socket;
 
 import dlog.Logger;
 import crunch.ManualMemory;
-import http.Connection;
-import http.Config;
-import http.Options;
-import http.Server;
-import http.Connection;
+import http.server.Server;
 
 struct ConnectionPoller
 {

@@ -1,15 +1,11 @@
 module http.protocol.Protocol;
 
-enum ProtocolType : string
-{
-    HTTP_1_0 = "HTTP/1.0",
-    HTTP_1_1 = "HTTP/1.1",
-    HTTP_2_0 = "HTTP/2.0",
-    DEFAULT  = HTTP_1_1
-}
-
-alias string Protocol;
-immutable Protocol HTTP_1_0 = "HTTP/1.0";
-immutable Protocol HTTP_1_1 = "HTTP/1.1";
-immutable Protocol HTTP_2_0 = "HTTP/2.0";
-immutable Protocol HTTP_DEFAULT = HTTP_1_1;
+public import http.protocol.Status;
+public import http.protocol.Version;
+public import http.protocol.Header;
+public import http.protocol.Method;
+public import http.protocol.Mime;
+public import http.protocol.Date;
+public import http.protocol.Request;
+public import http.protocol.Response;
+public import http.protocol.Entity;

@@ -8,9 +8,6 @@ import http.Config;
 import http.Options;
 import http.Connection;
 
-import http.protocol.Request;
-import http.protocol.Response;
-import http.protocol.Header;
 import http.protocol.Protocol;
 import http.handler.Handler;
 

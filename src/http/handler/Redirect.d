@@ -15,10 +15,12 @@ class Redirect : Handler
 	private
 	{
 		string m_location;
+        Status m_status;
 	}
 
-	this(string a_location)
+	this(Status a_status, string a_location)
 	{
+        m_status = a_status;
 		m_location = a_location;
 	}
 
@@ -27,7 +29,7 @@ class Redirect : Handler
         mixin(Tracer);
         log.trace("Redirecting");
         auto entity = new StringEntity;
-        transaction.response = new Response(Status.MovedPerm, entity);
+        transaction.response = new Response(m_status, entity);
         transaction.response.headers[Location] = m_location;
 
         if(transaction.request.method == Method.GET)

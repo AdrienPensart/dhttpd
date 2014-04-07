@@ -10,10 +10,7 @@ import http.Options;
 import http.Config;
 import http.Transaction;
 
-import http.protocol.Entity;
-import http.protocol.Response;
-import http.protocol.Status;
-
+import http.protocol.Protocol;
 import http.poller.FilePoller;
 import http.poller.ListenerPoller;
 

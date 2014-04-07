@@ -8,6 +8,7 @@ import std.uuid;
 import dlog.Logger;
 import crunch.Utils;
 
+import http.protocol.Status;
 import http.Server;
 import http.Route;
 import http.VirtualHost;
@@ -66,8 +67,11 @@ void startThreads(Options options)
     auto rootRoute  = new Route("^/", publicDir);
     auto mainRoute  = new Route("^/main", publicDir);
 
-    auto redirectHandler = new Redirect("http://www.google.fr/");
-    auto redirectRoute = new Route("^/redirect", redirectHandler);
+    auto movedRedirect = new Redirect(Status.MovedPerm, "http://www.google.fr");
+    auto foundRedirect = new Redirect(Status.Found, "http://www.bing.com");
+
+    auto movedRoute = new Route("^/redirect_301", movedRedirect);
+    auto foundRoute = new Route("^/redirect_302", foundRedirect);
 
     auto docDir     = new Directory(options, "doc");
     auto mainDoc    = new Route("^/doc",  docDir);
@@ -76,7 +80,7 @@ void startThreads(Options options)
     auto mainVideos = new Route("^/videos", videosDir);
 
     // hosts
-    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [redirectRoute, mainRoute, mainDoc, mainVideos, rootRoute]);
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [movedRoute, foundRoute, mainRoute, mainDoc, mainVideos, rootRoute]);
 
     // config
     auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);

@@ -6,10 +6,6 @@ import std.file;
 import core.time;
 
 import http.protocol.Protocol;
-import http.protocol.Request;
-import http.protocol.Response;
-import http.protocol.Status;
-import http.protocol.Header;
 import http.poller.FilePoller;
 import http.Transaction;
 import http.Config;

@@ -1,18 +1,15 @@
 module http.protocol.MessageHeader;
 
-import http.protocol.Protocol;
-import http.protocol.Header;
-
 import dlog.Logger;
-
-alias string[string] Headers;
 
 mixin template MessageHeader()
 {
+    import http.protocol.Version;
     import core.sys.posix.sys.uio;
     import std.uuid;
     import crunch.Buffer;
     alias Buffer!(char, 4096) MessageBuffer;
+    alias string[string] Headers;
 
     private
     {

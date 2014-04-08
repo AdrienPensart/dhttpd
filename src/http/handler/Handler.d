@@ -2,9 +2,43 @@ module http.handler.Handler;
 
 public import http.server.Transaction;
 
-interface Handler
+abstract class Handler
 {
-	void execute(Transaction transaction);
+	bool execute(Transaction transaction);
+
+	void addInputFilter(Handler inputFilter)
+	{
+		inputFilters ~= inputFilter;
+	}
+
+	void addOutputFilter(Handler outputFilter)
+	{
+		inputFilters ~= outputFilter;
+	}
+
+	void handle(Transaction transaction)
+	{
+		foreach(inputFilter ; inputFilters)
+		{
+			if(!inputFilter.execute(transaction))
+			{
+				return;
+			}
+		}
+		if(execute(transaction))
+		{
+			foreach(outputFilter ; outputFilters)
+			{
+				if(!outputFilter.execute(transaction))
+				{
+					return;
+				}
+			}
+		}
+	}
+
+	Handler[] inputFilters;
+	Handler[] outputFilters;
 }
 
 /*

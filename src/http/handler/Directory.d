@@ -23,6 +23,7 @@ class Directory : Handler
         string indexFilename;
         string indexPath;
         string defaultMime;
+        string authentication;
     }
 
     this(Options a_options, string a_directory, string a_indexFilename="")
@@ -39,8 +40,8 @@ class Directory : Handler
         mimes = options[Parameter.MIME_TYPES].get!(MimeMap);
         defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
-    
-    void execute(Transaction transaction)
+
+    override bool execute(Transaction transaction)
     {
         mixin(Tracer);
         try
@@ -50,7 +51,7 @@ class Directory : Handler
             {
                 log.trace("Bad method ", request.method, " => Not Allowed");
                 transaction.response = options[Parameter.NOT_ALLOWED_RESPONSE].get!(Response);
-                return;
+                return false;
             }
 
             auto finalPath = request.getPath();
@@ -68,7 +69,7 @@ class Directory : Handler
                 {
                     log.trace("No index file, we are not allowed to list directory");
                     transaction.response = options[Parameter.NOT_ALLOWED_RESPONSE].get!(Response);
-                    return;
+                    return false;
                 }
             }
             else
@@ -136,5 +137,6 @@ class Directory : Handler
             log.trace(fe);
             transaction.response = options[Parameter.NOT_FOUND_RESPONSE].get!(Response);
         }
+        return true;
     }
 }

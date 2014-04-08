@@ -24,17 +24,20 @@ class Redirect : Handler
 		m_location = a_location;
 	}
 
-	void execute(Transaction transaction)
+	override bool execute(Transaction transaction)
     {
         mixin(Tracer);
         log.trace("Redirecting");
         auto entity = new StringEntity;
         transaction.response = new Response(m_status, entity);
         transaction.response.headers[Location] = m_location;
+        transaction.response.include = (transaction.request.method == Method.GET);
 
-        if(transaction.request.method == Method.GET)
+        if(transaction.response.include)
         {
-            entity.content="<a href=\""~m_location~"\">"~m_location~"</a>";
+            log.trace("Inserting hint link for redirection");
+            entity.content="<a href=\""~m_location~"\">"~m_location~"</a>\n";
         }
+        return true;
     }
 }

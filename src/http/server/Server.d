@@ -46,11 +46,10 @@ class Server
         this.m_config = a_config;
         FilePoller.loop = m_loop;
 
-        options[Parameter.ENTITY_TOO_LARGE_RESPONSE] = new Response(Status.RequestEntityTooLarge);
-        options[Parameter.PRECOND_FAILED_RESPONSE] = new Response(Status.PrecondFailed);
-        options[Parameter.BAD_REQUEST_RESPONSE] = new Response(Status.BadRequest);
-        options[Parameter.NOT_FOUND_RESPONSE] =   new Response(Status.NotFound, new FileEntity(installDir() ~ "/public/404.html"));
-        options[Parameter.NOT_ALLOWED_RESPONSE] = new Response(Status.NotAllowed, new FileEntity(installDir() ~ "/public/405.html"));
+        options[Parameter.BAD_REQUEST_RESPONSE] = new Response(Status.BadRequest, new FileEntity(options[Parameter.BAD_REQUEST_PATH].get!(string)));
+        options[Parameter.NOT_FOUND_RESPONSE] =   new Response(Status.NotFound, new FileEntity(options[Parameter.NOT_FOUND_PATH].get!(string)));
+        options[Parameter.NOT_ALLOWED_RESPONSE] = new Response(Status.NotAllowed, new FileEntity(options[Parameter.NOT_ALLOWED_PATH].get!(string)));
+        options[Parameter.UNAUTHORIZED_RESPONSE] = new Response(Status.Unauthorized, new FileEntity(options[Parameter.UNAUTHORIZED_PATH].get!(string)));
 
         foreach(address ; config.addresses)
         {

@@ -16,6 +16,7 @@ import http.handler.Handler;
 
 import dlog.Logger;
 import crunch.Utils;
+import crunch.FileSender;
 
 class Connection : ReferenceCounter!(Connection)
 {
@@ -30,6 +31,7 @@ class Connection : ReferenceCounter!(Connection)
         Transaction[] m_queue;
         bool m_keepalive = true;
         FileSender m_fs;
+        size_t m_maxBlock;
     }
 
     public
@@ -40,6 +42,8 @@ class Connection : ReferenceCounter!(Connection)
             m_socket = a_socket;
             m_address = m_socket.remoteAddress();
             m_config = a_config;
+
+            m_maxBlock = m_config.options[Parameter.MAX_BLOCK].get!(size_t);
             m_maxRequest = m_config.options[Parameter.MAX_REQUEST].get!(uint);
             m_socket.blocking = false;
             m_socket.setNoDelay(m_config.options[Parameter.TCP_NODELAY].get!(bool));
@@ -104,7 +108,7 @@ class Connection : ReferenceCounter!(Connection)
 
         bool writeFile(FilePoller * a_poller)
         {
-            return m_fs.send(m_socket, a_poller);
+            return m_fs.send(m_socket, a_poller.file, m_maxBlock);
         }
 
         @property auto handle()

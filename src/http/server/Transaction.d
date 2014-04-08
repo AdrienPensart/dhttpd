@@ -61,7 +61,7 @@ class Transaction : ReferenceCounter!(Transaction)
                 break;
             case Request.Status.Finished:
                 log.trace("Request ready : \n\"\n", a_request.raw[], "\"");
-                transaction = a_config.dispatch(a_request);
+                transaction = dispatch(a_request, a_config);
                 log.info("Executing handler for first time");
                 transaction.execute(a_request, a_config);
                 transaction.response.headers[FieldServer] = a_config.options[Parameter.SERVER_STRING].get!(string);
@@ -74,6 +74,34 @@ class Transaction : ReferenceCounter!(Transaction)
                 a_response.protocol = a_request.protocol;
                 transaction = new Transaction (a_request, a_response);
                 break;
+        }
+        return transaction;
+    }
+
+    private static Transaction dispatch(Request a_request, Config a_config)
+    {
+        mixin(Tracer);
+        foreach(host ; a_config.hosts)
+        {
+            if(host.matchHostHeader(a_request))
+            {
+                log.trace("Host header matched");
+                return host.dispatch(a_request);
+            }
+        }
+
+        Transaction transaction = null;
+        // not host found, fallback on default host
+        if(a_config.fallback)
+        {
+            log.trace("Host not found => fallback");
+            transaction = a_config.fallback.dispatch(a_request);
+        }
+
+        if(!transaction)
+        {
+            log.trace("Host not found and no fallback => Not Found");
+            transaction = new Transaction(a_request, a_config.options[Parameter.NOT_FOUND_RESPONSE].get!(Response));
         }
         return transaction;
     }
@@ -94,7 +122,7 @@ class Transaction : ReferenceCounter!(Transaction)
         mixin(Tracer);
     	if(m_handler !is null)
         {
-            m_handler.execute(this);
+            m_handler.handle(this);
         }
 
         if(m_response is null)

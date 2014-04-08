@@ -3,7 +3,7 @@ module http.handler.Redirect;
 import http.protocol.Method;
 import http.protocol.Response;
 import http.protocol.Status;
-import http.protocol.Entity;
+import http.protocol.StringEntity;
 import http.protocol.Header;
 
 import http.server.Transaction;
@@ -24,7 +24,7 @@ class Redirect : Handler
 		m_location = a_location;
 	}
 
-	override bool execute(Transaction transaction)
+	override protected bool execute(Transaction transaction)
     {
         mixin(Tracer);
         log.trace("Redirecting");

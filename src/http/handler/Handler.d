@@ -4,7 +4,7 @@ public import http.server.Transaction;
 
 abstract class Handler
 {
-	bool execute(Transaction transaction);
+	protected bool execute(Transaction transaction);
 
 	void addInputFilter(Handler inputFilter)
 	{

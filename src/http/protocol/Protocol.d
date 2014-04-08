@@ -8,4 +8,5 @@ public import http.protocol.Mime;
 public import http.protocol.Date;
 public import http.protocol.Request;
 public import http.protocol.Response;
-public import http.protocol.Entity;
+public import http.protocol.FileEntity;
+public import http.protocol.StringEntity;

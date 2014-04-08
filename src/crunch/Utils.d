@@ -15,13 +15,6 @@ auto availableCores()
     return totalCPUs;
 }
 
-extern(C) size_t sendfile(int out_fd, int in_fd, size_t * offset, size_t count);
-
-size_t sendFile(Socket a_socket, int in_fd, size_t * offset, size_t count)
-{
-	return sendfile(cast(int)a_socket.handle, in_fd, offset, count);
-}
-
 void setCork(Socket a_socket, bool enable)
 {
     enum TCP_CORK = 3;

@@ -10,7 +10,7 @@ class Proxy : Handler
 		
 	}
 	
-	override bool execute(Transaction transaction)
+	override protected bool execute(Transaction transaction)
 	{
 		return true;
 	}

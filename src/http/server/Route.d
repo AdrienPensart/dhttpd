@@ -10,16 +10,17 @@ import dlog.Logger;
 
 class Route
 {
-    this(string route, Handler handler)
+    this(string a_route, Handler a_handler)
     {
-    	this.route = route;
-    	this.handler = handler;
-        rex = regex(route);
+    	m_route = a_route;
+    	m_handler = a_handler;
+
+        m_rex = regex(m_route);
     }
 
-    auto getHandler()
+    @property auto handler()
     {
-        return handler;
+        return m_handler;
     }
 
     Transaction dispatch(ref Request request)
@@ -28,9 +29,9 @@ class Route
         auto m = matchRex(request);
     	if(m)
     	{
-    		log.trace("Matched route : ", route);
+    		log.trace("Matched route : ", m_route);
             log.trace("Hit : ", m.hit);
-    		return new Transaction(request, handler, m.hit.idup);
+    		return new Transaction(request, m_handler, m.hit.idup);
     	}
     	return null;
     }
@@ -39,14 +40,14 @@ class Route
     {
         auto uri = request.getUri();
         auto path = request.getPath();
-        log.trace("Match data : ", route, ", URI : ", uri, ", PATH : ", path);
-        return match(path, rex);
+        log.trace("Match data : ", m_route, ", URI : ", uri, ", PATH : ", path);
+        return matchFirst(path, m_rex);
     }
 
     private
     {
-        Regex!char rex;
-    	string route;
-    	Handler handler;
+        Regex!char m_rex;
+    	string m_route;
+    	Handler m_handler;
     }
 }

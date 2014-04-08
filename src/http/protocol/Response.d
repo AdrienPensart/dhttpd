@@ -28,7 +28,7 @@ class Response
         Status m_status = Status.Invalid;
         bool m_keepalive = false;
         Entity m_entity;
-        bool m_include;
+        bool m_include = true;
         static Entity m_defaultEntity;
     }
 

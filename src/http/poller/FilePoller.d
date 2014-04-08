@@ -17,29 +17,7 @@ import crunch.Caching;
 
 Cache!(string, FilePoller *) fileCache;
 
-enum MAX_BLOCK = 65535u;
-
-struct FileSender
-{
-    ulong offset;
-    ulong sent;
-    ulong blockSize;
-
-    bool send(Socket a_socket, FilePoller * a_poller)
-    {
-        blockSize = (a_poller.length - sent) < MAX_BLOCK ? a_poller.length : MAX_BLOCK;
-        sent += a_socket.sendFile(a_poller.fd, &offset, blockSize);
-        //log.trace("Sent ", sent, " bytes on ", poller.length, ", offset = ", offset, ", socket = ", socketFd);
-        if(sent >= a_poller.length)
-        {
-            offset = 0;
-            sent = 0;
-            blockSize = 0;
-            return true;
-        }
-        return false;
-    }
-}
+enum MAX_SIZE_PER_CACHE_ENTRY = 65535u;
 
 struct FilePoller
 {
@@ -59,8 +37,8 @@ struct FilePoller
         mixin(Tracer);
         m_path = a_path.dup;
         m_file = File(a_path, "rb");
-        log.trace("Creating file poller for file size : ", length);
-        if(length > MAX_BLOCK)
+        log.trace("Creating file poller for file size : ", m_file.size());
+        if(m_file.size() > MAX_SIZE_PER_CACHE_ENTRY)
         {
             m_stream = true;
             m_reload = false;
@@ -82,14 +60,9 @@ struct FilePoller
         return m_stream;
     }
 
-    @property int fd()
+    @property File file()
     {
-        return m_file.fileno();
-    }
-
-    @property auto length()
-    {
-        return m_file.size();
+        return m_file;
     }
 
     bool reload()

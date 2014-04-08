@@ -18,7 +18,7 @@ class Directory : Handler
     private
     {
         MimeMap mimes;
-        Options options;
+        Options * m_options;
         string directory;
         string indexFilename;
         string indexPath;
@@ -26,10 +26,10 @@ class Directory : Handler
         string authentication;
     }
 
-    this(Options a_options, string a_directory, string a_indexFilename="")
+    this(Options * a_options, string a_directory, string a_indexFilename="")
     {
         mixin(Tracer);
-        options = a_options;
+        m_options = a_options;
         directory = a_directory;
         indexFilename = a_indexFilename;
         if(!isAbsolute(directory))
@@ -41,20 +41,24 @@ class Directory : Handler
         defaultMime = options[Parameter.DEFAULT_MIME].get!(string);
     }
 
-    override bool execute(Transaction transaction)
+    private ref Options options()
+    {
+        return *m_options;
+    }
+
+    override protected bool execute(Transaction transaction)
     {
         mixin(Tracer);
         try
         {
-            auto request = transaction.request;
-            if(request.method != Method.GET && request.method != Method.HEAD)
+            if(transaction.request.method != Method.GET && transaction.request.method != Method.HEAD)
             {
-                log.trace("Bad method ", request.method, " => Not Allowed");
+                log.trace("Bad method ", transaction.request.method, " => Not Allowed");
                 transaction.response = options[Parameter.NOT_ALLOWED_RESPONSE].get!(Response);
                 return false;
             }
 
-            auto finalPath = request.getPath();
+            auto finalPath = transaction.request.getPath();
             finalPath = replaceFirst(finalPath, regex(transaction.hit), directory);
 
             auto mde = DirEntry(finalPath);
@@ -80,27 +84,27 @@ class Directory : Handler
             log.trace("Path asked : ", finalPath);
 
             transaction.response = new Response(Status.Ok, new FileEntity(finalPath));
-            transaction.response.include = (request.method == Method.GET);
+            transaction.response.include = (transaction.request.method == Method.GET);
             transaction.response.headers[ContentType] = mimes.match(finalPath, defaultMime);
 
-            auto isIfMatch = IfMatch in request.headers;
+            auto isIfMatch = IfMatch in transaction.request.headers;
             if(isIfMatch)
             {
                 log.trace("if-match request");
             }
 
-            auto isRangeRequest = Range in request.headers;
+            auto isRangeRequest = Range in transaction.request.headers;
             if(isRangeRequest)
             {
                 log.trace("range request");
-                auto ifRangeData = IfRange in request.headers;
+                auto ifRangeData = IfRange in transaction.request.headers;
                 if(ifRangeData)
                 {
                     log.trace("if-range request");
                 }
             }
 
-            auto isIfNoneMatch = IfNoneMatch in request.headers;
+            auto isIfNoneMatch = IfNoneMatch in transaction.request.headers;
             if(isIfNoneMatch)
             {
                 log.trace("if-none-match request");
@@ -111,7 +115,7 @@ class Directory : Handler
                 }
             }
 
-            auto modifiedSinceDate = IfModifiedSince in request.headers;
+            auto modifiedSinceDate = IfModifiedSince in transaction.request.headers;
             if(modifiedSinceDate)
             {
                 log.trace("Conditional GET : if-modified-since");
@@ -122,7 +126,7 @@ class Directory : Handler
                 }
             }
 
-            auto unmodifiedSinceDate = IfUnmodifiedSince in request.headers;
+            auto unmodifiedSinceDate = IfUnmodifiedSince in transaction.request.headers;
             if(unmodifiedSinceDate)
             {
                 log.trace("Conditional GET : if-unmodified-since");

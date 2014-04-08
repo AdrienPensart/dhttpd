@@ -8,21 +8,13 @@ import std.uuid;
 import dlog.Logger;
 import crunch.Utils;
 
-import http.protocol.Status;
+import http.protocol.Protocol;
 import http.server.Server;
+import http.handler.All;
 
-import http.handler.Worker;
-import http.handler.Directory;
-import http.handler.Proxy;
-import http.handler.Redirect;
+import loop.All;
 
-import loop.EvLoop;
-import loop.PipeEvent;
-import loop.LogStatisticEvent;
-import loop.InterruptionEvent;
-import loop.GCEvent;
-
-void startThreads(Options options)
+void startThreads(ref Options options)
 {
     mixin(Tracer);
 
@@ -43,6 +35,7 @@ void startThreads(Options options)
     options[Parameter.TCP_REUSEPORT] = true;
     options[Parameter.TCP_REUSEADDR] = true;
 
+    options[Parameter.MAX_BLOCK] = 65535u;
     options[Parameter.MAX_REQUEST] = 1_000_000u; // max request allowed per connection
     options[Parameter.MAX_HEADER] = 8192; // max header size allowed
     options[Parameter.MAX_GET_REQUEST] = 16384;
@@ -53,15 +46,29 @@ void startThreads(Options options)
     options[Parameter.SERVER_STRING] = "dhttpd";
     options[Parameter.INSTALL_DIR] = installDir();
     options[Parameter.ROOT_DIR] = installDir();
+
+    options[Parameter.ENTITY_TOO_LARGE_RESPONSE] = new Response(Status.RequestEntityTooLarge);
+    options[Parameter.PRECOND_FAILED_RESPONSE] = new Response(Status.PrecondFailed);
+    
+    options[Parameter.BAD_REQUEST_PATH] = installDir() ~ "/public/400.html";
+    options[Parameter.NOT_FOUND_PATH] = installDir() ~ "/public/404.html";
+    options[Parameter.NOT_ALLOWED_PATH] = installDir() ~ "/public/405.html";
+    options[Parameter.UNAUTHORIZED_PATH] = installDir() ~ "/public/401.html";
+
     //import http.Transaction;
     //Transaction.enable_cache(options[Parameter.HTTP_CACHE].get!(bool));
 
     //auto mainWorker = new Worker(zmqLoop.context(), "tcp://127.0.0.1:9999", "tcp://127.0.0.1:9998");
 
     // routes
-    auto publicDir  = new Directory(options, "public", "index.html");
+    auto publicDir  = new Directory(&options, "public", "index.html");
     auto rootRoute  = new Route("^/", publicDir);
     auto mainRoute  = new Route("^/main", publicDir);
+
+    auto privateDir = new Directory(&options, "private", "home.html");
+    auto authenticateFilter = new Authentication(&options, "private", "crunch", "test");
+    privateDir.addInputFilter(authenticateFilter);
+    auto privateRoute = new Route("^/private", privateDir);
 
     auto movedRedirect = new Redirect(Status.MovedPerm, "http://www.google.fr");
     auto foundRedirect = new Redirect(Status.Found, "http://www.bing.com");
@@ -69,17 +76,17 @@ void startThreads(Options options)
     auto movedRoute = new Route("^/redirect_301", movedRedirect);
     auto foundRoute = new Route("^/redirect_302", foundRedirect);
 
-    auto docDir     = new Directory(options, "doc");
+    auto docDir     = new Directory(&options, "doc");
     auto mainDoc    = new Route("^/doc",  docDir);
 
-    auto videosDir  = new Directory(options, "/home/crunch/videos");
+    auto videosDir  = new Directory(&options, "/home/crunch/videos");
     auto mainVideos = new Route("^/videos", videosDir);
 
     // hosts
-    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [movedRoute, foundRoute, mainRoute, mainDoc, mainVideos, rootRoute]);
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [privateRoute, movedRoute, foundRoute, mainRoute, mainDoc, mainVideos, rootRoute]);
 
     // config
-    auto mainConfig = new Config(options, ["0.0.0.0"], [8080], [mainHost], mainHost);
+    auto mainConfig = new Config(&options, ["0.0.0.0"], [8080], [mainHost], mainHost);
 
     /*
     import loop.ZmqLoop;

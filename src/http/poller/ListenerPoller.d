@@ -44,7 +44,7 @@ struct ListenerPoller
 
     private void configureSocket()
     {
-        mixin(Tracer);        
+        mixin(Tracer);
         socket.enableReuseAddr(server.config.options[Parameter.TCP_REUSEADDR].get!(bool));
         socket.enableReusePort(server.config.options[Parameter.TCP_REUSEPORT].get!(bool));
         socket.enableDeferAccept(server.config.options[Parameter.TCP_DEFER].get!(bool));

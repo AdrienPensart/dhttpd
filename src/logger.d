@@ -22,8 +22,6 @@ import msgpack;
 
 void main(string[] args)
 {
-    mixin(Tracer);
-
     ushort logPort = 9090;
     getopt(args, "logport|lp",   &logPort);
 

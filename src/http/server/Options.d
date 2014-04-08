@@ -1,18 +1,22 @@
 module http.server.Options;
 
 import std.variant;
+import dlog.Logger;
 
 enum Parameter
 {
-    NB_THREADS,
+    THREADS,
     CONSOLE_LOGGING,
 
     GC_MODE,
     GC_TIMER,
     
-    LOGGER_HOST,
-    LOGGER_TCP_PORT,
-    LOGGER_ZMQ_PORT,
+    ZMQ_LOG_HOST,
+    ZMQ_LOG_PORT,
+    TCP_LOG_HOST,
+    TCP_LOG_PORT,
+    UDP_LOG_HOST,
+    UDP_LOG_PORT,
     
     DEFAULT_MIME,
     MIME_TYPES,
@@ -56,3 +60,14 @@ enum Parameter
 }
 
 alias Variant[Parameter] Options;
+
+// now we can write options.get!Response(BAD_REQUEST_RESPONSE)
+T get(T)(ref Options options, Parameter parameter)
+{
+    if( (parameter in options) is null)
+    {
+        log.warning("Parameter ", parameter, " not found in options");
+        return T.init;
+    }
+    return *options[parameter].peek!(T);
+}

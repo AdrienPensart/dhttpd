@@ -22,20 +22,23 @@ import loop.EvLoop;
 
 class Server
 {
-    Config m_config;
-    EvLoop m_loop;
-    
-    @property auto loop()
+    private
+    {
+        Config m_config;
+        EvLoop m_loop;
+    }
+
+    @property EvLoop loop()
     {
         return m_loop;
     }
 
-    @property auto config()
+    @property Config config()
     {
         return m_config;
     }
 
-    @property auto options()
+    @property ref Options options()
     {
         return m_config.options;
     }
@@ -46,10 +49,17 @@ class Server
         this.m_config = a_config;
         FilePoller.loop = m_loop;
 
-        options[Parameter.BAD_REQUEST_RESPONSE] = new Response(Status.BadRequest, new FileEntity(options[Parameter.BAD_REQUEST_PATH].get!(string)));
-        options[Parameter.NOT_FOUND_RESPONSE] =   new Response(Status.NotFound, new FileEntity(options[Parameter.NOT_FOUND_PATH].get!(string)));
-        options[Parameter.NOT_ALLOWED_RESPONSE] = new Response(Status.NotAllowed, new FileEntity(options[Parameter.NOT_ALLOWED_PATH].get!(string)));
-        options[Parameter.UNAUTHORIZED_RESPONSE] = new Response(Status.Unauthorized, new FileEntity(options[Parameter.UNAUTHORIZED_PATH].get!(string)));
+        auto badRequestPath = options.get!string(Parameter.BAD_REQUEST_PATH);
+        options[Parameter.BAD_REQUEST_RESPONSE] = new Response(Status.BadRequest, new FileEntity(badRequestPath));
+
+        auto notFoundPath = options.get!string(Parameter.NOT_FOUND_PATH);
+        options[Parameter.NOT_FOUND_RESPONSE] =   new Response(Status.NotFound, new FileEntity(notFoundPath));
+
+        auto notAllowedPath = options.get!string(Parameter.NOT_ALLOWED_PATH);
+        options[Parameter.NOT_ALLOWED_RESPONSE] = new Response(Status.NotAllowed, new FileEntity(notAllowedPath));
+
+        auto unauthorizedPath = options.get!string(Parameter.UNAUTHORIZED_PATH);
+        options[Parameter.UNAUTHORIZED_RESPONSE] = new Response(Status.Unauthorized, new FileEntity(unauthorizedPath));
 
         foreach(address ; config.addresses)
         {
@@ -62,9 +72,15 @@ class Server
 
 class ServerWorker : Thread
 {
+    private
+    {
+        EvLoop m_loop;
+        Server m_server;
+        Config m_config;
+    }
+
     this(EvLoop a_loop, Config a_config)
     {
-        mixin(Tracer);
         m_config = a_config;
         m_loop = a_loop;
         super(&run);
@@ -72,7 +88,6 @@ class ServerWorker : Thread
 
     void run()
     {
-        mixin(Tracer);
         try
         {
             if(m_config.options[Parameter.CONSOLE_LOGGING].get!(bool))
@@ -81,12 +96,18 @@ class ServerWorker : Thread
             }
 
             m_server = new Server(m_loop, m_config);
-            auto logHost = m_server.config.options[Parameter.LOGGER_HOST].get!(string);
-            auto zmqPort = m_server.config.options[Parameter.LOGGER_ZMQ_PORT].get!(ushort);
-            auto tcpPort = m_server.config.options[Parameter.LOGGER_TCP_PORT].get!(ushort);
+            
+            auto zmqLogHost = m_server.config.options.get!string(Parameter.ZMQ_LOG_HOST);
+            auto zmqLogPort = m_server.config.options.get!ushort(Parameter.ZMQ_LOG_PORT);
+            log.register(new ZmqLogger("tcp://" ~ zmqLogHost ~ ":" ~ to!string(zmqLogPort)));
 
-            log.register(new TcpLogger(logHost, tcpPort));
-            log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(zmqPort)));
+            auto tcpLogHost = m_server.config.options.get!string(Parameter.TCP_LOG_HOST);
+            auto tcpLogPort = m_server.config.options.get!ushort(Parameter.TCP_LOG_PORT);
+            log.register(new TcpLogger(tcpLogHost, tcpLogPort));
+
+            auto udpLogHost = m_server.config.options.get!string(Parameter.UDP_LOG_HOST);
+            auto udpLogPort = m_server.config.options.get!ushort(Parameter.UDP_LOG_PORT);
+            log.register(new UdpLogger(udpLogHost, udpLogPort));
 
             m_loop.run();
         }
@@ -95,8 +116,4 @@ class ServerWorker : Thread
             log.error(e.msg);
         }
     }
-    
-    private EvLoop m_loop;
-    private Server m_server;
-    private Config m_config;
 }

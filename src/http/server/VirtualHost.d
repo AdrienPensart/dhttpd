@@ -55,6 +55,7 @@ class VirtualHost
 
     Transaction dispatch(ref Request request)
     {
+        mixin(Tracer);
         Transaction transaction;
         foreach(route ; m_routes)
         {

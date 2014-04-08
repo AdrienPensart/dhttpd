@@ -1,7 +1,6 @@
 module dhttpd;
 
-import core.thread;
-import std.socket;
+import std.datetime;
 import std.conv;
 import std.uuid;
 
@@ -14,10 +13,8 @@ import http.handler.All;
 
 import loop.All;
 
-void startThreads(ref Options options)
+Config createConfig(ref Options options)
 {
-    mixin(Tracer);
-
     import http.protocol.Mime;
     options[Parameter.MIME_TYPES] = new MimeMap;
     options[Parameter.DEFAULT_MIME] = "application/octet-stream";
@@ -93,6 +90,11 @@ void startThreads(ref Options options)
     // config
     auto mainConfig = new Config(&options, ["0.0.0.0"], [8080], [mainHost], mainHost);
 
+    return mainConfig;
+}
+
+void startThreads(Config config)
+{
     /*
     import loop.ZmqLoop;
     auto zmqLoop = new ZmqLoop();
@@ -119,27 +121,36 @@ void startThreads(ref Options options)
     auto interruptionEvent = new InterruptionEvent(evLoop);
     evLoop.addEvent(interruptionEvent);
 
-    auto garbageCollectionEvent = new GCEvent(evLoop, options[Parameter.GC_MODE].get!(GCMode), options[Parameter.GC_TIMER].get!(double));
+    auto gcmode = config.options.get!GCMode(Parameter.GC_MODE);
+    auto gctimer = config.options.get!double(Parameter.GC_TIMER);
+    auto garbageCollectionEvent = new GCEvent(evLoop, gcmode, gctimer);
     evLoop.addEvent(garbageCollectionEvent);
 
     auto logStatisticEvent = new LogStatisticEvent(evLoop);
     evLoop.addEvent(logStatisticEvent);
 
-    auto nbThreads = options[Parameter.NB_THREADS].get!(uint);
-    if(nbThreads == 1)
+    auto threads = config.options.get!uint(Parameter.THREADS);
+
+    log.trace("Threads to create : ", threads);
+    if(threads == 0)
     {
-        auto server = new Server(evLoop, mainConfig);
+        log.error("One thread minimum allowed");
+    }
+    else if(threads == 1)
+    {
+        auto server = new Server(evLoop, config);
         evLoop.run();
     }
-    else if(nbThreads <= totalCPUs * 2)
+    else if(threads <= totalCPUs)
     {
+        import core.thread;
         ThreadGroup workers = new ThreadGroup();
-        foreach(threadIndex ; 0..nbThreads)
+        foreach(threadIndex ; 0..threads)
         {
             auto child = new EvLoop();
             log.info("Adding child ", child.id, " to parent ", defaultLoop);
             interruptionEvent.addChild(child);
-            auto worker = new ServerWorker(child, mainConfig);
+            auto worker = new ServerWorker(child, config);
             worker.start();
             workers.add(worker);
         }
@@ -150,7 +161,7 @@ void startThreads(ref Options options)
     }
     else
     {
-        log.error("Invalid thread count (1 <= t <= ", totalCPUs*2, ") ");
+        log.error("Invalid thread count (1 <= ", threads, " <= ", totalCPUs, ") ");
     }
 }
 
@@ -158,17 +169,32 @@ int main(string[] args)
 {
     try
     {
-        mixin(Tracer);
+        // sendfile syscall can emit sigpipe when a client disconnect
+        // sigpipe kill the server by default, we don't want that
+        ignoreSignalSIGPIPE();
 
-        import core.sys.posix.signal;
-        signal(SIGPIPE, SIG_IGN);
+        // zmq logging supported
+        string zmqLogHost = "127.0.0.1";
+        ushort zmqLogPort = 9090;
+        
+        // tcp logging supported
+        string tcpLogHost = "127.0.0.1";
+        ushort tcpLogPort = 9091;
 
-        uint nbThreads = 1;
-        ushort zmqPort = 9090;
-        ushort tcpPort = 9091;
-        string logHost = "127.0.0.1";
+        // udp logging supported
+        string udpLogHost = "127.0.0.1";
+        ushort udpLogPort = 9092;
+
+        // console logging supported
         bool consoleLogging = false;
+
+        // by default, the server won't create any additional thread
+        uint threads = 1;
+
+        // memory management options of D language
+        // by default we let the runtime manage our memory
         GCMode gcmode = GCMode.automatic;
+        // when gcmode is on "timed", the memory is garbaged everty n seconds
         double gctimer = 10.0;
 
         import std.getopt;
@@ -176,12 +202,17 @@ int main(string[] args)
             args,
             std.getopt.config.stopOnFirstNonOption,
             "console|c",  &consoleLogging,
-            "gcmode|gcm",     &gcmode,
-            "gctimer|gct",    &gctimer,
-            "threads|t",  &nbThreads,
-            "zmqport|zp", &zmqPort,
-            "tcpport|tp", &tcpPort,
-            "loghost|lh", &logHost
+            "threads|t",  &threads,
+
+            "gcmode|gcm", &gcmode,
+            "gctimer|gct",&gctimer,
+
+            "zmqhost|zh", &zmqLogHost,
+            "zmqport|zp", &zmqLogPort,
+            "tcphost|lh", &tcpLogHost,
+            "tcpport|tp", &tcpLogPort,
+            "udphost|uh", &udpLogHost,
+            "udpport|up", &udpLogPort
         );
 
         if(consoleLogging)
@@ -189,30 +220,28 @@ int main(string[] args)
             log.register(new ConsoleLogger);
         }
 
-        log.register(new TcpLogger(logHost, tcpPort));
-        log.register(new ZmqLogger("tcp://" ~ logHost ~ ":" ~ to!string(zmqPort)));
-
-        log.trace("Threads to create : ", nbThreads);
-        if(!nbThreads)
-        {
-            log.error("One thread minimum allowed");
-            return 0;
-        }
-
-        if(nbThreads > totalCPUs)
-        {
-            log.warning("Threads number is not optimal");
-        }
+        log.register(new TcpLogger(tcpLogHost, tcpLogPort));
+        log.register(new ZmqLogger("tcp://" ~ zmqLogHost ~ ":" ~ to!string(zmqLogPort)));
+        log.register(new UdpLogger(udpLogHost, udpLogPort));
 
         Options options;
-        options[Parameter.NB_THREADS] = nbThreads;
+        options[Parameter.THREADS] = threads;
         options[Parameter.GC_MODE] = gcmode;
         options[Parameter.GC_TIMER] = gctimer;
-        options[Parameter.LOGGER_HOST] = logHost;
-        options[Parameter.LOGGER_ZMQ_PORT] = zmqPort;
-        options[Parameter.LOGGER_TCP_PORT] = tcpPort;
+
+        options[Parameter.ZMQ_LOG_HOST] = zmqLogHost;
+        options[Parameter.ZMQ_LOG_PORT] = zmqLogPort;
+        
+        options[Parameter.TCP_LOG_HOST] = tcpLogHost;
+        options[Parameter.TCP_LOG_PORT] = tcpLogPort;
+
+        options[Parameter.UDP_LOG_HOST] = udpLogHost;
+        options[Parameter.UDP_LOG_PORT] = udpLogPort;
+
         options[Parameter.CONSOLE_LOGGING] = consoleLogging;
-        startThreads(options);
+
+        auto config = createConfig(options);
+        startThreads(config);
     }
     catch(Exception e)
     {
@@ -220,9 +249,9 @@ int main(string[] args)
         return -1;
     }
 
-    version(assert)
+    version(autoprofile)
     {
-        //log.stats();
+        log.stats();
     }
     return 0;
 }

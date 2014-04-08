@@ -154,6 +154,7 @@ class TcpLogger : LogBackend
     this(string host, ushort port, MessageFormater formater = new BinaryMessageFormater)
     {
         super(formater);
+        .log.logging("TCP Logger endpoint : ", host, ":", port);
         address = new InternetAddress(host, port);
     }
 
@@ -166,7 +167,7 @@ class TcpLogger : LogBackend
         }
         catch(Exception e)
         {
-            .log.error("TcpLogger : Can't register to ", address, " : ", e.msg);
+            .log.logging("TcpLogger : Can't register to ", address, " : ", e.msg);
             client.close();
             return false;
         }
@@ -201,6 +202,7 @@ class UdpLogger : LogBackend
     this(string host, ushort port, MessageFormater formater = new LineMessageFormater)
     {
         super(formater);
+        .log.logging("UDP Logger endpoint : ", host, ":", port);
         address = new InternetAddress(host,port);
     }
 

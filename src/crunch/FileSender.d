@@ -3,6 +3,8 @@ module crunch.FileSender;
 import std.socket;
 import std.stdio;
 
+import dlog.Logger;
+
 extern(C) size_t sendfile(int out_fd, int in_fd, size_t * offset, size_t count);
 
 size_t sendFile(Socket a_socket, File a_file, size_t * offset, size_t count)
@@ -18,6 +20,7 @@ struct FileSender
 
     bool send(Socket a_socket, File a_file, size_t maxBlock)
     {
+        mixin(Tracer);
     	auto length = a_file.size();
         blockSize = (length - sent) < maxBlock ? length : maxBlock;
         sent += a_socket.sendFile(a_file, &offset, blockSize);

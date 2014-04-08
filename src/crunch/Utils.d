@@ -4,6 +4,17 @@ import std.parallelism : totalCPUs;
 import std.path : dirName;
 import std.file;
 import std.socket;
+import core.sys.posix.signal;
+
+void ignoreSignalSIGPIPE()
+{
+	ignoreSignal(SIGPIPE);
+}
+
+void ignoreSignal(int a_signal)
+{	
+	signal(a_signal, SIG_IGN);
+}
 
 auto installDir()
 {

@@ -10,6 +10,7 @@ struct Cache (Key, Value)
 
     Value get(Key key, Value delegate() value)
     {
+        mixin(Tracer);
         if(m_enabled)
         {
             //Value toReturn = store.get(key, null);

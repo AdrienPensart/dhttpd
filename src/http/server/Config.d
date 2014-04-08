@@ -22,7 +22,6 @@ class Config
     
     this(Options * a_options, string[] a_interfaces, ushort[] a_ports, VirtualHost[] a_hosts, VirtualHost a_fallback=null)
     {
-        mixin(Tracer);
     	m_options = a_options;
     	m_interfaces = a_interfaces;
         m_ports = a_ports;

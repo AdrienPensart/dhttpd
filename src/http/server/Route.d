@@ -38,6 +38,7 @@ class Route
 
     private auto matchRex(ref Request request)
     {
+        mixin(Tracer);
         auto uri = request.getUri();
         auto path = request.getPath();
         log.trace("Match data : ", m_route, ", URI : ", uri, ", PATH : ", path);

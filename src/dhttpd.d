@@ -49,7 +49,7 @@ void startThreads(ref Options options)
 
     options[Parameter.ENTITY_TOO_LARGE_RESPONSE] = new Response(Status.RequestEntityTooLarge);
     options[Parameter.PRECOND_FAILED_RESPONSE] = new Response(Status.PrecondFailed);
-    
+
     options[Parameter.BAD_REQUEST_PATH] = installDir() ~ "/public/400.html";
     options[Parameter.NOT_FOUND_PATH] = installDir() ~ "/public/404.html";
     options[Parameter.NOT_ALLOWED_PATH] = installDir() ~ "/public/405.html";
@@ -65,10 +65,15 @@ void startThreads(ref Options options)
     auto rootRoute  = new Route("^/", publicDir);
     auto mainRoute  = new Route("^/main", publicDir);
 
-    auto privateDir = new Directory(&options, "private", "home.html");
-    auto authenticateFilter = new Authentication(&options, "private", "crunch", "test");
-    privateDir.addInputFilter(authenticateFilter);
-    auto privateRoute = new Route("^/private", privateDir);
+    auto basicDir = new Directory(&options, "private", "home.html");
+    auto basicAuthenticationFilter = new BasicAuthentication(&options, "private", "crunch", "test");
+    basicDir.addInputFilter(basicAuthenticationFilter);
+    auto basicRoute = new Route("^/basic", basicDir);
+
+    auto digestDir = new Directory(&options, "private", "home.html");
+    auto digestAuthenticationFilter = new DigestAuthentication();
+    digestDir.addInputFilter(digestAuthenticationFilter);
+    auto digestRoute = new Route("^/digest", digestDir);
 
     auto movedRedirect = new Redirect(Status.MovedPerm, "http://www.google.fr");
     auto foundRedirect = new Redirect(Status.Found, "http://www.bing.com");
@@ -83,7 +88,7 @@ void startThreads(ref Options options)
     auto mainVideos = new Route("^/videos", videosDir);
 
     // hosts
-    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [privateRoute, movedRoute, foundRoute, mainRoute, mainDoc, mainVideos, rootRoute]);
+    auto mainHost   = new VirtualHost(["www.dhttpd.fr"], [basicRoute, digestRoute, movedRoute, foundRoute, mainRoute, mainDoc, mainVideos, rootRoute]);
 
     // config
     auto mainConfig = new Config(&options, ["0.0.0.0"], [8080], [mainHost], mainHost);

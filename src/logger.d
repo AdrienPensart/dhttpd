@@ -1,5 +1,4 @@
 import dlog.Logger;
-import dlog.Message;
 
 import std.string;
 import std.getopt;

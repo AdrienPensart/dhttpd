@@ -32,7 +32,7 @@ class LineMessageFormater : MessageFormater
         version(assert)
         {
             formattedWrite(writer, "[%s, %s, %s]", m.type, m.pid, m.tag[0..8]);
-            formattedWrite(writer, "(%s/%s/%s %s:%s:%s)", m.sysdate.day(), m.sysdate.month(), m.sysdate.year(), m.sysdate.hour(), m.sysdate.minute(), m.sysdate.second());
+            formattedWrite(writer, "(%s/%s/%s %.02d:%.02d:%.02d)", m.sysdate.day(), m.sysdate.month(), m.sysdate.year(), m.sysdate.hour(), m.sysdate.minute(), m.sysdate.second());
             //formattedWrite(writer, "(%s)", m.date);
         }
         else

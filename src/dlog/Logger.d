@@ -12,6 +12,15 @@ import std.conv;
 public import dlog.LogBackend;
 public import dlog.Tracer;
 public import dlog.FunctionLog;
+public import dlog.Message;
+
+public import dlog.ConsoleLogger;
+public import dlog.FileLogger;
+/*
+public import dlog.TcpLogger;
+public import dlog.UdpLogger;
+public import dlog.ZmqLogger;
+*/
 public import crunch.ReferenceCounter;
 import dlog.Message;
 

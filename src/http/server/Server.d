@@ -5,6 +5,9 @@ import std.conv;
 
 import crunch.Utils;
 import dlog.Logger;
+import dlog.ZmqLogger;
+import dlog.UdpLogger;
+import dlog.TcpLogger;
 
 public import http.server.Options;
 public import http.server.Transaction;
@@ -19,6 +22,30 @@ import http.poller.FilePoller;
 import http.poller.ListenerPoller;
 
 import loop.EvLoop;
+
+void registerLoggers(Config config)
+{    
+    auto consoleLogging = config.options.get!bool(Parameter.CONSOLE_LOGGING);
+    if(consoleLogging)
+    {
+        log.register(new ConsoleLogger);
+    }
+
+    auto zmqLogHost = config.options.get!string(Parameter.ZMQ_LOG_HOST);
+    auto zmqLogPort = config.options.get!ushort(Parameter.ZMQ_LOG_PORT);
+    log.register(new ZmqLogger("tcp://" ~ zmqLogHost ~ ":" ~ to!string(zmqLogPort)));
+
+    auto tcpLogHost = config.options.get!string(Parameter.TCP_LOG_HOST);
+    auto tcpLogPort = config.options.get!ushort(Parameter.TCP_LOG_PORT);
+    log.register(new TcpLogger(tcpLogHost, tcpLogPort));
+
+    auto udpLogHost = config.options.get!string(Parameter.UDP_LOG_HOST);
+    auto udpLogPort = config.options.get!ushort(Parameter.UDP_LOG_PORT);
+    log.register(new UdpLogger(udpLogHost, udpLogPort));
+
+    auto logFile = config.options.get!string(Parameter.FILE_LOG);
+    log.register(new FileLogger(logFile));
+}
 
 class Server
 {
@@ -90,25 +117,8 @@ class ServerWorker : Thread
     {
         try
         {
-            if(m_config.options[Parameter.CONSOLE_LOGGING].get!(bool))
-            {
-                log.register(new ConsoleLogger);
-            }
-
+            registerLoggers(m_config);
             m_server = new Server(m_loop, m_config);
-            
-            auto zmqLogHost = m_server.config.options.get!string(Parameter.ZMQ_LOG_HOST);
-            auto zmqLogPort = m_server.config.options.get!ushort(Parameter.ZMQ_LOG_PORT);
-            log.register(new ZmqLogger("tcp://" ~ zmqLogHost ~ ":" ~ to!string(zmqLogPort)));
-
-            auto tcpLogHost = m_server.config.options.get!string(Parameter.TCP_LOG_HOST);
-            auto tcpLogPort = m_server.config.options.get!ushort(Parameter.TCP_LOG_PORT);
-            log.register(new TcpLogger(tcpLogHost, tcpLogPort));
-
-            auto udpLogHost = m_server.config.options.get!string(Parameter.UDP_LOG_HOST);
-            auto udpLogPort = m_server.config.options.get!ushort(Parameter.UDP_LOG_PORT);
-            log.register(new UdpLogger(udpLogHost, udpLogPort));
-
             m_loop.run();
         }
         catch(Exception e)

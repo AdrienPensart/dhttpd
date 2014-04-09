@@ -11,6 +11,7 @@ enum Parameter
     GC_MODE,
     GC_TIMER,
     
+    FILE_LOG,
     ZMQ_LOG_HOST,
     ZMQ_LOG_PORT,
     TCP_LOG_HOST,

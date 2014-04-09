@@ -102,15 +102,11 @@ void startThreads(Config config)
     auto workerRoute = new Route("^/worker", workerHandler);
     auto proxyRoute = new Route("^/proxy", proxyHandler);
     */
-    
-    version(assert)
-    {
-        int evMajor = ev_version_major();
-        int evMinor = ev_version_minor();
-        import std.string : format;
-        string evVersion = format("%s.%s", evMajor, evMinor);
-        log.info("Libev version : ", evVersion);
-    }
+    int evMajor = ev_version_major();
+    int evMinor = ev_version_minor();
+    import std.string : format;
+    string evVersion = format("%s.%s", evMajor, evMinor);
+    log.info("Libev version : ", evVersion);
 
     auto defaultLoop = ev_default_loop(EVFLAG_AUTO);
     auto evLoop = new EvLoop(defaultLoop);
@@ -187,6 +183,7 @@ int main(string[] args)
 
         // console logging supported
         bool consoleLogging = false;
+        string logFile = "logs/dhttpd.log";
 
         // by default, the server won't create any additional thread
         uint threads = 1;
@@ -206,6 +203,7 @@ int main(string[] args)
 
             "gcmode|gcm", &gcmode,
             "gctimer|gct",&gctimer,
+            "logfile|lg", &logFile,
 
             "zmqhost|zh", &zmqLogHost,
             "zmqport|zp", &zmqLogPort,
@@ -215,20 +213,12 @@ int main(string[] args)
             "udpport|up", &udpLogPort
         );
 
-        if(consoleLogging)
-        {
-            log.register(new ConsoleLogger);
-        }
-
-        log.register(new TcpLogger(tcpLogHost, tcpLogPort));
-        log.register(new ZmqLogger("tcp://" ~ zmqLogHost ~ ":" ~ to!string(zmqLogPort)));
-        log.register(new UdpLogger(udpLogHost, udpLogPort));
-
         Options options;
         options[Parameter.THREADS] = threads;
         options[Parameter.GC_MODE] = gcmode;
         options[Parameter.GC_TIMER] = gctimer;
 
+        options[Parameter.FILE_LOG] = logFile;
         options[Parameter.ZMQ_LOG_HOST] = zmqLogHost;
         options[Parameter.ZMQ_LOG_PORT] = zmqLogPort;
         
@@ -241,6 +231,7 @@ int main(string[] args)
         options[Parameter.CONSOLE_LOGGING] = consoleLogging;
 
         auto config = createConfig(options);
+        registerLoggers(config);
         startThreads(config);
     }
     catch(Exception e)

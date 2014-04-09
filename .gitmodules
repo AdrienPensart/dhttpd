@@ -13,3 +13,6 @@
 [submodule "src/zmqd"]
 	path = src/zmqd
 	url = https://github.com/kyllingstad/zmqd.git
+[submodule "src/openssl"]
+	path = src/openssl
+	url = https://github.com/D-Programming-Deimos/openssl.git

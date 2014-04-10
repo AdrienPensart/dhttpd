@@ -1,16 +1,20 @@
 ToDo :
 
-Logging framework : 
-
-- zmq client / server logging
-- send / recv buffering / streaming
-- AOP wrapper (future)
-
 HTTP Server : 
 
-- parser plugging : joyent, ragel parser, homemade
-- redirect
-- caching : E-Tag
+- implement test suite : 
+	test parser
+	test max connections
+	test slow DoS
+	test handlers
+		directory
+		redirect
+	test cache
+		transaction
+		files
+- post
+- put
+- cache
 - compression
 - ssl
 

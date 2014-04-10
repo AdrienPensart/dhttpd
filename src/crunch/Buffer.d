@@ -107,12 +107,15 @@ struct Buffer (T, size_t SIZE)
 
 unittest
 {
-    auto buffer1 = Buffer!(char,3)(4096);
+    Buffer!(char,3) buffer1;
+    buffer1.init(4096);
     assert(buffer1.append("12".dup));
 
-    auto buffer2 = Buffer!(char,3)(4096);
+    Buffer!(char,3) buffer2;
+    buffer2.init(4096);
     assert(buffer2.append("12345".dup));
 
-    auto buffer3 = Buffer!(char,3)(6);
+    Buffer!(char,3) buffer3;
+    buffer3.init(6);
     assert(!buffer3.append("123456789".dup));
 }

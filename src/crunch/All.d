@@ -1,5 +1,6 @@
 module crunch.All;
 
+public import crunch.SmtpClient;
 public import crunch.Buffer;
 public import crunch.Utils;
 public import crunch.ReferenceCounter;

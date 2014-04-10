@@ -29,15 +29,9 @@ class Response
         bool m_keepalive = false;
         Entity m_entity;
         bool m_include = true;
-        static Entity m_defaultEntity;
     }
 
-    static this()
-    {
-        m_defaultEntity = new StringEntity;
-    }
-
-    this(Status a_status, Entity a_entity=m_defaultEntity)
+    this(Status a_status, Entity a_entity = new StringEntity)
     {
         m_status = a_status;
         m_entity = a_entity;

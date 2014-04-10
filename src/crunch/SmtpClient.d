@@ -1,8 +1,9 @@
+module crunch.SmtpClient;
+
 import std.socket;
 import std.traits;
 
-import tracer;
-import log;
+import dlog.Logger;
 
 class SmtpClient
 {
@@ -15,7 +16,7 @@ class SmtpClient
             client.send("HELO " ~ host ~ "\r\n");
             char[4096] receiveBuffer;
             auto size = client.receive(receiveBuffer);
-            lout.info("Response : ", receiveBuffer[0..size]);
+            log.info("Response : ", receiveBuffer[0..size]);
         }
 
         ~this()
@@ -28,7 +29,7 @@ class SmtpClient
                     client.send("QUIT\r\n");
                     char[4096] receiveBuffer;
                     auto size = client.receive(receiveBuffer);
-                    lout.info("Response : ",receiveBuffer[0..size]);
+                    log.info("Response : ",receiveBuffer[0..size]);
                     client.close();
                 }
             }
@@ -44,7 +45,7 @@ class SmtpClient
                 client.send(raw);
                 char[4096] receiveBuffer;
                 auto size = client.receive(receiveBuffer);
-                lout.log("Response : ",receiveBuffer[0..size]);
+                log.info("Response : ",receiveBuffer[0..size]);
                 return true;
             }
             return false;

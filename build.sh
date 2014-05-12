@@ -44,8 +44,8 @@ if [[ ! -f $rageloutput || ! -f $tmpfile || $ragelfile -nt $tmpfile ]]; then
 	touch $tmpfile -r $ragelfile
 fi
 
-includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src -Isrc/xxhash/src"
-libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq -Lsrc/xxhash/libxxhash.a"
+includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src -Isrc/xxhash/src -Isrc/openssl"
+libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq -Lsrc/xxhash/libxxhash.a -L-lssl -L-lcrypto"
 
 loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $loggersrc
@@ -56,5 +56,6 @@ rdmd --build-only -ofbin/logger $includes $libraries $dmd_flags src/logger.d
 dhttpdsrc="src/dhttpd.d src/loop/* src/msgpack/src/msgpack.d src/http/*.d src/http/protocol/*.d src/dlog/*.d src/crunch/*.d src/libev/deimos/*.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $dhttpdsrc
 rdmd --build-only -ofbin/dhttpd $includes $libraries $dmd_flags src/dhttpd.d
+rdmd --build-only -ofbin/openssltest $includes $libraries $dmd_flags src/openssltest.d
 
 rdmd --build-only -ofbin/profile -release -O src/profile.d

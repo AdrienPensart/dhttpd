@@ -9,3 +9,4 @@ src/http/protocol/Request.d
 bin/profile
 bin/dhttpd
 bin/logger
+bin/openssltest

@@ -135,6 +135,24 @@ class Directory : Handler
                     transaction.response = options[Parameter.PRECOND_FAILED_RESPONSE].get!(Response);
                 }
             }
+
+            auto acceptEncodings = AcceptEncoding in transaction.request.headers;
+            if(acceptEncodings)
+            {
+                auto encodings = splitter(*acceptEncodings, regex(","));
+                foreach(encoding ; encodings)
+                {
+                    switch(encoding)
+                    {
+                        case "gzip":
+                            break;
+                        case "deflate":
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
         }
         catch(FileException fe)
         {

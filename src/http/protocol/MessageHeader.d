@@ -1,6 +1,7 @@
 module http.protocol.MessageHeader;
 
 import dlog.Logger;
+import crunch.xxhash;
 
 mixin template MessageHeader()
 {
@@ -52,8 +53,7 @@ mixin template MessageHeader()
 
     @property auto hash()
     {
-        import xxhash;
-        return xxhashOf(cast(ubyte[])m_raw[]);
+        return crunch.xxhash.xxhashOf(cast(ubyte[])m_raw[]);
     }
 
     @property ref auto headers()

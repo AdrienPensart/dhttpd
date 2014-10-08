@@ -35,7 +35,7 @@ struct ConnectionPoller
         timer_io.data = cast(void*)&this;
 
         auto duration = server.options[Parameter.KEEP_ALIVE_TIMEOUT].get!(Duration);
-        ev_timer_init (&timer_io, &connectionTimeout, 0., cast(double)duration.seconds());
+        ev_timer_init (&timer_io, &connectionTimeout, 0., cast(double)duration.split().seconds);
         ev_set_priority (&timer_io, EV_MINPRI);
         ev_timer_again (server.loop.loop(), &timer_io);
     }

@@ -17,3 +17,5 @@ cd -
 #make -f posix.mak
 #cd -
 
+sudo ldconfig
+

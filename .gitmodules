@@ -16,3 +16,6 @@
 [submodule "src/openssl"]
 	path = src/openssl
 	url = https://github.com/D-Programming-Deimos/openssl.git
+[submodule "src/zapi"]
+	path = src/zapi
+	url = https://github.com/zeromq/czmq.git

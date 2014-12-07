@@ -16,3 +16,6 @@
 [submodule "src/zapi"]
 	path = src/zapi
 	url = https://github.com/zeromq/czmq.git
+[submodule "src/dlog"]
+	path = src/dlog
+	url = git@bitbucket.org:crunchengine/dlog.git

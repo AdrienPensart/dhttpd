@@ -7,12 +7,12 @@
 [submodule "src/msgpack"]
 	path = src/msgpack
 	url = https://github.com/msgpack/msgpack-d.git
-[submodule "src/xxhash"]
-	path = src/xxhash
-	url = https://github.com/repeatedly/xxhash-d.git
 [submodule "src/zmqd"]
 	path = src/zmqd
 	url = https://github.com/kyllingstad/zmqd.git
 [submodule "src/openssl"]
 	path = src/openssl
 	url = https://github.com/D-Programming-Deimos/openssl.git
+[submodule "src/zapi"]
+	path = src/zapi
+	url = https://github.com/zeromq/czmq.git

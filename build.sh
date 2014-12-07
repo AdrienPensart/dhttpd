@@ -44,8 +44,8 @@ if [[ ! -f $rageloutput || ! -f $tmpfile || $ragelfile -nt $tmpfile ]]; then
 	touch $tmpfile -r $ragelfile
 fi
 
-includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src -Isrc/xxhash/src -Isrc/openssl"
-libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq -Lsrc/xxhash/libxxhash.a -L-lssl -L-lcrypto"
+includes="-Isrc/ -Isrc/libev -Isrc/czmq/deimos -Isrc/msgpack/src -Isrc/openssl"
+libraries="-L-luuid -L-lev -L-lstdc++ -L-lczmq -L-lzmq  -L-lssl -L-lcrypto"
 
 loggersrc="src/logger.d src/dlog/*.d src/msgpack/src/msgpack.d src/czmq/deimos/*.d"
 #dmd $includes $libraries $dmd_flags $loggersrc

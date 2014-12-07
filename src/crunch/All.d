@@ -7,3 +7,5 @@ public import crunch.ReferenceCounter;
 public import crunch.Caching;
 public import crunch.ManualMemory;
 public import crunch.FileSender;
+public import crunch.xxhash;
+

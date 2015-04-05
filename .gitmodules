@@ -16,3 +16,6 @@
 [submodule "src/dlog"]
 	path = src/dlog
 	url = git@github.com:AdrienPensart/dlog.git
+[submodule "src/czmq"]
+	path = src/czmq
+	url = https://github.com/1100110/CZMQ.git

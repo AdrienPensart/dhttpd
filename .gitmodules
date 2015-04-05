@@ -1,9 +1,6 @@
 [submodule "src/libev"]
 	path = src/libev
 	url = https://github.com/D-Programming-Deimos/libev.git
-[submodule "src/czmq"]
-	path = src/czmq
-	url = https://github.com/crunchengine/CZMQ.git
 [submodule "src/msgpack"]
 	path = src/msgpack
 	url = https://github.com/msgpack/msgpack-d.git

@@ -1,7 +1,6 @@
 # dhttpd
 
-Another HTTP server
-(warning : not for production :D)
+Another HTTP server (WARNING : not for production :D)
 
 ## Features
 
@@ -21,6 +20,9 @@ Another HTTP server
 
 * xxhash
 * msgpack
-* zmq/czmq/zmqd
-* libev + D bindings
+* zmq/czmq/zmqd/zapi
+* openssl
+* libev
+* ragel, for HTTP protocol parsing
+* valgrind / kcachegrind for profiling
 
